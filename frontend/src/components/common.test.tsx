@@ -1,0 +1,127 @@
+// @vitest-environment jsdom
+import '../test/domSetup'
+import { describe, expect, it, vi } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import { Confirm, ErrorNotice, Rationale, Status } from './common'
+import { FilePicker } from './FilePicker'
+import { documents, rubric, run } from '../test/fixtures'
+
+describe('shared accessible controls', () => {
+  it('uses a labelled dialog and only calls the explicitly confirmed action', async () => {
+    const onClose = vi.fn(),
+      onConfirm = vi.fn()
+    render(
+      <Confirm open title="Delete application?" onClose={onClose} onConfirm={onConfirm} destructive>
+        Review impact
+      </Confirm>,
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Delete application?' })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(onConfirm).not.toHaveBeenCalled()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+    expect(onConfirm).toHaveBeenCalledOnce()
+  })
+  it('blocks dismissal and duplicate confirmation while saving', async () => {
+    const onClose = vi.fn(),
+      onConfirm = vi.fn()
+    render(
+      <Confirm open title="Save?" onClose={onClose} onConfirm={onConfirm} busy>
+        Saving a decision
+      </Confirm>,
+    )
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    await userEvent.keyboard('{Escape}')
+    expect(onClose).not.toHaveBeenCalled()
+  })
+  it('shows explicit error text and renders nothing without an error', () => {
+    const view = render(<ErrorNotice error="PDF could not be read" />)
+    expect(screen.getByRole('alert')).toHaveTextContent('PDF could not be read')
+    view.rerender(<ErrorNotice error={undefined} />)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+  it.each([
+    ['Offer', 'Success'],
+    ['completed', 'Success'],
+    ['Active', 'Success'],
+    ['Valid', 'Success'],
+    ['Reject', 'Error'],
+    ['failed', 'Error'],
+    ['Unavailable', 'Error'],
+    ['Invalid', 'Error'],
+    ['Further review', 'Warning'],
+    ['queued', 'Warning'],
+    ['Inactive', 'Default'],
+    ['constructor', 'Default'],
+    ['__proto__', 'Default'],
+  ])('keeps labelled %s indicators in the appropriate colour', (label, color) => {
+    render(<Status label={label} />)
+    expect(screen.getByText(label).closest('.MuiChip-root')).toHaveClass(`MuiChip-color${color}`)
+  })
+  it('selects the same original file twice and supports cancellation', async () => {
+    const onSelect = vi.fn()
+    render(
+      <FilePicker
+        label="Choose PDF"
+        inputLabel="Upload source PDF"
+        accept=".pdf"
+        onSelect={onSelect}
+      />,
+    )
+    const file = new File(['%PDF'], 'source.pdf', { type: 'application/pdf' })
+    const input = screen.getByLabelText('Upload source PDF')
+    await userEvent.upload(input, file)
+    await userEvent.upload(input, file)
+    expect(onSelect.mock.calls).toEqual([[file], [file]])
+    expect(input).toHaveValue('')
+  })
+})
+describe('recommendation evidence links', () => {
+  const show = (sourceRun = run, sourceDocuments = documents) =>
+    render(
+      <MemoryRouter>
+        <Rationale
+          run={sourceRun}
+          rubric={rubric}
+          documents={sourceDocuments}
+          applicationId="APP-TEST"
+        />
+      </MemoryRouter>,
+    )
+  it('links an exact source page and run while displaying criteria and decisive rules', () => {
+    show()
+    expect(screen.getByText('Why this recommendation')).toBeInTheDocument()
+    expect(screen.getByText(/Criteria v1.0/)).toBeInTheDocument()
+    expect(screen.getByText('Above offer threshold.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'transcript.pdf · p.2' })).toHaveAttribute(
+      'href',
+      `/applications/APP-TEST/evidence?document=${documents[0].id}&page=2&run=${run.id}`,
+    )
+  })
+  it('disables citations whose document is missing', () => {
+    show(run, [])
+    expect(screen.getByText('Unsupported source reference').closest('a')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+  })
+  it.each([0, -1, 1.5, NaN, Infinity, 5])(
+    'disables invalid page %s rather than treating it as evidence',
+    (page) => {
+      show({
+        ...run,
+        justification: {
+          ...run.justification,
+          citations: [{ ...run.justification.citations[0], page }],
+        },
+      })
+      expect(screen.getByText(/transcript.pdf · p\./).closest('a')).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      )
+    },
+  )
+})
