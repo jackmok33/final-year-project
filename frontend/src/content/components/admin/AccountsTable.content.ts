@@ -7,7 +7,6 @@ export const accountsTableContent = {
   role: 'Role',
   programmeAccess: 'Programme access',
   state: 'State',
-  criteria: ' + criteria',
   noTutorAccess: 'No tutor access',
   active: 'Active',
   inactive: 'Inactive',

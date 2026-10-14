@@ -35,16 +35,6 @@ export function UserPermissions({
           label={content.programmeAccessLabel(programme.name)}
         />
       ))}
-      <FormControlLabel
-        control={
-          <Checkbox
-            color="secondary"
-            checked={form.canPublishCriteria}
-            onChange={(e) => setForm({ ...form, canPublishCriteria: e.target.checked })}
-          />
-        }
-        label={content.allowRubricPublication}
-      />
     </>
   )
 }

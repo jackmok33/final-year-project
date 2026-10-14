@@ -65,6 +65,8 @@ export type Command =
   | { op: 'rubric'; rubric: Rubric }
   | { op: 'user'; user: User }
   | { op: 'programme'; programme: Programme }
+  | { op: 'workspace'; name: string }
+  | { op: 'deleteWorkspace'; id: string; confirmed: boolean }
   | { op: 'model'; available: boolean }
   | { op: 'delete'; id: string }
   | { op: 'backup' }
@@ -74,6 +76,7 @@ export type Query =
   | { op: 'accounts' | 'me' | 'programmes' | 'users' | 'health' | 'audit' }
   | { op: 'applications' | 'rubrics'; programmeId: string }
   | { op: 'application'; id: string }
+  | { op: 'workspaceDeletion'; id: string }
 export interface CommandResult {
   id?: string
   backupId?: string
@@ -129,6 +132,17 @@ async function load(): Promise<Dataset> {
     await writeDataset(seeded.dataset, seeded.files)
     data = seeded.dataset
   }
+  // Earlier name-only workspaces recorded their creator in the audit trail.
+  // Retain that ownership when upgrading without assigning seeded/shared courses.
+  for (const programme of data.programmes) {
+    if (programme.createdBy === undefined) {
+      const creation = data.audit.find(
+        (event) => event.action === 'Create programme workspace' && event.target === programme.id,
+      )
+      if (creation && data.users.some((u) => u.id === creation.actor))
+        programme.createdBy = creation.actor
+    }
+  }
   // Runs use stored deadlines rather than in-memory timers, so refresh cannot strand a job.
   for (const app of data.applications)
     for (const run of app.runs) {
@@ -160,6 +174,25 @@ function admin(user: User) {
 function tutor(user: User, programmeId: string) {
   if (!user.roles.includes('tutor') || !user.programmeIds.includes(programmeId))
     throw new Error('You do not have tutor access to this programme.')
+}
+function addProgramme(data: Dataset, programme: Programme) {
+  data.programmes.push(programme)
+  const rubric: Rubric = {
+    ...structuredClone(baseRubric),
+    id: crypto.randomUUID(),
+    programmeId: programme.id,
+    createdAt: new Date().toISOString(),
+  }
+  data.rubrics.push(rubric)
+  data.activeRubricIds[programme.id] = rubric.id
+}
+function ownedWorkspace(data: Dataset, user: User, id: string) {
+  const programme = data.programmes.find((p) => p.id === id)
+  if (!programme) throw new Error('Programme workspace not found.')
+  tutor(user, id)
+  if (programme.createdBy !== user.id)
+    throw new Error('Only the tutor who created this workspace can delete it.')
+  return programme
 }
 function appFor(data: Dataset, user: User, id: string) {
   const app = data.applications.find((a) => a.id === id)
@@ -198,6 +231,20 @@ export async function queryDemo(query: Query, userId: string | null): Promise<un
         return data.programmes.filter(
           (p) => user.roles.includes('admin') || user.programmeIds.includes(p.id),
         )
+      case 'workspaceDeletion': {
+        const programme = ownedWorkspace(data, user, query.id)
+        const applications = data.applications.filter((a) => a.programmeId === programme.id)
+        const ids = new Set(applications.map((a) => a.id))
+        return {
+          programme,
+          applications: applications.length,
+          documents: data.documents.filter((d) => ids.has(d.applicationId)).length,
+          criteriaVersions: data.rubrics.filter((r) => r.programmeId === programme.id).length,
+          otherTutors: data.users.filter(
+            (u) => u.id !== user.id && u.programmeIds.includes(programme.id),
+          ).length,
+        }
+      }
       case 'rubrics':
         tutor(user, query.programmeId)
         return {
@@ -427,20 +474,7 @@ export async function commandDemo(command: Command, userId: string | null): Prom
       }
       case 'rubric': {
         tutor(user, command.rubric.programmeId)
-        if (!user.canPublishCriteria) throw new Error('Rubric publication permission is required.')
-        const error = validateRubric(command.rubric)
-        if (error) throw new Error(error)
-        const rubric = {
-          ...command.rubric,
-          id: crypto.randomUUID(),
-          programmeId: command.rubric.programmeId,
-          version: `1.${data.rubrics.filter((r) => r.programmeId === command.rubric.programmeId).length}`,
-          createdAt: new Date().toISOString(),
-        }
-        data.rubrics.push(rubric)
-        data.activeRubricIds[rubric.programmeId] = rubric.id
-        audit(data, user.id, 'Activate criteria', rubric.id)
-        break
+        throw new Error('Criteria editing is disabled for the MVP.')
       }
       case 'user': {
         admin(user)
@@ -478,9 +512,71 @@ export async function commandDemo(command: Command, userId: string | null): Prom
         audit(data, user.id, 'Save account and permissions', edited.id || edited.email)
         break
       }
+      case 'workspace': {
+        if (!user.roles.includes('tutor')) throw new Error('Tutor access is required.')
+        const name = command.name.trim()
+        if (!name || name.length > 100)
+          throw new Error('Enter a workspace name between 1 and 100 characters.')
+        if (
+          data.programmes.some(
+            (p) =>
+              user.programmeIds.includes(p.id) &&
+              p.name.trim().toLowerCase() === name.toLowerCase(),
+          )
+        )
+          throw new Error('You already have a programme workspace with this name.')
+        const id = crypto.randomUUID()
+        const year = new Date().getFullYear()
+        addProgramme(data, {
+          id,
+          name,
+          code: `WS-${id}`,
+          year: `${year} / ${String(year + 1).slice(-2)}`,
+          department: '',
+          description:
+            'User-created demo workspace. Initial criteria are examples, not UCL admissions policy.',
+          createdBy: user.id,
+        })
+        user.programmeIds.push(id)
+        audit(data, user.id, 'Create programme workspace', id)
+        result = { id }
+        break
+      }
+      case 'deleteWorkspace': {
+        const programme = ownedWorkspace(data, user, command.id)
+        if (!command.confirmed) throw new Error('Confirm workspace deletion before continuing.')
+        const applications = data.applications.filter((a) => a.programmeId === programme.id)
+        const appIds = new Set(applications.map((a) => a.id))
+        const documents = data.documents.filter((d) => appIds.has(d.applicationId))
+        const rubrics = data.rubrics.filter((r) => r.programmeId === programme.id)
+        const targets = new Set([
+          programme.id,
+          ...documents.map((d) => d.id),
+          ...rubrics.map((r) => r.id),
+          ...applications.flatMap((a) => [
+            a.id,
+            ...a.runs.map((r) => r.id),
+            ...a.corrections.map((c) => c.id),
+            ...a.decisions.map((d) => d.id),
+          ]),
+        ])
+        removed.push(...documents.map((d) => d.id))
+        data.applications = data.applications.filter((a) => !appIds.has(a.id))
+        data.documents = data.documents.filter((d) => !appIds.has(d.applicationId))
+        data.rubrics = data.rubrics.filter((r) => r.programmeId !== programme.id)
+        data.programmes = data.programmes.filter((p) => p.id !== programme.id)
+        delete data.activeRubricIds[programme.id]
+        for (const account of data.users)
+          account.programmeIds = account.programmeIds.filter((id) => id !== programme.id)
+        data.audit = data.audit.filter((event) => !targets.has(event.target))
+        audit(data, user.id, 'Delete programme workspace', programme.id)
+        break
+      }
       case 'programme': {
         admin(user)
         const edited = { ...command.programme }
+        // Metadata editing cannot claim or transfer ownership.
+        delete edited.createdBy
         if (!edited.name.trim() || !edited.code.trim() || !edited.year.trim())
           throw new Error('Programme name, code and academic year are required.')
         if (
@@ -491,18 +587,11 @@ export async function commandDemo(command: Command, userId: string | null): Prom
           throw new Error('This programme code is already configured.')
         const index = data.programmes.findIndex((p) => p.id === edited.id)
         if (edited.id && index < 0) throw new Error('Programme not found.')
-        if (index >= 0) data.programmes[index] = edited
+        if (index >= 0)
+          data.programmes[index] = { ...edited, createdBy: data.programmes[index].createdBy }
         else {
           edited.id = crypto.randomUUID()
-          data.programmes.push(edited)
-          const rubric = {
-            ...baseRubric,
-            id: crypto.randomUUID(),
-            programmeId: edited.id,
-            createdAt: new Date().toISOString(),
-          }
-          data.rubrics.push(rubric)
-          data.activeRubricIds[edited.id] = rubric.id
+          addProgramme(data, edited)
         }
         audit(data, user.id, 'Save programme metadata', edited.id)
         result = { id: edited.id }
@@ -604,7 +693,6 @@ export async function validateBackup(
     const string = (v: unknown) => typeof v === 'string'
     if (
       !Array.isArray(d.programmes) ||
-      !d.programmes.length ||
       !d.programmes.every((p) =>
         [p.id, p.name, p.code, p.year, p.department, p.description].every(string),
       ) ||
@@ -628,7 +716,11 @@ export async function validateBackup(
     )
       throw new Error()
     if (
-      !d.rubrics.length ||
+      !d.programmes.every(
+        (p) =>
+          p.createdBy === undefined ||
+          (string(p.createdBy) && d.users.some((u) => u.id === p.createdBy)),
+      ) ||
       !d.rubrics.every(
         (r) =>
           [r.id, r.version, r.createdAt].every(string) &&

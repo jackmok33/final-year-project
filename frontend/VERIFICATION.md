@@ -1,21 +1,26 @@
-# Frontend verification — 11 October 2026
+# Frontend verification — 14 October 2026
 
 Verified with Node 24 and Chromium against the production bundle.
+
+The application queue uses four columns: Application, Score, AI recommendation
+and Decision. Browser checks verify the headers and linked application references;
+component tests cover missing scores, processing/failed states, independent AI
+recommendations and tutor decisions, and labels for decisions from older runs.
 
 | Check                                    | Result                                               |
 | ---------------------------------------- | ---------------------------------------------------- |
 | TypeScript and Vite production build     | Passed                                               |
 | ESLint                                   | Passed, no warnings                                  |
 | Prettier                                 | Passed                                               |
-| Vitest unit, component and service tests | 269 passed across 26 files                           |
-| Unit coverage                            | 97.80% lines, 89.37% branches                        |
-| Playwright browser workflows             | 6 passed                                             |
+| Vitest unit, component and service tests | 294 passed across 28 files                           |
+| Unit coverage                            | 98.01% lines, 90.15% branches                        |
+| Playwright browser workflows             | 8 passed                                             |
 | Responsive screen coverage               | All 12 screens at 1440×1000 and 390×844              |
 | Automated accessibility                  | No critical or serious axe findings on those screens |
 
 The browser tests cover course workspace switching on desktop and mobile,
 per-account selection persistence, admin course creation/assignment, role guards, real PDF parsing and page citations,
-correction history, criteria versioning, final-decision confirmation and override
+correction history, read-only programme criteria, final-decision confirmation and override
 validation, CSV export, refresh persistence, account/programme editing, local
 deletion, PDF-inclusive backup/restore and reset. They exercise corrupt, oversized
 and over-page-limit uploads and the backend-unavailable state. Keyboard checks
@@ -23,6 +28,30 @@ cover sign-in, the skip link and PDF file selection. Service tests verify recove
 of interrupted simulated runs and preserve old facts, decisions and criteria.
 They also check independent active criteria per course, multi-course backups, and
 version 1 storage/backup migration without discarding original reviews or PDFs.
+
+The MVP criteria screen is read-only for all accounts, including workspace
+creators and accounts with legacy publication permission. Draft/activation and
+administrator publication controls are absent. The service rejects criteria
+updates, and tests verify preserved weights, previous versions and original run
+references after attempted changes. Existing active criteria are retained rather
+than reset; newly created workspaces receive the default example rubric.
+
+Tutor-created workspaces are verified on desktop and mobile: name-only entry,
+keyboard submission, automatic selection, duplicate-name errors, independent
+queues, uploads, refresh persistence and exclusion from other tutors' access.
+The creation dialog passes axe checks once its opening transition finishes.
+Service tests verify example criteria initialisation, permission preservation,
+name validation, workspace backup/restore and reset. Component tests cover
+first-workspace creation, cancellation, long names and surfaced storage errors.
+
+Creator-only workspace deletion is verified with populated workspaces, original
+PDF removal, criteria/history cleanup, assignment removal, confirmation and
+cancellation. Desktop/mobile dialogs pass accessibility checks. Assigned tutors
+cannot delete another tutor's workspace. Refresh preserves deletion, unrelated
+courses remain available and deleting the last accessible course permits creating
+a new workspace. Unit/service checks cover deletion failures and retries,
+ownership recovery from earlier creation audits, immutable ownership during
+metadata edits, PDF-inclusive restore and backups with no remaining courses.
 
 Desktop and mobile screenshots are saved under `test-results/`; the browser
 report is in `playwright-report/`. Both are generated, ignored artefacts. Visual

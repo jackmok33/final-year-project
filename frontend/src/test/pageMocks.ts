@@ -32,6 +32,7 @@ export const apiMocks = {
   useApplicationsQuery: vi.fn(),
   useApplicationQuery: vi.fn(),
   useProgrammesQuery: vi.fn(),
+  useWorkspaceDeletionQuery: vi.fn(),
   useRubricsQuery: vi.fn(),
   useUsersQuery: vi.fn(),
   useHealthQuery: vi.fn(),
@@ -54,7 +55,7 @@ export const storeMocks = {
 }
 export function resetPageMocks() {
   vi.clearAllMocks()
-  unwrap.mockResolvedValue({ id: 'APP-CREATED' })
+  unwrap.mockReset().mockResolvedValue({ id: 'APP-CREATED' })
   mutation.isLoading = false
   mutation.error = undefined
   apiMocks.useAccountsQuery.mockReturnValue(queryResult([tutor, administrator]))
@@ -62,6 +63,16 @@ export function resetPageMocks() {
   apiMocks.useApplicationsQuery.mockReturnValue(queryResult([application]))
   apiMocks.useApplicationQuery.mockReturnValue(queryResult(structuredClone(detail)))
   apiMocks.useProgrammesQuery.mockReturnValue(queryResult([programme, otherProgramme]))
+  apiMocks.useWorkspaceDeletionQuery.mockReturnValue({
+    ...queryResult({
+      programme: { ...programme, createdBy: tutor.id },
+      applications: 1,
+      documents: 3,
+      criteriaVersions: 2,
+      otherTutors: 1,
+    }),
+    isFetching: false,
+  })
   apiMocks.useRubricsQuery.mockReturnValue(queryResult({ rubrics: [rubric], activeId: rubric.id }))
   apiMocks.useUsersQuery.mockReturnValue(queryResult([tutor, administrator]))
   apiMocks.useHealthQuery.mockReturnValue(

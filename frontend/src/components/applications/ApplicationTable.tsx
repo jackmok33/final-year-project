@@ -1,6 +1,6 @@
 import { useContent } from '../../hooks/useContent'
 import {
-  Button,
+  Link as MuiLink,
   Table,
   TableBody,
   TableCell,
@@ -11,13 +11,16 @@ import {
 } from '@mui/material'
 import { Link } from 'react-router-dom'
 import type { Application } from '../../domain/types'
-import { applicationState, latestDecision, latestRun } from '../../domain/types'
+import { latestDecision, latestRun } from '../../domain/types'
 import { Status } from '../common'
 export function ApplicationTable({ filtered }: { filtered: Application[] }) {
   const content = useContent('applicationTable')
   return (
     <TableContainer>
-      <Table aria-label={content.applicationQueue}>
+      <Table
+        aria-label={content.applicationQueue}
+        sx={{ '& .MuiTableCell-root': { px: { xs: 1, sm: 2 } } }}
+      >
         <TableHead>
           <TableRow>
             {content.headers.map((h, i) => (
@@ -28,42 +31,40 @@ export function ApplicationTable({ filtered }: { filtered: Application[] }) {
         <TableBody>
           {filtered.map((a) => {
             const run = latestRun(a)
+            const assessed = run?.status === 'awaiting review' || run?.status === 'completed'
+            const decision = latestDecision(a)
             return (
               <TableRow key={a.id} hover>
                 <TableCell>
-                  <Typography sx={{ fontWeight: 600 }}>{a.id}</Typography>
+                  <MuiLink
+                    component={Link}
+                    to={`/applications/${encodeURIComponent(a.id)}`}
+                    aria-label={content.openLabel(a.id)}
+                    sx={{ fontWeight: 600 }}
+                  >
+                    {a.id}
+                  </MuiLink>
                   <Typography variant="body2" color="text.secondary">
                     {a.candidate}
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  <Status label={applicationState(a)} />
-                </TableCell>
-                <TableCell>{run?.overall ?? content.unavailableScore}</TableCell>
-                <TableCell>
-                  {run ? <Status label={run.recommendation} /> : content.notEvaluated}
+                  {assessed ? (run?.overall ?? content.unavailableScore) : content.unavailableScore}
                 </TableCell>
                 <TableCell>
-                  {run?.flags.length ? (
-                    <Typography variant="body2">
-                      {content.flagSummary(
-                        run.flags.length,
-                        run.flags.some((f) => f.critical),
-                      )}
-                    </Typography>
+                  {run ? (
+                    <Status label={assessed ? run.recommendation : run.status} />
                   ) : (
-                    content.none
+                    content.notEvaluated
                   )}
                 </TableCell>
-                <TableCell>{latestDecision(a)?.outcome ?? content.notRecorded}</TableCell>
                 <TableCell>
-                  <Button
-                    component={Link}
-                    to={`/applications/${a.id}`}
-                    aria-label={content.openLabel(a.id)}
-                  >
-                    {content.open}
-                  </Button>
+                  {decision ? <Status label={decision.outcome} /> : content.notRecorded}
+                  {decision && decision.runId !== run?.id && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {content.previousAssessment}
+                    </Typography>
+                  )}
                 </TableCell>
               </TableRow>
             )

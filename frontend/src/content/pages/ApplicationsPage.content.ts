@@ -1,8 +1,7 @@
 import type { ContentValue } from '../formatText'
 
 export const applicationsPageContent = {
-  noWorkspaceMessage:
-    'No course workspace is assigned. Ask an administrator to grant programme access.',
+  noWorkspaceMessage: 'Create a programme workspace using New workspace in the navigation.',
   application: 'Application',
   candidate: 'Candidate',
   programme: 'Programme',
@@ -18,7 +17,6 @@ export const applicationsPageContent = {
   exportFilteredResults: 'Export filtered results',
   applicationQueue: 'Application queue',
   noApplicationsMatchTheseFilters: 'No applications match these filters.',
-  recommendationHint:
-    'Recommendations support review. Only a tutor can record a final admissions decision.',
+  recommendationHint: 'Decision is the tutor’s recorded choice.',
   programmeFallback: 'Programme · TBC',
 } as const

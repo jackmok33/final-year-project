@@ -121,6 +121,7 @@ export function Confirm({
   onConfirm,
   busy,
   destructive,
+  disabled,
 }: {
   open: boolean
   title: string
@@ -129,6 +130,7 @@ export function Confirm({
   onConfirm: () => void
   busy?: boolean
   destructive?: boolean
+  disabled?: boolean
 }) {
   const content = useContent('common')
   return (
@@ -151,7 +153,7 @@ export function Confirm({
           variant="contained"
           color={destructive ? 'error' : 'primary'}
           onClick={onConfirm}
-          disabled={busy}
+          disabled={busy || disabled}
         >
           {busy ? content.saving : content.confirm}
         </Button>

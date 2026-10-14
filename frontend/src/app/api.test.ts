@@ -27,6 +27,12 @@ describe('RTK Query demo adapter', () => {
     ['application', application.id, { op: 'application', id: application.id }, detail],
     ['programmes', undefined, { op: 'programmes' }, [programme]],
     [
+      'workspaceDeletion',
+      programme.id,
+      { op: 'workspaceDeletion', id: programme.id },
+      { programme, applications: 0, documents: 0, criteriaVersions: 1, otherTutors: 0 },
+    ],
+    [
       'rubrics',
       programme.id,
       { op: 'rubrics', programmeId: programme.id },
@@ -63,6 +69,8 @@ describe('RTK Query demo adapter', () => {
     'rubric',
     'user',
     'programme',
+    'workspace',
+    'deleteWorkspace',
     'model',
     'delete',
     'backup',

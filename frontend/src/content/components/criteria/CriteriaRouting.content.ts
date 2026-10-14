@@ -7,6 +7,5 @@ export const criteriaRoutingContent = {
   failureDescription: 'A verified rule failure produces a Reject recommendation.',
   scoreStep: '3 · Scores and review margins',
   scoreDescription: 'Apply the stored thresholds only when the score can be calculated validly.',
-  activationNotice:
-    'Activating a version affects future runs. Existing assessments remain linked to their original criteria.',
+  activationNotice: 'Each assessment remains linked to the criteria version it used.',
 } as const

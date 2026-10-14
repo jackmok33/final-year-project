@@ -21,11 +21,15 @@ formatter functions. See the [content guide](../content/README.md) for conventio
 | `applications/` | Filters, application table, summaries and document upload form        |
 | `assessment/`   | Recommendation, scores, flags, history, correction and decision forms |
 | `evidence/`     | Document/page navigation, PDF rendering and cited claims              |
-| `criteria/`     | Criteria fields, activation dialog, routing explanation and history   |
+| `criteria/`     | Read-only MVP criteria, routing explanation and preserved history     |
 | `admin/`        | Service health panels, accounts, programme forms, backup and deletion |
+| `workspace/`    | Controlled name-only programme workspace creation dialog              |
 
 For example, `pages/ApplicationsPage.tsx` fetches and filters applications and handles
 CSV export. It renders `QueueSummary`, `ApplicationFilters` and `ApplicationTable`.
+The table shows Application, Score, AI recommendation and Decision; its application-reference
+link opens the assessment. It distinguishes AI recommendations from recorded
+tutor decisions and labels historical decisions and unfinished assessments.
 `pages/NewApplicationPage.tsx` owns file selection, PDF validation, upload staging and
 submission; `NewApplicationForm` renders the controlled fields and upload cards.
 
@@ -38,6 +42,17 @@ the page. The visual form remains in `components/`.
 dialogs, status indicators and accessible file selection. `files.ts` contains
 download and display helpers. Reusable UI mechanics, such as the PDF viewer's
 canvas rendering and cleanup, remain inside their components.
+
+Workspace creation is a shared navigation action: `Layout.tsx` owns its draft,
+mutation, errors and selection, while `workspace/CreateWorkspaceDialog.tsx`
+renders controlled fields and an accessible form. The service creates and assigns
+the programme atomically; the dialog does not handle persistence or permissions.
+
+`workspace/DeleteWorkspaceDialog.tsx` reuses `Confirm` and renders the deletion
+impact. Layout owns the impact query, errors, deletion mutation and next workspace
+selection. The service enforces creator ownership and atomically removes the
+workspace's records, blobs and assignments. Metadata editing does not transfer
+ownership.
 
 `SummaryCards.tsx` shares the responsive metric-card layout used by the application
 queue and service health screens. Each feature supplies its own labels, values

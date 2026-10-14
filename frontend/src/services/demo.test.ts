@@ -19,6 +19,103 @@ beforeEach(async () => {
   await commandDemo({ op: 'reset' }, 'admin-a')
 })
 describe('persistent browser demo contract', () => {
+  it('blocks criteria editing for workspace owners and legacy publishers without changing saved weights or history', async () => {
+    const { id } = await commandDemo({ op: 'workspace', name: 'Fixed criteria' }, 'tutor-b')
+    const original = (await readDataset())!
+    const own = original.rubrics.find((r) => r.id === original.activeRubricIds[id!])!
+    for (const [user, rubric] of [
+      ['tutor-b', own],
+      ['tutor-a', original.rubrics[0]],
+    ] as const)
+      await expect(
+        commandDemo(
+          { op: 'rubric', rubric: { ...rubric, weights: { academic: 60, cv: 20, statement: 20 } } },
+          user,
+        ),
+      ).rejects.toThrow('disabled for the MVP')
+    expect(await readDataset()).toEqual(original)
+    await expect(commandDemo({ op: 'rubric', rubric: own }, 'tutor-a')).rejects.toThrow(
+      'tutor access',
+    )
+    await expect(commandDemo({ op: 'rubric', rubric: own }, 'admin-a')).rejects.toThrow(
+      'tutor access',
+    )
+  })
+  it('creates an empty tutor workspace with private access and independent example criteria', async () => {
+    const original = (await readDataset())!
+    const { id: workspaceId } = await commandDemo(
+      { op: 'workspace', name: '  Robotics MSc  ' },
+      'tutor-b',
+    )
+    const saved = (await readDataset())!
+    const programme = saved.programmes.find((p) => p.id === workspaceId)!
+    expect(programme.name).toBe('Robotics MSc')
+    expect(programme.code).toBe(`WS-${workspaceId}`)
+    expect(saved.users.find((u) => u.id === 'tutor-b')!.programmeIds).toContain(workspaceId)
+    expect(saved.users.find((u) => u.id === 'tutor-b')!.canPublishCriteria).toBe(false)
+    expect(saved.users.find((u) => u.id === 'tutor-a')!.programmeIds).not.toContain(workspaceId)
+    expect(await queryDemo({ op: 'applications', programmeId: workspaceId! }, 'tutor-b')).toEqual(
+      [],
+    )
+    expect(saved.rubrics.find((r) => r.id === saved.activeRubricIds[workspaceId!])).toMatchObject({
+      programmeId: workspaceId,
+      version: '1.0',
+      weights: { academic: 50, cv: 25, statement: 25 },
+    })
+    expect(saved.activeRubricIds['programme-1']).toBe(original.activeRubricIds['programme-1'])
+    expect(saved.audit.at(-1)).toMatchObject({
+      actor: 'tutor-b',
+      action: 'Create programme workspace',
+      target: workspaceId,
+    })
+    await expect(
+      queryDemo({ op: 'applications', programmeId: workspaceId! }, 'tutor-a'),
+    ).rejects.toThrow('tutor access')
+    await expect(
+      queryDemo({ op: 'rubrics', programmeId: workspaceId! }, 'admin-a'),
+    ).rejects.toThrow('tutor access')
+    expect((await queryDemo({ op: 'programmes' }, 'tutor-b')) as Programme[]).toContainEqual(
+      programme,
+    )
+    const exported = await commandDemo({ op: 'backup' }, 'admin-a')
+    const backup = takeBackup(exported.backupId!)!
+    await validateBackup(backup)
+    await commandDemo({ op: 'reset' }, 'admin-a')
+    expect(
+      ((await queryDemo({ op: 'programmes' }, 'tutor-b')) as Programme[]).some(
+        (p) => p.id === workspaceId,
+      ),
+    ).toBe(false)
+    await commandDemo({ op: 'restore', backupId: stageBackup(backup) }, 'admin-a')
+    expect((await queryDemo({ op: 'programmes' }, 'tutor-b')) as Programme[]).toContainEqual(
+      programme,
+    )
+  })
+  it('validates workspace names and access without changing the dataset', async () => {
+    const before = (await readDataset())!
+    for (const name of ['  ', 'x'.repeat(101)])
+      await expect(commandDemo({ op: 'workspace', name }, 'tutor-a')).rejects.toThrow(
+        'between 1 and 100',
+      )
+    await expect(
+      commandDemo({ op: 'workspace', name: ' programme · tbc ' }, 'tutor-a'),
+    ).rejects.toThrow('already have')
+    await expect(
+      commandDemo({ op: 'workspace', name: 'Admin workspace' }, 'admin-a'),
+    ).rejects.toThrow('Tutor access')
+    await expect(commandDemo({ op: 'workspace', name: 'Anonymous' }, null)).rejects.toThrow(
+      'session',
+    )
+    expect(await readDataset()).toEqual(before)
+    await commandDemo({ op: 'workspace', name: 'My course' }, 'tutor-a')
+    await expect(commandDemo({ op: 'workspace', name: 'MY COURSE' }, 'tutor-a')).rejects.toThrow(
+      'already have',
+    )
+    // Different tutors may choose the same name for separate workspaces.
+    await expect(
+      commandDemo({ op: 'workspace', name: 'My course' }, 'tutor-b'),
+    ).resolves.toHaveProperty('id')
+  })
   it('scopes queues and criteria by course and denies unassigned courses', async () => {
     const programmes = (await queryDemo({ op: 'programmes' }, 'tutor-a')) as Programme[]
     expect(programmes).toHaveLength(2)
@@ -47,10 +144,12 @@ describe('persistent browser demo contract', () => {
     )
     const original = (await readDataset())!
     const secondRubric = original.rubrics.find((r) => r.programmeId === 'programme-2')!
-    await commandDemo({ op: 'rubric', rubric: { ...secondRubric, offerFrom: 90 } }, 'tutor-a')
+    await expect(
+      commandDemo({ op: 'rubric', rubric: { ...secondRubric, offerFrom: 90 } }, 'tutor-a'),
+    ).rejects.toThrow('disabled for the MVP')
     const saved = (await readDataset())!
     expect(saved.activeRubricIds['programme-1']).toBe(original.activeRubricIds['programme-1'])
-    expect(saved.rubrics.at(-1)?.version).toBe('1.1')
+    expect(saved.rubrics).toEqual(original.rubrics)
     await commandDemo({ op: 'evaluate', id: second[0].id }, 'tutor-a')
     expect((await readDataset())!.applications.at(-1)?.runs.at(-1)?.rubricId).toBe(
       saved.activeRubricIds['programme-2'],
@@ -277,15 +376,29 @@ describe('persistent browser demo contract', () => {
     await commandDemo(cmd, 'tutor-a')
     expect((await readDataset())!.applications[1].decisions).toHaveLength(1)
   })
-  it('activates a new rubric without changing old assessments and rejects unauthorised publication', async () => {
+  it('preserves existing criteria versions and assessments when publication is attempted', async () => {
     const data = (await readDataset())!
+    const savedVersion = {
+      ...data.rubrics[0],
+      id: 'saved-criteria-v11',
+      version: '1.1',
+      weights: { academic: 60, cv: 20, statement: 20 },
+    }
+    data.rubrics.push(savedVersion)
+    data.activeRubricIds[savedVersion.programmeId] = savedVersion.id
+    await writeDataset(data)
     const rubric = { ...data.rubrics[0], offerFrom: 85 }
-    await expect(commandDemo({ op: 'rubric', rubric }, 'tutor-b')).rejects.toThrow('permission')
-    await commandDemo({ op: 'rubric', rubric }, 'tutor-a')
-    const saved = (await readDataset())!
-    expect(saved.rubrics).toHaveLength(3)
-    expect(saved.applications[0].runs[0].rubricId).toBe(data.rubrics[0].id)
-    expect(saved.activeRubricIds['programme-1']).not.toBe(data.activeRubricIds['programme-1'])
+    for (const user of ['tutor-a', 'tutor-b'])
+      await expect(commandDemo({ op: 'rubric', rubric }, user)).rejects.toThrow(
+        'disabled for the MVP',
+      )
+    expect(await readDataset()).toEqual(data)
+    const result = await queryDemo(
+      { op: 'rubrics', programmeId: savedVersion.programmeId },
+      'tutor-a',
+    )
+    expect(result).toMatchObject({ activeId: savedVersion.id })
+    expect(data.applications[0].runs[0].rubricId).toBe(data.rubrics[0].id)
   })
   it('preserves unsupported corrections without creating fixture scores on subsequent runs', async () => {
     const data = (await readDataset())!

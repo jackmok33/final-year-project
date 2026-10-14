@@ -50,6 +50,12 @@ test('all twelve screens render at desktop and mobile sizes with no serious acce
   await audit(page)
   await screenshot(page, testInfo.outputPath('00-login-desktop.png'))
   await login(page)
+  await expect(page.getByRole('columnheader')).toHaveText([
+    'Application',
+    'Score',
+    'AI recommendation',
+    'Decision',
+  ])
   const tutorRoutes = [
     '/applications',
     '/applications/new',
@@ -153,12 +159,9 @@ test('tutor correction, evidence review, override confirmation and persistence w
   await page.goto('/applications/APP-2026-0142/evidence?document=invalid&page=99')
   await expect(page.locator('main').getByRole('alert')).toContainText('unavailable')
   await page.goto('/criteria')
-  await page.getByLabel('Academic performance (%)').fill('40')
-  await expect(page.getByRole('button', { name: 'Activate draft' })).toBeDisabled()
-  await page.getByLabel('Academic performance (%)').fill('50')
-  await page.getByRole('button', { name: 'Activate draft' }).click()
-  await page.getByRole('button', { name: 'Confirm', exact: true }).click()
-  await expect(page.getByText('Active: v1.1')).toBeVisible()
+  await expect(page.getByLabel('Academic performance (%)')).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Activate draft' })).toHaveCount(0)
+  await expect(page.getByText('Active: v1.0')).toBeVisible()
   await page.goto('/applications')
   const download = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Export filtered results' }).click()
@@ -307,10 +310,9 @@ test('multi-course workspaces keep queues, uploads and criteria separate and res
   )
   await page.goto('/criteria')
   await expect(page.getByRole('spinbutton', { name: 'Academic performance (%)' })).toHaveValue('60')
-  await page.getByRole('spinbutton', { name: 'Offer from' }).fill('90')
-  await page.getByRole('button', { name: 'Activate draft' }).click()
-  await page.getByRole('button', { name: 'Confirm', exact: true }).click()
-  await expect(page.getByText('Active: v1.1', { exact: true })).toBeVisible()
+  await expect(page.getByRole('spinbutton', { name: 'Offer from' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Activate draft' })).toHaveCount(0)
+  await expect(page.getByText('Active: v1.0', { exact: true })).toBeVisible()
   await chooseCourse('Programme · TBC')
   await page.goto('/criteria')
   await expect(page.getByRole('spinbutton', { name: 'Offer from' })).toHaveValue('80')
@@ -358,5 +360,179 @@ test('multi-course workspaces keep queues, uploads and criteria separate and res
   )
   await page.goto('/applications/APP-2026-0147/evidence')
   await expect(page.locator('main').getByRole('alert')).toContainText('tutor access')
+  await expect(page.locator('canvas')).toHaveCount(0)
+})
+
+test('tutors create named workspaces on desktop and mobile with persistent separate applications', async ({
+  page,
+}) => {
+  await login(page)
+  await page.getByRole('button', { name: 'New workspace', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Workspace name' })).toBeFocused()
+  await expect(page.getByRole('button', { name: 'Create workspace', exact: true })).toBeDisabled()
+  await expect(page.locator('.MuiDialog-container')).toHaveCSS('opacity', '1')
+  await audit(page)
+  await page.getByRole('textbox', { name: 'Workspace name' }).fill('Robotics MSc')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('dialog')).toBeHidden()
+  await expect(
+    page.getByRole('combobox', { name: 'Programme workspace', exact: true }),
+  ).toContainText('Robotics MSc')
+  await expect(page.getByText('No applications match these filters.')).toBeVisible()
+  await page.reload()
+  await expect(
+    page.getByRole('combobox', { name: 'Programme workspace', exact: true }),
+  ).toContainText('Robotics MSc')
+  await page.getByRole('button', { name: 'New workspace', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Workspace name' }).fill(' robotics msc ')
+  await page.getByRole('button', { name: 'Create workspace', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('already have')
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.goto('/criteria')
+  await expect(page.getByText('Active: v1.0', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Academic performance (%)')).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Activate draft' })).toHaveCount(0)
+  await page.goto('/applications/new')
+  await expect(page.getByRole('textbox', { name: 'Assigned programme' })).toHaveValue(
+    'Robotics MSc',
+  )
+  const pdf = await PDFDocument.create()
+  pdf.addPage([595, 842])
+  await page.getByLabel('Upload Transcript', { exact: true }).setInputFiles({
+    name: 'Workspace.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from(await pdf.save()),
+  })
+  await expect(page.getByText('Workspace.pdf · 1 pages')).toBeVisible()
+  await page.getByLabel('Candidate reference').fill('ROBOTICS-CANDIDATE')
+  await page.getByRole('button', { name: 'Create application', exact: true }).click()
+  await expect(page).toHaveURL(/\/applications\/APP-/)
+  const applicationUrl = page.url()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await page.getByRole('button', { name: 'New workspace', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Workspace name' }).fill('My second workspace')
+  await expect(page.locator('.MuiDialog-container')).toHaveCSS('opacity', '1')
+  await audit(page)
+  await screenshot(page, test.info().outputPath('create-workspace-mobile.png'))
+  await page.getByRole('button', { name: 'Create workspace', exact: true }).click()
+  await expect(page.getByRole('dialog')).toBeHidden()
+  await expect(page).toHaveURL(/\/applications$/)
+  await expect(page.getByText('No applications match these filters.')).toBeVisible()
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await page.getByRole('combobox', { name: 'Programme workspace', exact: true }).click()
+  await page.getByRole('option', { name: 'Robotics MSc', exact: true }).click()
+  await expect(page.getByRole('cell', { name: /ROBOTICS-CANDIDATE/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await login(page, 'tutor-b')
+  await page.getByRole('combobox', { name: 'Programme workspace', exact: true }).click()
+  await expect(page.getByRole('option', { name: 'Robotics MSc', exact: true })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await page.goto(applicationUrl)
+  await expect(page.locator('main').getByRole('alert')).toContainText('tutor access')
+})
+
+test('workspace owners confirm deletion of applications and PDFs, while assigned tutors cannot delete it', async ({
+  page,
+}) => {
+  await login(page)
+  await expect(page.getByRole('button', { name: 'Delete workspace', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'New workspace', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Workspace name' }).fill('Workspace to delete')
+  await page.getByRole('button', { name: 'Create workspace', exact: true }).click()
+  await expect(
+    page.getByRole('combobox', { name: 'Programme workspace', exact: true }),
+  ).toContainText('Workspace to delete')
+  await page.goto('/applications/new')
+  const pdf = await PDFDocument.create()
+  pdf.addPage([595, 842])
+  await page.getByLabel('Upload Transcript', { exact: true }).setInputFiles({
+    name: 'Delete-me.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from(await pdf.save()),
+  })
+  await expect(page.getByText('Delete-me.pdf · 1 pages')).toBeVisible()
+  await page.getByLabel('Candidate reference').fill('DELETABLE')
+  await page.getByRole('button', { name: 'Create application', exact: true }).click()
+  await expect(page).toHaveURL(/\/applications\/APP-/)
+  const applicationUrl = page.url()
+  await page.getByRole('button', { name: 'Delete workspace', exact: true }).click()
+  await expect(
+    page.getByText('This will delete 1 application, 1 PDF and 1 criteria version.'),
+  ).toBeVisible()
+  await expect(page.locator('.MuiDialog-container')).toHaveCSS('opacity', '1')
+  await audit(page)
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(page.getByRole('dialog')).toBeHidden()
+  await expect(page).toHaveURL(applicationUrl)
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await login(page, 'admin-a')
+  await page.goto('/admin/users')
+  await page.getByRole('button', { name: 'Edit Demo tutor B', exact: true }).click()
+  await page
+    .getByRole('checkbox', { name: 'Programme access: Workspace to delete', exact: true })
+    .check()
+  await page.getByRole('button', { name: 'Save account', exact: true }).click()
+  await expect(page.getByRole('row', { name: /Demo tutor B/ })).toContainText('Workspace to delete')
+  await page.getByRole('button', { name: 'Edit Jack · Demo tutor', exact: true }).click()
+  await page
+    .getByRole('checkbox', { name: 'Programme access: Programme · TBC', exact: true })
+    .uncheck()
+  await page
+    .getByRole('checkbox', { name: 'Programme access: Data Science · Example', exact: true })
+    .uncheck()
+  await page.getByRole('button', { name: 'Save account', exact: true }).click()
+  await expect(page.getByRole('row', { name: /Jack · Demo tutor/ })).not.toContainText(
+    'Data Science · Example',
+  )
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await login(page, 'tutor-b')
+  await page.getByRole('combobox', { name: 'Programme workspace', exact: true }).click()
+  await page.getByRole('option', { name: 'Workspace to delete', exact: true }).click()
+  await expect(page.getByText('DELETABLE', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Delete workspace', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await login(page)
+  // Jack's prior workspace selection is retained across signing out and back in.
+  await expect(
+    page.getByRole('combobox', { name: 'Programme workspace', exact: true }),
+  ).toContainText('Workspace to delete')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await page.getByRole('button', { name: 'Delete workspace', exact: true }).click()
+  await expect(page.getByText('1 other tutor will lose access to this workspace.')).toBeVisible()
+  await expect(page.locator('.MuiDialog-container')).toHaveCSS('opacity', '1')
+  await audit(page)
+  await screenshot(page, test.info().outputPath('delete-workspace-mobile.png'))
+  await page.getByRole('button', { name: 'Confirm', exact: true }).click()
+  await expect(page.getByRole('dialog')).toBeHidden()
+  await expect(page).toHaveURL(/\/applications$/)
+  await page.reload()
+  await expect(page.locator('main').getByRole('alert')).toContainText(
+    'Create a programme workspace',
+  )
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await expect(
+    page.getByRole('combobox', { name: 'Programme workspace', exact: true }),
+  ).toBeDisabled()
+  await page.getByRole('button', { name: 'New workspace', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Workspace name' }).fill('Fresh workspace')
+  await page.getByRole('button', { name: 'Create workspace', exact: true }).click()
+  await expect(page.getByRole('dialog')).toBeHidden()
+  await expect(page.getByText('No applications match these filters.')).toBeVisible()
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await login(page, 'tutor-b')
+  await page.getByRole('combobox', { name: 'Programme workspace', exact: true }).click()
+  await expect(page.getByRole('option', { name: 'Workspace to delete', exact: true })).toHaveCount(
+    0,
+  )
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('link', { name: 'Open APP-2026-0142', exact: true })).toBeVisible()
+  await page.goto(`${applicationUrl}/evidence`)
+  await expect(page.locator('main').getByRole('alert')).toContainText('Application not found')
   await expect(page.locator('canvas')).toHaveCount(0)
 })

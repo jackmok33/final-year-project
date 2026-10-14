@@ -1,8 +1,0 @@
-node_modules/
-dist/
-*.tsbuildinfo
-playwright-report/
-test-results/
-.env.local
-coverage/
-.DS_Store

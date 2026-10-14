@@ -1,21 +1,9 @@
 import { useContent } from '../../hooks/useContent'
-import { Alert, Box, Divider, Stack, TextField, Typography } from '@mui/material'
+import { Box, Divider, Stack, TextField, Typography } from '@mui/material'
 import { type Rubric, type SectionKey } from '../../domain/types'
 import { Card, Status } from '../common'
 
-export function CriteriaFields({
-  rubric,
-  setRubric,
-  permitted,
-  error,
-  total,
-}: {
-  rubric: Rubric
-  setRubric: (rubric: Rubric) => void
-  permitted: boolean
-  error: string | null
-  total: number
-}) {
+export function CriteriaFields({ rubric, total }: { rubric: Rubric; total: number }) {
   const content = useContent('criteriaFields')
   return (
     <Card title={content.sectionWeights}>
@@ -25,16 +13,7 @@ export function CriteriaFields({
             label={content.weightLabel(content.sectionNames[key])}
             type="number"
             value={Number.isNaN(rubric.weights[key]) ? '' : rubric.weights[key]}
-            onChange={(e) =>
-              setRubric({
-                ...rubric,
-                weights: {
-                  ...rubric.weights,
-                  [key]: e.target.value === '' ? NaN : Number(e.target.value),
-                },
-              })
-            }
-            disabled={!permitted}
+            disabled
             slotProps={{ htmlInput: { min: 0, max: 100 } }}
           />
           <Box sx={{ flex: '0 0 25%', bgcolor: '#EEDEFF', height: 8, borderRadius: 1 }}>
@@ -51,7 +30,7 @@ export function CriteriaFields({
       ))}
       <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
         <Typography sx={{ fontWeight: 600 }}>{content.total}</Typography>
-        <Status label={content.totalLabel(total, !!error)} />
+        <Status label={content.totalLabel(total, false)} />
       </Stack>
       <Divider />
       <Typography variant="h6" component="h2">
@@ -70,25 +49,13 @@ export function CriteriaFields({
             label={label}
             type="number"
             value={Number.isNaN(rubric[key]) ? '' : rubric[key]}
-            disabled={!permitted}
-            onChange={(e) =>
-              setRubric({
-                ...rubric,
-                [key]: e.target.value === '' ? NaN : Number(e.target.value),
-              })
-            }
+            disabled
             slotProps={{ htmlInput: { min: 0, max: 100 } }}
           />
         ))}
       </Stack>
       <Typography variant="body2">{content.marginHint}</Typography>
-      <TextField
-        label={content.mandatoryAcademicRule}
-        value={rubric.mandatoryRule}
-        disabled={!permitted}
-        onChange={(e) => setRubric({ ...rubric, mandatoryRule: e.target.value })}
-      />
-      {error && <Alert severity="error">{error}</Alert>}
+      <TextField label={content.mandatoryAcademicRule} value={rubric.mandatoryRule} disabled />
     </Card>
   )
 }
