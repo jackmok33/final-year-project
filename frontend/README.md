@@ -22,6 +22,13 @@ npm run build
 npm run preview
 ```
 
+For the optional FastAPI mock integration, start the scaffold using the
+[backend guide](../backend/README.md), copy `.env.example` to `.env.local`, and
+restart Vite. Seeded-case reassessments and corrections then use HTTP; records
+and PDFs still persist in this browser. The assessment page displays connection
+status and identifies runs received from FastAPI. Without `VITE_API_BASE_URL`,
+the original standalone browser demo works as before.
+
 The Codex-bundled Node runtime used during development is:
 
 ```sh
@@ -182,8 +189,17 @@ decision history, and recommendation justification fields. Validate actual serve
 responses and keep scoring/inference and authorisation on the backend. The current
 operation union describes local capabilities; it is not a frozen HTTP API contract.
 
-No backend, local AI service, real login, institutional retention policy, official
-admissions integration or deployment has been implemented in this milestone.
+An optional stateless FastAPI mock scaffold now serves health and synthetic
+assessment responses. `src/services/backend.ts` validates HTTP responses, and
+`evaluation.ts` selects the configured evaluator. Backend errors are explicit;
+no replacement scores or partial corrections are saved after a failed request.
+New uploaded PDFs do not go through the synthetic endpoint. The admin health
+rows still describe simulated browser services.
+
+PostgreSQL, real document assessment, local AI, real login, institutional retention
+policy, official admissions integration and deployment remain unimplemented.
+See [backend README](../backend/README.md) for the small contract, tests and next
+replacement boundaries.
 
 ## Checks
 
@@ -195,6 +211,11 @@ npm run build
 npx playwright install chromium
 npm run test:e2e
 ```
+
+With Python backend dependencies installed, `npm run test:e2e:backend` runs the
+real FastAPI/browser integration on separate test ports. The normal browser suite
+should run with `VITE_API_BASE_URL` unset (or set to an empty string) to verify the
+standalone demo. See the backend guide for selecting a virtual-environment Python.
 
 The browser suite checks all 12 screens at 1440×1000 and 390×844, role redirects,
 source pages, corrections, decision overrides, independent course criteria, workspace switching, PDF uploads,

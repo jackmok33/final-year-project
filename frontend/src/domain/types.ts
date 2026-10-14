@@ -86,6 +86,7 @@ export interface AssessmentRun {
   parentRunId?: string
   error?: string
   simulated: true
+  evaluationSource?: 'fastapi-mock'
 }
 export interface Correction {
   id: string

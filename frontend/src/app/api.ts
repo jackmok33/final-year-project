@@ -17,14 +17,20 @@ import {
   type CommandResult,
   type Query,
 } from '../services/demo'
+import { getBackendHealth, type BackendHealth } from '../services/backend'
 
 export interface ApiError {
   status: string
   data: string
 }
-const demoBaseQuery: BaseQueryFn<Query | Command, unknown, ApiError> = async (args, api) => {
+const demoBaseQuery: BaseQueryFn<
+  Query | Command | { op: 'backendHealth' },
+  unknown,
+  ApiError
+> = async (args, api) => {
   const userId = (api.getState() as { session: { userId: string | null } }).session.userId
   try {
+    if (args.op === 'backendHealth') return { data: await getBackendHealth(api.signal) }
     const mutationOps = [
       'create',
       'evaluate',
@@ -94,6 +100,9 @@ export const admissionsApi = createApi({
       query: () => ({ op: 'health' }),
       providesTags: ['Dataset'],
     }),
+    backendHealth: builder.query<BackendHealth, void>({
+      query: () => ({ op: 'backendHealth' }),
+    }),
     audit: builder.query<AuditEvent[], void>({
       query: () => ({ op: 'audit' }),
       providesTags: ['Dataset'],
@@ -115,6 +124,7 @@ export const {
   useRubricsQuery,
   useUsersQuery,
   useHealthQuery,
+  useBackendHealthQuery,
   useAuditQuery,
   useCommandMutation,
 } = admissionsApi

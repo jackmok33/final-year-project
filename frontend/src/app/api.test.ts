@@ -3,8 +3,10 @@ import { configureStore } from '@reduxjs/toolkit'
 import { admissionsApi, errorMessage } from './api'
 import { queryDemo, commandDemo } from '../services/demo'
 import type { Query, Command } from '../services/demo'
+import { getBackendHealth } from '../services/backend'
 import { application, detail, programme, rubric, tutor } from '../test/fixtures'
 vi.mock('../services/demo', () => ({ queryDemo: vi.fn(), commandDemo: vi.fn() }))
+vi.mock('../services/backend', () => ({ getBackendHealth: vi.fn() }))
 const makeStore = () =>
   configureStore({
     reducer: {
@@ -15,6 +17,23 @@ const makeStore = () =>
   })
 beforeEach(() => vi.resetAllMocks())
 describe('RTK Query demo adapter', () => {
+  it('queries FastAPI health without treating the browser service as a live backend', async () => {
+    const store = makeStore()
+    const health = {
+      status: 'ok',
+      mode: 'mock',
+      service: 'ucl-application-review-api',
+      database: 'not configured',
+      inference: 'not configured',
+    } as const
+    vi.mocked(getBackendHealth).mockResolvedValue(health)
+    expect(await store.dispatch(admissionsApi.endpoints.backendHealth.initiate()).unwrap()).toEqual(
+      health,
+    )
+    expect(getBackendHealth).toHaveBeenCalledWith(expect.any(AbortSignal))
+    expect(queryDemo).not.toHaveBeenCalled()
+    store.dispatch(admissionsApi.util.resetApiState())
+  })
   it.each([
     ['accounts', undefined, { op: 'accounts' }, [tutor]],
     ['me', undefined, { op: 'me' }, tutor],

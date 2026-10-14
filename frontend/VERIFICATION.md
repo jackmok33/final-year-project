@@ -1,6 +1,7 @@
 # Frontend verification — 14 October 2026
 
-Verified with Node 24 and Chromium against the production bundle.
+Verified with Node 24 and Chromium against the production demo bundle, plus the
+optional FastAPI integration using local development servers.
 
 The application queue uses four columns: Application, Score, AI recommendation
 and Decision. Browser checks verify the headers and linked application references;
@@ -12,9 +13,11 @@ recommendations and tutor decisions, and labels for decisions from older runs.
 | TypeScript and Vite production build     | Passed                                               |
 | ESLint                                   | Passed, no warnings                                  |
 | Prettier                                 | Passed                                               |
-| Vitest unit, component and service tests | 294 passed across 28 files                           |
-| Unit coverage                            | 98.01% lines, 90.15% branches                        |
-| Playwright browser workflows             | 8 passed                                             |
+| Vitest unit, component and service tests | 337 passed across 31 files                           |
+| Unit coverage                            | 98.15% lines, 90.97% branches                        |
+| Playwright browser workflows             | 8 demo workflows + 2 FastAPI checks passed           |
+| Python API tests                         | 31 passed                                            |
+| Backend Ruff lint and formatting         | Passed                                               |
 | Responsive screen coverage               | All 12 screens at 1440×1000 and 390×844              |
 | Automated accessibility                  | No critical or serious axe findings on those screens |
 
@@ -60,10 +63,28 @@ recommendation hierarchy. Wide data tables scroll inside their cards on mobile.
 Automated accessibility checks are limited to their rules and do not replace a
 full assistive-technology audit.
 
-Authentication, inference and service health remain explicitly simulated. Newly
+Authentication, inference and admin service-health rows remain simulated. Newly
 uploaded PDFs receive no invented scores. IndexedDB persistence and backups
 apply to the current browser's demo dataset. These checks do not validate a real
-admissions policy, backend service or university deployment.
+admissions policy, database/inference service or university deployment.
+
+The FastAPI scaffold is verified separately: real HTTP reassessments on desktop
+and mobile return the expected weighted score, recommendation, criteria identity,
+source citations and explicitly mocked rationale. The returned run survives
+refresh; original PDF/page navigation works and axe finds no serious/critical
+issues on the connected assessment screen. An aborted request surfaces an error
+and preserves the previous run. Unit/service tests cover malformed responses,
+HTTP failures, no fabricated scores for new uploads, permission checks before
+requests, correction rollback, run history and PDF-inclusive backup/restore of
+backend results. The health request measures API connectivity only; PostgreSQL,
+real document processing, LangChain/LangGraph and Qwen remain unconnected.
+
+The Python tests cover the HTTP contract, seeded outcomes, null scores, critical
+evidence, inclusive margins, mock model failure/recovery, invalid criteria and
+document references, rejection of non-seeded cases, CORS, OpenAPI and replacement
+of the evaluator dependency. Backend tests use FastAPI's in-process TestClient;
+the two additional browser checks run actual Uvicorn/Vite servers on ports
+8001/5174. See [backend guide](../backend/README.md) for reproducible commands.
 
 See [README.md](README.md) for reproducible commands, demo accounts and the
 backend integration boundary.

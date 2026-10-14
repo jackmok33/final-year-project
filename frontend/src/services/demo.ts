@@ -9,7 +9,8 @@ import type {
   User,
 } from '../domain/types'
 import { validateRubric } from '../domain/rules'
-import { baseRubric, createSeed, simulateRun } from './seed'
+import { baseRubric, createSeed } from './seed'
+import { evaluateApplication } from './evaluation'
 import { migrateDataset } from './migration'
 import { readDataset, readFile, sha256, writeDataset } from './storage'
 
@@ -362,7 +363,7 @@ export async function commandDemo(command: Command, userId: string | null): Prom
           throw new Error('An evaluation is already in progress.')
         const rubric = data.rubrics.find((r) => r.id === data.activeRubricIds[app.programmeId])!
         app.runs.push(
-          simulateRun(
+          await evaluateApplication(
             app,
             data.documents.filter((d) => d.applicationId === app.id),
             rubric,
@@ -408,7 +409,7 @@ export async function commandDemo(command: Command, userId: string | null): Prom
           at: new Date().toISOString(),
         })
         const rubric = data.rubrics.find((r) => r.id === data.activeRubricIds[app.programmeId])!
-        const next = simulateRun(
+        const next = await evaluateApplication(
           app,
           data.documents.filter((d) => d.applicationId === app.id),
           rubric,

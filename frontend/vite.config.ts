@@ -36,6 +36,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    env: { VITE_API_BASE_URL: '' },
     setupFiles: ['src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {

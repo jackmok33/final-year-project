@@ -36,6 +36,7 @@ export const apiMocks = {
   useRubricsQuery: vi.fn(),
   useUsersQuery: vi.fn(),
   useHealthQuery: vi.fn(),
+  useBackendHealthQuery: vi.fn(),
   useAuditQuery: vi.fn(),
   useCommandMutation: vi.fn(() => [command, mutation]),
 }
@@ -84,6 +85,7 @@ export function resetPageMocks() {
     }),
   )
   apiMocks.useAuditQuery.mockReturnValue(queryResult([]))
+  apiMocks.useBackendHealthQuery.mockReturnValue(queryResult())
   workspaceMock.mockReturnValue({
     user: tutor,
     programme,
