@@ -31,17 +31,23 @@ vi.mock('../components/files', async (importOriginal) => ({
 beforeEach(resetPageMocks)
 const show = (page: React.ReactElement) => renderPage(page, '/admin', '*')
 describe('accounts and permissions', () => {
-  it('creates an account with multiple course assignments and optional rubric publication', async () => {
+  it('creates an account with multiple course assignments without criteria editing permission', async () => {
     show(<UsersAccessPage />)
     await userEvent.type(screen.getByLabelText(/Name/), 'New tutor')
     await userEvent.type(screen.getByLabelText(/Demo email/), 'new@example.test')
     await userEvent.click(screen.getByLabelText(`Programme access: ${programme.name}`))
     await userEvent.click(screen.getByLabelText(`Programme access: ${otherProgramme.name}`))
-    await userEvent.click(screen.getByLabelText('Allow rubric publication'))
+    expect(screen.queryByLabelText('Allow rubric publication')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
     expect(command).toHaveBeenCalledWith({
       op: 'user',
-      user: { ...tutor, id: '', name: 'New tutor', email: 'new@example.test' },
+      user: {
+        ...tutor,
+        id: '',
+        name: 'New tutor',
+        email: 'new@example.test',
+        canPublishCriteria: false,
+      },
     })
     expect(await screen.findByText('Account and permissions saved.')).toBeInTheDocument()
     expect(screen.getByLabelText(/Name/)).toHaveValue('')

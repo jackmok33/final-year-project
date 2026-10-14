@@ -1,3 +1,3 @@
 export const criteriaPageContent = {
-  noWorkspaceMessage: 'No course workspace is assigned.',
+  noWorkspaceMessage: 'Create a programme workspace using New workspace in the navigation.',
 } as const

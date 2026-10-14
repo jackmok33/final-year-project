@@ -19,6 +19,14 @@ export interface Programme {
   year: string
   department: string
   description: string
+  createdBy?: string
+}
+export interface WorkspaceDeletionImpact {
+  programme: Programme
+  applications: number
+  documents: number
+  criteriaVersions: number
+  otherTutors: number
 }
 export interface Rubric {
   id: string

@@ -2,6 +2,8 @@ import { useContent } from '../hooks/useContent'
 import {
   DashboardOutlined,
   DescriptionOutlined,
+  CreateNewFolderOutlined,
+  DeleteOutlined,
   Logout,
   Menu,
   MonitorHeartOutlined,
@@ -28,9 +30,15 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { admissionsApi, useApplicationQuery, useMeQuery } from '../app/api'
+import {
+  admissionsApi,
+  useApplicationQuery,
+  useCommandMutation,
+  useMeQuery,
+  useWorkspaceDeletionQuery,
+} from '../app/api'
 import {
   selectProgramme,
   setNavigationOpen,
@@ -40,6 +48,9 @@ import {
 } from '../app/store'
 import { useWorkspace } from '../app/workspace'
 import { ErrorNotice, Loading } from './common'
+import { CreateWorkspaceDialog } from './workspace/CreateWorkspaceDialog'
+import { DeleteWorkspaceDialog } from './workspace/DeleteWorkspaceDialog'
+import type { Programme } from '../domain/types'
 export function Protected({ admin = false }: { admin?: boolean }) {
   const id = useAppSelector((s) => s.session.userId)
   const {
@@ -81,6 +92,63 @@ export function Layout() {
   const location = useLocation()
   const dispatch = useAppDispatch()
   const open = useAppSelector((s) => s.ui.navigationOpen)
+  const [creatingWorkspace, setCreatingWorkspace] = useState(false)
+  const [workspaceName, setWorkspaceName] = useState('')
+  const [workspaceError, setWorkspaceError] = useState<unknown>()
+  const [command, { isLoading: savingWorkspace }] = useCommandMutation()
+  const [workspaceToDelete, setWorkspaceToDelete] = useState<Programme>()
+  const [deletionError, setDeletionError] = useState<unknown>()
+  const [deleteCommand, { isLoading: deletingWorkspace }] = useCommandMutation()
+  const {
+    currentData: deletionImpact,
+    isFetching: checkingDeletion,
+    error: impactError,
+  } = useWorkspaceDeletionQuery(workspaceToDelete?.id ?? '', { skip: !workspaceToDelete })
+  async function deleteWorkspace() {
+    if (
+      !workspaceToDelete ||
+      !user ||
+      deletingWorkspace ||
+      checkingDeletion ||
+      !deletionImpact ||
+      impactError
+    )
+      return
+    setDeletionError(undefined)
+    try {
+      await deleteCommand({
+        op: 'deleteWorkspace',
+        id: workspaceToDelete.id,
+        confirmed: true,
+      }).unwrap()
+      dispatch(
+        selectProgramme({
+          userId: user.id,
+          programmeId: programmes.find((p) => p.id !== workspaceToDelete.id)?.id ?? '',
+        }),
+      )
+      dispatch(setNavigationOpen(false))
+      setWorkspaceToDelete(undefined)
+      navigate('/applications', { replace: true })
+    } catch (error) {
+      setDeletionError(error)
+    }
+  }
+  async function createWorkspace() {
+    if (!user || savingWorkspace || !workspaceName.trim() || workspaceName.trim().length > 100)
+      return
+    setWorkspaceError(undefined)
+    try {
+      const { id } = await command({ op: 'workspace', name: workspaceName.trim() }).unwrap()
+      if (!id) return
+      dispatch(selectProgramme({ userId: user.id, programmeId: id }))
+      dispatch(setNavigationOpen(false))
+      setCreatingWorkspace(false)
+      navigate('/applications')
+    } catch (error) {
+      setWorkspaceError(error)
+    }
+  }
   const applicationId = /^\/applications\/([^/]+)(?:\/|$)/.exec(location.pathname)?.[1]
   const { currentData: applicationData } = useApplicationQuery(applicationId ?? '', {
     skip: !applicationId || applicationId === 'new',
@@ -148,6 +216,30 @@ export function Layout() {
                 ? content.assignedCourse(programmes.length)
                 : content.noAssignedCourses}
             </Typography>
+            <Button
+              startIcon={<CreateNewFolderOutlined />}
+              onClick={() => {
+                setWorkspaceName('')
+                setWorkspaceError(undefined)
+                setCreatingWorkspace(true)
+              }}
+              sx={{ mt: 1 }}
+            >
+              {content.newWorkspace}
+            </Button>
+            {programme?.createdBy === user?.id && programme && (
+              <Button
+                startIcon={<DeleteOutlined />}
+                color="error"
+                sx={{ mt: 1 }}
+                onClick={() => {
+                  setDeletionError(undefined)
+                  setWorkspaceToDelete(programme)
+                }}
+              >
+                {content.deleteWorkspace}
+              </Button>
+            )}
           </>
         )}
       </Box>
@@ -284,6 +376,27 @@ export function Layout() {
           <Outlet key={location.pathname === '/applications/new' ? programme?.id : undefined} />
         </Box>
       </Box>
+      <CreateWorkspaceDialog
+        open={creatingWorkspace}
+        name={workspaceName}
+        saving={savingWorkspace}
+        error={workspaceError}
+        onNameChange={(name) => {
+          setWorkspaceName(name)
+          setWorkspaceError(undefined)
+        }}
+        onClose={() => setCreatingWorkspace(false)}
+        onSubmit={() => void createWorkspace()}
+      />
+      <DeleteWorkspaceDialog
+        programme={workspaceToDelete}
+        impact={impactError ? undefined : deletionImpact}
+        loading={checkingDeletion}
+        busy={deletingWorkspace}
+        error={impactError ?? deletionError}
+        onClose={() => setWorkspaceToDelete(undefined)}
+        onConfirm={() => void deleteWorkspace()}
+      />
     </Box>
   )
 }

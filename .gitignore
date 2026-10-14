@@ -1,0 +1,40 @@
+# Operating-system metadata
+.DS_Store
+._*
+
+# Dependencies, build output and tool caches
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Generated verification artifacts
+coverage/
+playwright-report/
+test-results/
+*.log
+
+# Local environment configuration; keep shareable examples eligible for Git
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Rendered project documents are regenerated from Markdown and scripts
+/output/
+
+# Local course reference; preserve the file on disk
+/FYProjectGuidelines.pdf
+
+# Intermediate Figma inspection outputs; preserve canonical design references
+/design/figma/batch-*-state.json
+/design/figma/initial-audit.json
+/design/figma/text-layout-fix.json

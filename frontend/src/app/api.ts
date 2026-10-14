@@ -8,6 +8,7 @@ import type {
   Programme,
   Rubric,
   User,
+  WorkspaceDeletionImpact,
 } from '../domain/types'
 import {
   commandDemo,
@@ -31,6 +32,8 @@ const demoBaseQuery: BaseQueryFn<Query | Command, unknown, ApiError> = async (ar
       'decide',
       'rubric',
       'user',
+      'workspace',
+      'deleteWorkspace',
       'model',
       'delete',
       'backup',
@@ -75,6 +78,10 @@ export const admissionsApi = createApi({
       query: () => ({ op: 'programmes' }),
       providesTags: ['Dataset'],
     }),
+    workspaceDeletion: builder.query<WorkspaceDeletionImpact, string>({
+      query: (id) => ({ op: 'workspaceDeletion', id }),
+      providesTags: ['Dataset'],
+    }),
     rubrics: builder.query<{ rubrics: Rubric[]; activeId: string }, string>({
       query: (programmeId) => ({ op: 'rubrics', programmeId }),
       providesTags: ['Dataset'],
@@ -104,6 +111,7 @@ export const {
   useApplicationsQuery,
   useApplicationQuery,
   useProgrammesQuery,
+  useWorkspaceDeletionQuery,
   useRubricsQuery,
   useUsersQuery,
   useHealthQuery,

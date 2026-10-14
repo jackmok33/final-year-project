@@ -43,10 +43,7 @@ export function AccountsTable({
                   <Typography sx={{ fontWeight: 600 }}>{u.name}</Typography>
                   <Typography variant="body2">{u.email}</Typography>
                 </TableCell>
-                <TableCell>
-                  {u.roles.join(' + ')}
-                  {u.canPublishCriteria ? content.criteria : ''}
-                </TableCell>
+                <TableCell>{u.roles.join(' + ')}</TableCell>
                 <TableCell>
                   {u.programmeIds.length
                     ? programmes

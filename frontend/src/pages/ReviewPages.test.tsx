@@ -12,7 +12,7 @@ import {
   unwrap,
   workspaceMock,
 } from '../test/pageMocks'
-import { application, detail, documents, rubric, run, tutor } from '../test/fixtures'
+import { application, detail, documents, programme, run, tutor } from '../test/fixtures'
 import { renderPage } from '../test/renderPage'
 import { CorrectionPage } from './CorrectionPage'
 import { DecisionPage } from './DecisionPage'
@@ -168,28 +168,31 @@ describe('tutor decision page', () => {
 })
 describe('versioned criteria page', () => {
   const renderCriteria = () => renderPage(<CriteriaPage />, '/criteria', '*')
-  it('validates weights and activates a new version only after confirmation', async () => {
-    renderCriteria()
-    fireEvent.change(screen.getByLabelText('Academic performance (%)'), { target: { value: '40' } })
-    expect(screen.getByRole('button', { name: 'Activate draft' })).toBeDisabled()
-    expect(screen.getByText(/must be between 0 and 100 and total 100/)).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Academic performance (%)'), { target: { value: '50' } })
-    fireEvent.change(screen.getByLabelText('Offer from'), { target: { value: '85' } })
-    await userEvent.click(screen.getByRole('button', { name: 'Activate draft' }))
-    expect(command).not.toHaveBeenCalled()
-    await userEvent.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm' }),
-    )
-    expect(command).toHaveBeenCalledWith({ op: 'rubric', rubric: { ...rubric, offerFrom: 85 } })
-    expect(rubric.offerFrom).toBe(80)
-  })
-  it('makes criteria read-only without publication permission', () => {
-    apiMocks.useMeQuery.mockReturnValue(queryResult({ ...tutor, canPublishCriteria: false }))
-    renderCriteria()
-    expect(screen.getByLabelText('Offer from')).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Activate draft' })).toBeDisabled()
-    expect(screen.getByText(/cannot publish/)).toBeInTheDocument()
-  })
+  it.each([false, true])(
+    'keeps criteria read-only regardless of legacy publication permission (%s)',
+    (permission) => {
+      apiMocks.useMeQuery.mockReturnValue(queryResult({ ...tutor, canPublishCriteria: permission }))
+      workspaceMock.mockReturnValue({
+        programme: { ...programme, createdBy: tutor.id },
+        isLoading: false,
+      })
+      renderCriteria()
+      for (const label of [
+        'Academic performance (%)',
+        'CV & experience (%)',
+        'Personal statement (%)',
+        'Offer from',
+        'Reject below',
+        'Review margin (± points)',
+        'Mandatory academic rule',
+      ])
+        expect(screen.getByLabelText(label)).toBeDisabled()
+      expect(screen.queryByRole('button', { name: 'Activate draft' })).not.toBeInTheDocument()
+      expect(screen.getByText(/Weights and rules are fixed for the MVP/)).toBeInTheDocument()
+      expect(screen.getByText('Active: v1.0')).toBeInTheDocument()
+      expect(command).not.toHaveBeenCalled()
+    },
+  )
   it('handles workspace errors and unassigned courses', () => {
     workspaceMock.mockReturnValue({ isLoading: false, error: { data: 'Workspace failed' } })
     const view = renderCriteria()
@@ -197,6 +200,6 @@ describe('versioned criteria page', () => {
     view.unmount()
     workspaceMock.mockReturnValue({ isLoading: false })
     renderCriteria()
-    expect(screen.getByText(/No course workspace/)).toBeInTheDocument()
+    expect(screen.getByText(/Create a programme workspace/)).toBeInTheDocument()
   })
 })

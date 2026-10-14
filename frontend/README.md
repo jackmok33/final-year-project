@@ -39,8 +39,8 @@ Select an account on the sign-in page; no password or real UCL credentials are u
 
 | Account            | Demo email             | Permissions                                                               |
 | ------------------ | ---------------------- | ------------------------------------------------------------------------- |
-| Jack · Demo tutor  | tutor@demo.ucl.local   | Both example courses, admissions review, criteria publication             |
-| Demo tutor B       | tutor.b@demo.ucl.local | First course and admissions review; no criteria publication               |
+| Jack · Demo tutor  | tutor@demo.ucl.local   | Both example courses, admissions review, read-only criteria               |
+| Demo tutor B       | tutor.b@demo.ucl.local | First course and admissions review, read-only criteria                    |
 | Demo administrator | admin@demo.ucl.local   | Accounts, programme metadata, simulated service health, local maintenance |
 
 The administrator alone cannot read applicant documents or record admissions
@@ -55,6 +55,31 @@ mobile). Only courses assigned to the signed-in tutor appear. The selection
 changes the queue, CSV export, upload destination and criteria editor together,
 and is remembered per demo account across refreshes in this browser tab. Opening
 an authorised application link selects that application's course automatically.
+
+Tutors can select **New workspace**, enter a programme workspace name (1–100
+characters), and choose **Create workspace**. The new workspace is selected
+immediately and starts with an empty application queue and its own example
+rubric. Only its creator receives tutor access; administrators can assign other
+tutors later. This also works for accounts with no assigned courses. Names must
+be unique among the creator's accessible workspaces, ignoring case and outer
+spaces; different tutors can use the same name for separate workspaces. Creating
+a workspace does not grant administrator permissions. Criteria editing is disabled
+for every account in the MVP.
+Workspaces persist with the browser demo data and are included in backup/restore;
+resetting the demo removes user-created workspaces. Codes and academic-year
+metadata are generated initially and can be edited in administrator settings.
+
+The creator can select **Delete workspace** for their current workspace. A
+confirmation shows application, PDF and criteria-version counts and warns if
+other tutors have access. Confirming deletes the entire workspace, all its
+applications/review history, original PDFs, criteria versions and assignments.
+Other courses remain unchanged. The app selects another accessible workspace;
+if none remain, create a new one using **New workspace**. Cancellation and failed
+writes preserve the workspace. Restore a previous demo backup to recover deleted
+content. Assigned tutors and administrators cannot claim ownership or delete a
+workspace they did not create. Earlier user-created workspaces recover their
+creator from the stored creation audit; seeded/admin-created courses are shared
+courses and do not show this tutor deletion action.
 
 Jack's demo account has the original **Programme · TBC** and **Data Science ·
 Example** workspaces. The first contains five cases; the second contains a sixth
@@ -75,6 +100,14 @@ New backups use dataset version 2 and include all configured courses.
 
 ## Review a sample application
 
+The application queue has four columns: **Application** (click the reference to
+open the assessment), **Score** (overall assessment score out of 100), **AI
+recommendation** and **Decision** (the tutor's recorded choice). Processing
+and failure statuses appear in AI recommendation until an assessment is available; no
+unfinished score is displayed. Decisions from older runs are marked **Previous
+assessment**. Evidence flags and full workflow details remain on the assessment
+page, and CSV exports retain the fuller operational fields.
+
 1. Sign in as the first tutor and open **APP-2026-0142**.
 2. Read **Why this recommendation**, then open the transcript citation on page 2.
 3. Inspect the original synthetic PDF: the grade is 74%, while the initial
@@ -94,7 +127,13 @@ failed seeded case. All inference and health states are explicitly simulated.
 The three-section weights (50/25/25), thresholds (60/80) and inclusive review
 margin (±3 points) are illustrative. They are not official UCL admissions policy.
 Unresolved critical evidence takes precedence, and unavailable sections never
-silently become zero. Changing criteria creates a version for future runs in the selected course.
+silently become zero. **Admission criteria** is read-only for the MVP: weights,
+thresholds, review margin and entry rules cannot be changed or activated. Existing
+stored criteria and earlier assessment versions remain intact; new workspaces
+receive the default example rubric. Legacy publication permission flags are
+retained for backup compatibility but grant no editing ability. Configurable
+criteria and the other additions in the requirements review are deferred until
+after the minimal review workflow is complete.
 
 ## Uploads, persistence and recovery
 
