@@ -15,10 +15,11 @@ inspect evidence and record decisions.
 
 The implemented milestone is the frontend under `frontend/`: React, TypeScript,
 Vite, MUI, React Router, Redux Toolkit and RTK Query. All 12 approved screens and
-browser-persistent demo workflows exist. Real authentication, backend document
-assessment and local AI inference have **not** been implemented. FastAPI is the
-planned backend; the demo adapter is the replacement boundary, not a final HTTP
-API contract.
+browser-persistent demo workflows exist. A small stateless FastAPI scaffold now
+exists under `backend/`, serving health and mocked assessments for seeded cases.
+Real authentication, PostgreSQL, document assessment and local AI inference have
+**not** been implemented. The demo adapter and new mock endpoints are replacement
+boundaries, not the final HTTP API for the full application.
 
 Read these maintained guides before changing the corresponding area:
 
@@ -26,6 +27,7 @@ Read these maintained guides before changing the corresponding area:
 - [Component guide](frontend/src/components/README.md): page/component responsibilities.
 - [Content guide](frontend/src/content/README.md): display copy and the shared hook.
 - [Verification record](frontend/VERIFICATION.md): last completed checks and limitations.
+- [Backend guide](backend/README.md): scaffold startup, mock HTTP contract and tests.
 
 Local planning documents include `project-plan.md`, `project-requirements.md` and
 `university-admissions-multi-agent-project-brief.md`. These are draft project
@@ -42,8 +44,30 @@ and original PDFs stored as `bytea` in linked document rows. SQLAlchemy/Alembic
 and PostgreSQL-backed LangGraph checkpoints are proposed. FastAPI and a Python
 evaluation worker call a separate Qwen inference endpoint on UCL GPU hardware;
 continuous availability, hardware, runtime and hosting access remain unconfirmed.
-These are planning decisions, not implemented backend services. Do not restore
+The database, worker and inference services remain planned. Do not restore
 the earlier object-storage assumption as a required MVP dependency.
+
+The FastAPI scaffold implements only `GET /api/v1/health` and
+`POST /api/v1/mock/assessments`. `app/services/evaluation.py` defines the replaceable
+`EvaluationService` and synthetic-only implementation; `app/schemas.py` validates
+the contract. Python 3.11+ dependencies are pinned in `backend/requirements.txt`.
+Enable the frontend with `VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1` in ignored
+`.env.local`, then restart Vite. Without it, standalone browser behaviour remains.
+`src/services/evaluation.ts` selects the evaluator; `backend.ts` validates responses.
+Only existing synthetic cases send IDs, document metadata and read-only criteria
+context over HTTP; no applicant names, notes or PDFs are sent. Newly uploaded PDFs
+still get no fabricated assessment. Browser permissions and IndexedDB history,
+corrections, backups and originals remain in place. HTTP failures must not save
+partial runs/corrections or silently fall back to local scores. Backend runs are
+labelled `evaluationSource: 'fastapi-mock'`, an optional field compatible with the
+existing dataset schema. The public mock endpoint provides no document/decision
+access and is not real authentication or a persistent job service. Admin health
+rows still show simulated browser services rather than monitoring the scaffold.
+
+Run backend checks with `python -m pytest -q`, `ruff check .` and
+`ruff format --check .` from `backend/`. `npm run test:e2e:backend` uses separate
+ports 8001/5174 and a Python with installed backend dependencies; optionally set
+`UCL_BACKEND_PYTHON` to its executable. Use a virtual environment outside OneDrive.
 
 ## User's coding and interface preferences
 
@@ -251,8 +275,9 @@ exists, run `PLAYWRIGHT_BROWSERS_PATH=/private/tmp/ucl-admissions-browsers npm r
 Playwright manages its preview on port 4173. Do not rebuild the production bundle
 while that suite is running.
 
-Last full verification on 14 October 2026: **294 tests across 28 files**, **8 browser
-workflows**, **98.01% line coverage / 90.15% branch coverage**, with TypeScript,
+Last full verification on 14 October 2026: **337 frontend tests across 31 files**,
+**31 Python API tests**, **8 demo browser workflows plus 2 real FastAPI integration
+checks**, **98.15% frontend line coverage / 90.97% branch coverage**, with TypeScript,
 lint, formatting and production build passing. Browser checks cover all 12
 screens at 1440×1000 and 390×844 and find no critical/serious axe issues. These
 results are a snapshot, not a substitute for validating later changes. Enforced

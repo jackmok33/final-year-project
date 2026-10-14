@@ -1,4 +1,5 @@
 import { brandingContent } from './branding.content'
+import { backendConnectionContent } from './components/assessment/BackendConnection.content'
 import { createWorkspaceDialogContent } from './components/workspace/CreateWorkspaceDialog.content'
 import { deleteWorkspaceDialogContent } from './components/workspace/DeleteWorkspaceDialog.content'
 import { queueSummaryContent } from './components/applications/QueueSummary.content'
@@ -55,6 +56,7 @@ import { serviceHealthPageContent } from './pages/ServiceHealthPage.content'
 import { usersAccessPageContent } from './pages/UsersAccessPage.content'
 
 export const content = {
+  backendConnection: backendConnectionContent,
   createWorkspaceDialog: createWorkspaceDialogContent,
   deleteWorkspaceDialog: deleteWorkspaceDialogContent,
   branding: brandingContent,

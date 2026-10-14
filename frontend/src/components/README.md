@@ -66,6 +66,10 @@ Storage, permissions, assessment rules, PDF parsing and persistence remain in
 `src/services/` and `src/domain/`. Shared Redux state and RTK Query definitions
 remain in `src/app/`.
 
+`assessment/BackendConnection.tsx` is a controlled status notice for the optional
+FastAPI mock scaffold. AssessmentPage owns the health query and selected-run
+context; HTTP requests and response validation stay in `src/services/backend.ts`.
+
 When adding a screen, put its logic and composition in its page. Extract a form
 or panel when it has a distinct visual purpose, passing its values and actions as
 props. Use shared primitives without creating wrappers for every element or a
