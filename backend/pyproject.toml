@@ -1,6 +1,7 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = ["postgres: destructive integration tests in an explicitly configured test database"]
 
 [tool.ruff]
 target-version = "py311"

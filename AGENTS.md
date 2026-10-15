@@ -1,6 +1,6 @@
 # Project context for agents
 
-Last reviewed: 14 October 2026. Applies to this project and its subdirectories.
+Last reviewed: 15 October 2026. Applies to this project and its subdirectories.
 Read this file when starting a session, then inspect the code relevant to the
 user's request. Follow newer user instructions when they change a convention
 recorded here. Keep this context current after material architectural changes.
@@ -17,8 +17,9 @@ The implemented milestone is the frontend under `frontend/`: React, TypeScript,
 Vite, MUI, React Router, Redux Toolkit and RTK Query. All 12 approved screens and
 browser-persistent demo workflows exist. A small stateless FastAPI scaffold now
 exists under `backend/`, serving health and mocked assessments for seeded cases.
-Real authentication, PostgreSQL, document assessment and local AI inference have
-**not** been implemented. The demo adapter and new mock endpoints are replacement
+An independent five-table PostgreSQL foundation exists; HTTP routes are not yet
+connected to it. Real authentication, document assessment and local AI inference
+have **not** been implemented. The demo adapter and mock endpoints are replacement
 boundaries, not the final HTTP API for the full application.
 
 Read these maintained guides before changing the corresponding area:
@@ -27,7 +28,7 @@ Read these maintained guides before changing the corresponding area:
 - [Component guide](frontend/src/components/README.md): page/component responsibilities.
 - [Content guide](frontend/src/content/README.md): display copy and the shared hook.
 - [Verification record](frontend/VERIFICATION.md): last completed checks and limitations.
-- [Backend guide](backend/README.md): scaffold startup, mock HTTP contract and tests.
+- [Backend guide](backend/README.md): mock API, database startup/migrations/seed and tests.
 
 Local planning documents include `project-plan.md`, `project-requirements.md` and
 `university-admissions-multi-agent-project-brief.md`. These are draft project
@@ -41,10 +42,11 @@ overview and detailed-flow SVGs and a two-page PDF in
 minimal prose and meaningful arrow labels for supervisor presentations.
 The user selected PostgreSQL for application records, JSONB assessment outputs
 and original PDFs stored as `bytea` in linked document rows. SQLAlchemy/Alembic
-and PostgreSQL-backed LangGraph checkpoints are proposed. FastAPI and a Python
-evaluation worker call a separate Qwen inference endpoint on UCL GPU hardware;
+now implement the initial storage foundation. JSONB assessment outputs and
+PostgreSQL-backed LangGraph checkpoints remain planned. The intended FastAPI and
+Python evaluation worker will call a separate Qwen inference endpoint on UCL GPU hardware;
 continuous availability, hardware, runtime and hosting access remain unconfirmed.
-The database, worker and inference services remain planned. Do not restore
+The worker and inference services remain planned. Do not restore
 the earlier object-storage assumption as a required MVP dependency.
 
 The FastAPI scaffold implements only `GET /api/v1/health` and
@@ -68,6 +70,61 @@ Run backend checks with `python -m pytest -q`, `ruff check .` and
 `ruff format --check .` from `backend/`. `npm run test:e2e:backend` uses separate
 ports 8001/5174 and a Python with installed backend dependencies; optionally set
 `UCL_BACKEND_PYTHON` to its executable. Use a virtual environment outside OneDrive.
+
+## PostgreSQL foundation (15 October 2026)
+
+The authorised scope is **five domain tables**: `users`, `programmes`,
+`programme_memberships`, `applications`, `documents`. SQLAlchemy models live in
+`backend/app/models/`, separate from Pydantic HTTP schemas. `app/db.py` provides
+lazy synchronous Psycopg 3 connections and transaction/session tools; importing
+FastAPI does not import or connect the database. Alembic's versioned migration
+creates actual tables; never migrate, seed or call `create_all()` at app startup.
+
+Use Docker CLI (the user does not want screen control for Docker). From `backend/`,
+copy `.env.example` to ignored `.env` and replace password placeholders in both
+URLs and `POSTGRES_PASSWORD`. Run `docker compose up -d --wait`,
+`alembic upgrade head`, then `python -m app.seed`. Docker uses `postgres:18.6`,
+loopback-only configurable port 5432 and a named volume mounted at
+`/var/lib/postgresql`, outside OneDrive. Normal container recreation preserves
+data; do not remove the volume. See the backend guide for `psql` inspection commands.
+
+Identifiers are `varchar(200)` with Python UUID defaults and existing textual IDs
+supported. Timestamps are timezone-aware with server defaults. Users have separate
+tutor/admin flags (at least one required), normalized unique emails and deactivation.
+Programme codes are unique ignoring case; names can repeat. Ownership
+(`created_by`, nullable for shared examples) and membership (composite user/course
+key) are separate. Future access services require an active tutor and membership;
+admin status alone gives no applicant access. The foundation is not authentication.
+
+Applications reference their workspace and submitting tutor. Documents store
+original PDF `bytea` with one row per application/type (transcript, CV, statement),
+strict positive size through 20 MiB, 1–100 pages, canonical MIME, lowercase SHA-256
+format and matching binary length. Readability, true hash calculation and the
+combined 100-page limit belong to the **next upload-service milestone**. These
+constraints do not parse PDFs. Programme/application deletion cascades to PDFs;
+user deletion cascades memberships but restricts creator/submitter attribution.
+
+The explicit seed only writes when **all five tables are empty**. It creates the
+current four frontend accounts, two unowned example courses and four memberships;
+applications/documents start empty. Repeated seeds never overwrite user edits or
+regrant removed assignments. No browser import or frontend persistence switch.
+Upload endpoints, assessment runs, fixed criteria, decisions and corrections remain
+later MVP milestones; keep the existing mock routes/contracts unchanged.
+
+PostgreSQL tests are opt-in: create `ucl_application_review_test` as described in
+the backend guide and run `python -m pytest -q --run-postgres`. Both database URLs
+must be configured; the guard rejects the development database and requires a
+separate `_test` name before destructive operations. Default pytest runs skip
+PostgreSQL tests and need no server. Never point destructive tests at development
+data or run them concurrently against a shared test dataset.
+
+On 15 October, 102 backend tests passed against real PostgreSQL 18.6; default
+pytest passes 45 tests and skips 57 database tests. Ruff lint/format and pip checks
+passed. Alembic upgrade/downgrade and model/schema comparison passed. Run
+`python -m tests.verify_volume` separately to reproduce the container recreation
+check (verified: identical stored PDF bytes and unchanged development row counts).
+The development seed has 4 users, 2 programmes, 4 memberships and no applications
+or documents. This snapshot does not replace validation after future changes.
 
 ## User's coding and interface preferences
 
