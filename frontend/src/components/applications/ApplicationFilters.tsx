@@ -1,5 +1,6 @@
 import { useContent } from '../../hooks/useContent'
-import { MenuItem, Stack, TextField } from '@mui/material'
+import { SearchOutlined } from '@mui/icons-material'
+import { InputAdornment, MenuItem, Stack, TextField } from '@mui/material'
 
 export function ApplicationFilters({
   search,
@@ -22,10 +23,21 @@ export function ApplicationFilters({
       <TextField
         label={content.searchApplicationOrCandidate}
         value={search}
+        sx={{ flex: 1.5 }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchOutlined fontSize="small" />
+              </InputAdornment>
+            ),
+          },
+        }}
         onChange={(e) => setSearch(e.target.value)}
       />
       <TextField
         label={content.workflowState}
+        sx={{ flex: 1 }}
         select
         value={status}
         onChange={(e) => setStatus(e.target.value)}
@@ -41,6 +53,7 @@ export function ApplicationFilters({
       </TextField>
       <TextField
         label={content.recommendation}
+        sx={{ flex: 1 }}
         select
         value={recommendation}
         onChange={(e) => setRecommendation(e.target.value)}

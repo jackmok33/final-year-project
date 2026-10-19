@@ -1,44 +1,33 @@
-import { useContent } from '../hooks/useContent'
 import {
-  DashboardOutlined,
-  DescriptionOutlined,
-  CreateNewFolderOutlined,
-  DeleteOutlined,
+  FolderOutlined,
   Logout,
   Menu,
   MonitorHeartOutlined,
   PeopleOutlined,
   SettingsOutlined,
   StorageOutlined,
-  TuneOutlined,
 } from '@mui/icons-material'
 import {
-  Alert,
   AppBar,
+  Avatar,
   Box,
   Button,
   Divider,
   Drawer,
   IconButton,
+  Link as MuiLink,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  MenuItem,
   Stack,
-  TextField,
   Toolbar,
   Typography,
 } from '@mui/material'
-import { useEffect, useState } from 'react'
-import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import {
-  admissionsApi,
-  useApplicationQuery,
-  useCommandMutation,
-  useMeQuery,
-  useWorkspaceDeletionQuery,
-} from '../app/api'
+import { useEffect } from 'react'
+import { Link, Navigate, Outlet, useLocation, useMatch } from 'react-router-dom'
+import { admissionsApi, useApplicationQuery, useBatchQuery, useMeQuery } from '../app/api'
+import { headerHeight, sidebarWidth } from '../app/theme'
 import {
   selectProgramme,
   setNavigationOpen,
@@ -47,10 +36,11 @@ import {
   useAppSelector,
 } from '../app/store'
 import { useWorkspace } from '../app/workspace'
+import { applicationIntakeYear } from '../domain/intakes'
+import { useContent } from '../hooks/useContent'
 import { ErrorNotice, Loading } from './common'
-import { CreateWorkspaceDialog } from './workspace/CreateWorkspaceDialog'
-import { DeleteWorkspaceDialog } from './workspace/DeleteWorkspaceDialog'
-import type { Programme } from '../domain/types'
+import { UclLogo } from './UclLogo'
+
 export function Protected({ admin = false }: { admin?: boolean }) {
   const id = useAppSelector((s) => s.session.userId)
   const {
@@ -62,11 +52,10 @@ export function Protected({ admin = false }: { admin?: boolean }) {
   if (isLoading) return <Loading />
   if (error || !user) return <SessionError error={error} />
   if (!(admin ? user.roles.includes('admin') : user.roles.includes('tutor')))
-    return (
-      <Navigate to={user.roles.includes('admin') ? '/admin/health' : '/applications'} replace />
-    )
+    return <Navigate to={user.roles.includes('admin') ? '/admin/health' : '/modules'} replace />
   return <Outlet />
 }
+
 function SessionError({ error }: { error: unknown }) {
   const content = useContent('layout')
   const dispatch = useAppDispatch()
@@ -84,209 +73,154 @@ function SessionError({ error }: { error: unknown }) {
     </Stack>
   )
 }
+
 export function Layout() {
   const content = useContent('layout')
-  const { data: user } = useMeQuery()
-  const { programme, programmes } = useWorkspace()
-  const navigate = useNavigate()
+  const { user, programme, programmes, intakeYear } = useWorkspace()
   const location = useLocation()
   const dispatch = useAppDispatch()
   const open = useAppSelector((s) => s.ui.navigationOpen)
-  const [creatingWorkspace, setCreatingWorkspace] = useState(false)
-  const [workspaceName, setWorkspaceName] = useState('')
-  const [workspaceError, setWorkspaceError] = useState<unknown>()
-  const [command, { isLoading: savingWorkspace }] = useCommandMutation()
-  const [workspaceToDelete, setWorkspaceToDelete] = useState<Programme>()
-  const [deletionError, setDeletionError] = useState<unknown>()
-  const [deleteCommand, { isLoading: deletingWorkspace }] = useCommandMutation()
-  const {
-    currentData: deletionImpact,
-    isFetching: checkingDeletion,
-    error: impactError,
-  } = useWorkspaceDeletionQuery(workspaceToDelete?.id ?? '', { skip: !workspaceToDelete })
-  async function deleteWorkspace() {
-    if (
-      !workspaceToDelete ||
-      !user ||
-      deletingWorkspace ||
-      checkingDeletion ||
-      !deletionImpact ||
-      impactError
-    )
-      return
-    setDeletionError(undefined)
-    try {
-      await deleteCommand({
-        op: 'deleteWorkspace',
-        id: workspaceToDelete.id,
-        confirmed: true,
-      }).unwrap()
-      dispatch(
-        selectProgramme({
-          userId: user.id,
-          programmeId: programmes.find((p) => p.id !== workspaceToDelete.id)?.id ?? '',
-        }),
-      )
-      dispatch(setNavigationOpen(false))
-      setWorkspaceToDelete(undefined)
-      navigate('/applications', { replace: true })
-    } catch (error) {
-      setDeletionError(error)
-    }
-  }
-  async function createWorkspace() {
-    if (!user || savingWorkspace || !workspaceName.trim() || workspaceName.trim().length > 100)
-      return
-    setWorkspaceError(undefined)
-    try {
-      const { id } = await command({ op: 'workspace', name: workspaceName.trim() }).unwrap()
-      if (!id) return
-      dispatch(selectProgramme({ userId: user.id, programmeId: id }))
-      dispatch(setNavigationOpen(false))
-      setCreatingWorkspace(false)
-      navigate('/applications')
-    } catch (error) {
-      setWorkspaceError(error)
-    }
-  }
-  const applicationId = /^\/applications\/([^/]+)(?:\/|$)/.exec(location.pathname)?.[1]
+  const applicationId = useMatch('/applications/:id/*')?.params.id
   const { currentData: applicationData } = useApplicationQuery(applicationId ?? '', {
     skip: !applicationId || applicationId === 'new',
   })
-  const applicationProgrammeId = applicationData?.application.programmeId
+  const applicationProgramme =
+    applicationId && applicationId !== 'new'
+      ? programmes.find((p) => p.id === applicationData?.application.programmeId)
+      : undefined
+  const applicationProgrammeId = applicationProgramme?.id
+  const applicationYear =
+    applicationData && applicationProgramme
+      ? applicationIntakeYear(applicationData.application, applicationProgramme)
+      : undefined
   const userId = user?.id
+  const batchId = useMatch('/batches/:batchId')?.params.batchId
+  const { currentData: batch } = useBatchQuery(batchId ?? '', { skip: !batchId })
+  const batchProgramme = programmes.find((p) => p.id === batch?.programmeId)
+  const recordProgrammeId = applicationProgrammeId ?? batchProgramme?.id
+  const recordYear = applicationYear ?? batch?.intakeYear
   useEffect(() => {
-    if (userId && applicationProgrammeId) {
-      dispatch(selectProgramme({ userId, programmeId: applicationProgrammeId }))
-    }
-  }, [applicationProgrammeId, userId, dispatch])
+    if (userId && recordProgrammeId && recordYear)
+      dispatch(
+        selectProgramme({
+          userId,
+          programmeId: recordProgrammeId,
+          intakeYear: recordYear,
+        }),
+      )
+  }, [recordProgrammeId, recordYear, userId, dispatch])
+
   const isAdmin = location.pathname.startsWith('/admin')
-  const items = isAdmin
-    ? ([
-        [content.serviceHealth, '/admin/health', <MonitorHeartOutlined />],
-        [content.usersAccess, '/admin/users', <PeopleOutlined />],
-        [content.programmeSettings, '/admin/programme', <SettingsOutlined />],
-        [content.dataOperations, '/admin/data', <StorageOutlined />],
-      ] as const)
-    : ([
-        [content.applications, '/applications', <DashboardOutlined />],
-        [content.newApplication, '/applications/new', <DescriptionOutlined />],
-        [content.admissionCriteria, '/criteria', <TuneOutlined />],
-      ] as const)
+  const moduleId = useMatch('/modules/:id')?.params.id
+  const viewingModules = location.pathname.startsWith('/modules')
+  const currentModule = viewingModules ? programmes.find((p) => p.id === moduleId) : programme
+  const items = [
+    [content.serviceHealth, '/admin/health', <MonitorHeartOutlined />],
+    [content.usersAccess, '/admin/users', <PeopleOutlined />],
+    [content.programmeSettings, '/admin/programme', <SettingsOutlined />],
+    [content.dataOperations, '/admin/data', <StorageOutlined />],
+  ] as const
+  function closeNavigation() {
+    dispatch(setNavigationOpen(false))
+  }
   const navigation = (
-    <Stack sx={{ height: '100%', p: 2.5 }} spacing={2}>
-      <Box sx={{ py: 1 }}>
-        <Typography variant="h5" sx={{ fontWeight: 800 }}>
-          {content.ucl}
+    <Stack
+      component="nav"
+      aria-label={content.workspaceNavigation}
+      spacing={2.5}
+      useFlexGap
+      sx={{ minHeight: '100%', pb: 2 }}
+    >
+      <Stack
+        component={Link}
+        to={isAdmin ? '/admin/health' : '/modules'}
+        onClick={closeNavigation}
+        direction="row"
+        spacing={1.5}
+        sx={{
+          minHeight: headerHeight,
+          px: 2.5,
+          alignItems: 'center',
+          borderBottom: 1,
+          borderColor: 'divider',
+          textDecoration: 'none',
+          color: 'text.primary',
+        }}
+      >
+        <UclLogo />
+      </Stack>
+      <Box>
+        <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, mb: 1, fontWeight: 500 }}>
+          {isAdmin ? content.administration : content.modules}
         </Typography>
-        <Typography sx={{ fontWeight: 600 }}>{content.applicationReviewWorkspace}</Typography>
-      </Box>
-      <Box sx={{ backgroundColor: '#FAFAFA', borderRadius: 1, p: 1.5 }}>
-        {isAdmin ? (
-          <>
-            <Typography variant="body2" color="text.secondary">
-              {content.administration}
-            </Typography>
-            <Typography sx={{ fontWeight: 600 }}>{content.systemManagement}</Typography>
-          </>
-        ) : (
-          <>
-            <TextField
-              select
-              fullWidth
-              label={content.programmeWorkspace}
-              value={programme?.id ?? ''}
-              disabled={!programmes.length}
-              onChange={(event) => {
-                if (!user) return
-                dispatch(selectProgramme({ userId: user.id, programmeId: event.target.value }))
-                dispatch(setNavigationOpen(false))
-                navigate('/applications')
-              }}
-              sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
-            >
-              {programmes.map((p) => (
-                <MenuItem key={p.id} value={p.id}>
-                  {p.name}
-                </MenuItem>
-              ))}
-            </TextField>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              {programmes.length
-                ? content.assignedCourse(programmes.length)
-                : content.noAssignedCourses}
-            </Typography>
-            <Button
-              startIcon={<CreateNewFolderOutlined />}
-              onClick={() => {
-                setWorkspaceName('')
-                setWorkspaceError(undefined)
-                setCreatingWorkspace(true)
-              }}
-              sx={{ mt: 1 }}
-            >
-              {content.newWorkspace}
-            </Button>
-            {programme?.createdBy === user?.id && programme && (
-              <Button
-                startIcon={<DeleteOutlined />}
-                color="error"
-                sx={{ mt: 1 }}
-                onClick={() => {
-                  setDeletionError(undefined)
-                  setWorkspaceToDelete(programme)
-                }}
-              >
-                {content.deleteWorkspace}
-              </Button>
-            )}
-          </>
-        )}
-      </Box>
-      <List component="div" disablePadding>
-        {items.map(([label, path, icon]) => {
-          const selected =
-            path === '/applications'
-              ? location.pathname === path ||
-                (location.pathname.startsWith('/applications/') &&
-                  location.pathname !== '/applications/new')
-              : location.pathname === path
-          return (
+        <List component="div" disablePadding>
+          {(isAdmin
+            ? items.map(([label, path, icon]) => ({
+                id: path,
+                label,
+                path,
+                icon,
+                selected: location.pathname === path,
+              }))
+            : programmes.map((p) => ({
+                id: p.id,
+                label: p.name,
+                path: `/modules/${encodeURIComponent(p.id)}`,
+                icon: <FolderOutlined />,
+                selected: currentModule?.id === p.id,
+              }))
+          ).map(({ id, label, path, icon, selected }) => (
             <ListItemButton
-              key={path}
+              key={id}
               component={Link}
               to={path}
               selected={selected}
-              onClick={() => dispatch(setNavigationOpen(false))}
+              aria-label={!isAdmin ? content.openModule(label) : undefined}
+              aria-current={selected ? 'page' : undefined}
+              onClick={closeNavigation}
               sx={{
-                borderRadius: 1,
-                mb: 0.5,
-                '&.Mui-selected': { bgcolor: '#EEDEFF', color: '#361A54' },
+                px: 2.5,
+                py: 1.25,
+                borderRight: 3,
+                borderColor: selected ? 'primary.main' : 'transparent',
+                color: selected ? 'primary.main' : 'text.secondary',
+                '&.Mui-selected': { bgcolor: 'primary.light', color: 'primary.main' },
+                '&.Mui-selected:hover': { bgcolor: 'primary.light' },
               }}
             >
-              <ListItemIcon sx={{ minWidth: 32, color: 'inherit' }}>{icon}</ListItemIcon>
+              <ListItemIcon
+                sx={{ minWidth: 32, color: 'inherit', '& .MuiSvgIcon-root': { fontSize: 20 } }}
+              >
+                {icon}
+              </ListItemIcon>
               <ListItemText
                 primary={label}
-                slotProps={{ primary: { sx: { fontSize: 14, fontWeight: selected ? 600 : 400 } } }}
+                slotProps={{
+                  primary: {
+                    sx: {
+                      fontSize: 14,
+                      fontWeight: selected ? 600 : 400,
+                      overflowWrap: 'anywhere',
+                    },
+                  },
+                }}
               />
             </ListItemButton>
-          )
-        })}
-      </List>
+          ))}
+        </List>
+      </Box>
       {user?.roles.length === 2 && (
-        <Button component={Link} to={isAdmin ? '/applications' : '/admin/health'}>
+        <Button
+          component={Link}
+          to={isAdmin ? '/modules' : '/admin/health'}
+          onClick={closeNavigation}
+        >
           {content.switchToWorkspace(isAdmin ? content.tutorWorkspace : content.adminWorkspace)}
         </Button>
       )}
       <Box sx={{ flexGrow: 1 }} />
-      <Alert severity="info" icon={false} sx={{ bgcolor: '#EEDEFF', color: '#361A54' }}>
-        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-          {content.syntheticWorkspace}
-        </Typography>
-        <Typography variant="body2">{content.demoNotice}</Typography>
-      </Alert>
       <Divider />
-      <Box>
+      <Box sx={{ px: 2.5 }}>
         <Typography sx={{ fontWeight: 600 }}>
           {isAdmin ? content.websiteAdministrator : content.admissionsTutor}
         </Typography>
@@ -296,8 +230,10 @@ export function Layout() {
       </Box>
       <Button
         startIcon={<Logout />}
-        sx={{ justifyContent: 'flex-start' }}
+        color="secondary"
+        sx={{ justifyContent: 'flex-start', mx: 1.5 }}
         onClick={() => {
+          closeNavigation()
           dispatch(signOut())
           dispatch(admissionsApi.util.resetApiState())
         }}
@@ -306,27 +242,28 @@ export function Layout() {
       </Button>
     </Stack>
   )
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       <a className="skip-link" href="#main-content">
         {content.skipToMainContent}
       </a>
-      <Box
-        component="nav"
-        aria-label={content.workspaceNavigation}
-        sx={{ width: { md: 232 }, flexShrink: { md: 0 } }}
-      >
+      <Box sx={{ width: { md: sidebarWidth }, flexShrink: { md: 0 } }}>
         <Drawer
           variant="permanent"
-          sx={{ display: { xs: 'none', md: 'block' }, '& .MuiDrawer-paper': { width: 232 } }}
+          sx={{
+            display: { xs: 'none', md: 'block' },
+            '& .MuiDrawer-paper': { width: sidebarWidth },
+          }}
         >
           {navigation}
         </Drawer>
         <Drawer
           variant="temporary"
+          slotProps={{ paper: { 'aria-label': content.workspaceNavigation } }}
           open={open}
-          onClose={() => dispatch(setNavigationOpen(false))}
-          sx={{ display: { md: 'none' }, '& .MuiDrawer-paper': { width: 260 } }}
+          onClose={closeNavigation}
+          sx={{ display: { md: 'none' }, '& .MuiDrawer-paper': { width: sidebarWidth } }}
         >
           {navigation}
         </Drawer>
@@ -335,68 +272,77 @@ export function Layout() {
         <AppBar
           position="sticky"
           elevation={0}
-          sx={{ bgcolor: '#361A54', color: '#FFF', height: 72 }}
+          sx={{
+            bgcolor: 'background.paper',
+            color: 'text.primary',
+            height: headerHeight,
+            borderBottom: 1,
+            borderColor: 'divider',
+          }}
         >
-          <Toolbar sx={{ minHeight: '72px !important', gap: 2 }}>
+          <Toolbar sx={{ minHeight: `${headerHeight}px !important`, gap: 2 }}>
             <IconButton
-              sx={{ display: { md: 'none' }, color: '#FFF' }}
+              sx={{ display: { md: 'none' }, color: 'text.secondary' }}
               aria-label={content.openNavigation}
               onClick={() => dispatch(setNavigationOpen(true))}
             >
               <Menu />
             </IconButton>
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography>
-                {content.headerTitle(
-                  isAdmin ? content.administration : content.admissions,
-                  items.find(([, path]) => location.pathname === path)?.[0] ??
-                    content.applicationReview,
-                )}
-              </Typography>
-              {!isAdmin && programme && (
-                <Typography variant="body2" noWrap sx={{ color: '#EEDEFF' }}>
-                  {programme.name}
+              {isAdmin ? (
+                <Typography variant="body2" color="text.secondary">
+                  {content.headerTitle(
+                    content.administration,
+                    items.find(([, path]) => location.pathname === path)?.[0] ??
+                      content.administration,
+                  )}
+                </Typography>
+              ) : (
+                <MuiLink component={Link} to="/modules" variant="body2">
+                  {content.allModules}
+                </MuiLink>
+              )}
+              {!isAdmin && currentModule && (
+                <Typography
+                  variant="subtitle2"
+                  component="p"
+                  noWrap
+                  title={currentModule.name}
+                  sx={{ mt: 0.25 }}
+                >
+                  {currentModule.name}
                 </Typography>
               )}
             </Box>
-            <Typography
-              variant="body2"
-              sx={{ display: { xs: 'none', sm: 'block' }, color: '#DDbdFF' }}
+            <Avatar
+              sx={{
+                width: 32,
+                height: 32,
+                bgcolor: 'primary.light',
+                color: 'primary.main',
+                fontSize: 14,
+              }}
+              aria-hidden="true"
             >
-              {programme ? content.intake(programme.year) : content.demoEnvironment}
-            </Typography>
+              {user?.name[0]}
+            </Avatar>
           </Toolbar>
         </AppBar>
         <Box
           component="main"
           id="main-content"
           tabIndex={-1}
-          sx={{ p: { xs: 2, md: 4 }, maxWidth: 1600, mx: 'auto' }}
+          sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: 'auto' }}
         >
-          <Outlet key={location.pathname === '/applications/new' ? programme?.id : undefined} />
+          <Outlet
+            key={
+              location.pathname === '/applications/new'
+                ? `${programme?.id}:${intakeYear}`
+                : undefined
+            }
+          />
         </Box>
       </Box>
-      <CreateWorkspaceDialog
-        open={creatingWorkspace}
-        name={workspaceName}
-        saving={savingWorkspace}
-        error={workspaceError}
-        onNameChange={(name) => {
-          setWorkspaceName(name)
-          setWorkspaceError(undefined)
-        }}
-        onClose={() => setCreatingWorkspace(false)}
-        onSubmit={() => void createWorkspace()}
-      />
-      <DeleteWorkspaceDialog
-        programme={workspaceToDelete}
-        impact={impactError ? undefined : deletionImpact}
-        loading={checkingDeletion}
-        busy={deletingWorkspace}
-        error={impactError ?? deletionError}
-        onClose={() => setWorkspaceToDelete(undefined)}
-        onConfirm={() => void deleteWorkspace()}
-      />
     </Box>
   )
 }

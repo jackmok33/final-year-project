@@ -31,12 +31,11 @@ vi.mock('../components/files', async (importOriginal) => ({
 beforeEach(resetPageMocks)
 const show = (page: React.ReactElement) => renderPage(page, '/admin', '*')
 describe('accounts and permissions', () => {
-  it('creates an account with multiple course assignments without criteria editing permission', async () => {
+  it('creates an account without course-sharing or criteria-editing controls', async () => {
     show(<UsersAccessPage />)
     await userEvent.type(screen.getByLabelText(/Name/), 'New tutor')
     await userEvent.type(screen.getByLabelText(/Demo email/), 'new@example.test')
-    await userEvent.click(screen.getByLabelText(`Programme access: ${programme.name}`))
-    await userEvent.click(screen.getByLabelText(`Programme access: ${otherProgramme.name}`))
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Allow rubric publication')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
     expect(command).toHaveBeenCalledWith({
@@ -46,6 +45,7 @@ describe('accounts and permissions', () => {
         id: '',
         name: 'New tutor',
         email: 'new@example.test',
+        programmeIds: [],
         canPublishCriteria: false,
       },
     })
@@ -84,43 +84,29 @@ describe('programme settings', () => {
   it('saves course metadata and can cancel unsaved changes', async () => {
     unwrap.mockResolvedValue({ id: programme.id })
     show(<ProgrammeSettingsPage />)
-    fireEvent.change(screen.getByLabelText(/Programme name/), { target: { value: 'Changed name' } })
+    fireEvent.change(screen.getByLabelText(/Course code/), { target: { value: 'COMP0009' } })
     await userEvent.click(screen.getByRole('button', { name: 'Cancel changes' }))
-    expect(screen.getByLabelText(/Programme name/)).toHaveValue(programme.name)
-    fireEvent.change(screen.getByLabelText(/Programme name/), { target: { value: 'Changed name' } })
+    expect(screen.getByLabelText(/Course code/)).toHaveValue(programme.code)
+    fireEvent.change(screen.getByLabelText(/Course code/), { target: { value: 'COMP0009' } })
     await userEvent.click(screen.getByRole('button', { name: 'Save programme' }))
     expect(command).toHaveBeenCalledWith({
       op: 'programme',
-      programme: { ...programme, name: 'Changed name' },
+      programme: { ...programme, code: 'COMP0009' },
     })
     expect(await screen.findByText('Programme metadata saved.')).toBeInTheDocument()
   })
-  it('switches courses, then creates a workspace without reusing previous metadata', async () => {
+  it('switches courses without offering administrative course creation', async () => {
     show(<ProgrammeSettingsPage />)
     await userEvent.click(screen.getByRole('combobox', { name: 'Manage programme' }))
     await userEvent.click(screen.getByRole('option', { name: otherProgramme.name }))
-    expect(screen.getByLabelText(/Programme code/)).toHaveValue(otherProgramme.code)
-    await userEvent.click(screen.getByRole('button', { name: 'New programme' }))
-    expect(screen.getByLabelText(/Programme name/)).toHaveValue('')
-    fireEvent.change(screen.getByLabelText(/Programme name/), { target: { value: 'New Course' } })
-    fireEvent.change(screen.getByLabelText(/Programme code/), { target: { value: 'NEW' } })
-    await userEvent.click(screen.getByRole('button', { name: 'Save programme' }))
-    expect(command).toHaveBeenCalledWith({
-      op: 'programme',
-      programme: {
-        id: '',
-        name: 'New Course',
-        code: 'NEW',
-        year: '2026 / 27',
-        department: '',
-        description: '',
-      },
-    })
+    expect(screen.getByLabelText(/Course code/)).toHaveValue(otherProgramme.code)
+    expect(screen.queryByRole('button', { name: 'New programme' })).not.toBeInTheDocument()
   })
-  it('can create a first course when no programmes exist', () => {
+  it('shows an empty state until a tutor adds a course', () => {
     apiMocks.useProgrammesQuery.mockReturnValue(queryResult([]))
     show(<ProgrammeSettingsPage />)
-    expect(screen.getByLabelText(/Programme name/)).toHaveValue('')
+    expect(screen.getByRole('alert')).toHaveTextContent('Tutors can add their own courses')
+    expect(screen.queryByRole('button', { name: 'Save programme' })).not.toBeInTheDocument()
   })
 })
 describe('simulated service health', () => {

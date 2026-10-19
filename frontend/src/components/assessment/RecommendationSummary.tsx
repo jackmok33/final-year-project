@@ -1,7 +1,12 @@
 import { useContent } from '../../hooks/useContent'
 import { Divider, Typography } from '@mui/material'
 import type { Decision } from '../../domain/types'
-import { type AssessmentRun, type DocumentRecord, type Rubric } from '../../domain/types'
+import {
+  hasUnavailableAssessment,
+  type AssessmentRun,
+  type DocumentRecord,
+  type Rubric,
+} from '../../domain/types'
 import { Card, Rationale, Status } from '../common'
 import { displayTime } from '../files'
 export function RecommendationSummary({
@@ -20,8 +25,14 @@ export function RecommendationSummary({
   const content = useContent('recommendationSummary')
   return (
     <Card title={content.recommendation}>
-      <Status label={run.recommendation} />
-      <Typography variant="h3">{run.overall ?? content.unavailableScore}</Typography>
+      <Status label={hasUnavailableAssessment(run) ? content.notAssessed : run.recommendation} />
+      <Typography
+        variant="h3"
+        component="p"
+        sx={{ fontSize: 32, fontVariantNumeric: 'tabular-nums' }}
+      >
+        {run.overall ?? content.unavailableScore}
+      </Typography>
       <Typography color="text.secondary">{content.overallScore100}</Typography>
       <Rationale run={run} rubric={rubric} documents={documents} applicationId={id} />
       <Divider />

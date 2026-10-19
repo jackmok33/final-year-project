@@ -34,12 +34,17 @@ beforeEach(() => {
 })
 describe('demo sign-in', () => {
   it.each([
-    ['tutor', tutor, '/applications'],
+    ['tutor', tutor, '/modules'],
     ['admin', administrator, '/admin/health'],
   ] as const)('signs in a %s and clears cached user data', async (_role, account, destination) => {
     apiMocks.useAccountsQuery.mockReturnValue(queryResult([account]))
     renderPage(<LoginPage />, '/login', '/login')
-    expect(screen.getByRole('combobox', { name: 'Demo account' })).toHaveTextContent(account.name)
+    expect(screen.getByRole('img', { name: 'UCL' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Application Review Workspace', level: 1 }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Account' })).toHaveTextContent(account.name)
+    expect(screen.queryByText(/Demo environment|Synthetic data/)).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
     expect(dispatch.mock.calls).toEqual([
       [{ type: 'api/reset' }],
@@ -56,12 +61,10 @@ describe('demo sign-in', () => {
       ]),
     )
     renderPage(<LoginPage />, '/login', '/login')
-    await userEvent.click(screen.getByRole('combobox', { name: 'Demo account' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Account' }))
     expect(screen.queryByRole('option', { name: 'Former tutor' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('option', { name: administrator.name }))
-    expect(screen.getByRole('combobox', { name: 'Demo account' })).toHaveTextContent(
-      administrator.name,
-    )
+    expect(screen.getByRole('combobox', { name: 'Account' })).toHaveTextContent(administrator.name)
   })
   it('disables sign-in when no active accounts exist', () => {
     apiMocks.useAccountsQuery.mockReturnValue(queryResult([{ ...tutor, active: false }]))
@@ -96,6 +99,7 @@ describe('new application upload', () => {
       op: 'create',
       candidate: 'SYN-200',
       programmeId: programme.id,
+      intakeYear: programme.year,
       uploads: [{ id: 'upload-1', type: 'transcript' }],
     })
     await waitFor(() => expect(releaseUploads).toHaveBeenCalled())

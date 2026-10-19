@@ -23,8 +23,8 @@ export function DemoSignIn({
 }) {
   const content = useContent('demoSignIn')
   return (
-    <Stack sx={{ p: { xs: 4, md: 8 }, bgcolor: '#FFF', justifyContent: 'center' }}>
-      <Stack spacing={3} sx={{ maxWidth: 420, width: '100%', mx: 'auto' }}>
+    <Stack sx={{ p: { xs: 3, sm: 4 }, pt: { xs: 1, sm: 1 } }}>
+      <Stack spacing={3}>
         <Typography variant="h4" component="h2">
           {content.signIn}
         </Typography>
@@ -42,7 +42,7 @@ export function DemoSignIn({
             <Stack spacing={2.5}>
               <TextField
                 select
-                label={content.demoAccount}
+                label={content.account}
                 value={account?.id ?? ''}
                 onChange={(e) => setSelected(e.target.value)}
               >
@@ -57,6 +57,7 @@ export function DemoSignIn({
               <Button
                 variant="contained"
                 type="submit"
+                fullWidth
                 endIcon={<ArrowForward />}
                 disabled={!account?.active}
               >
@@ -65,9 +66,6 @@ export function DemoSignIn({
             </Stack>
           </Box>
         )}
-        <Typography variant="body2" color="text.secondary">
-          {content.demoEnvironmentSyntheticData}
-        </Typography>
       </Stack>
     </Stack>
   )

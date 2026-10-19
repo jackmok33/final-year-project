@@ -45,12 +45,10 @@ export function AccountsTable({
                 </TableCell>
                 <TableCell>{u.roles.join(' + ')}</TableCell>
                 <TableCell>
-                  {u.programmeIds.length
-                    ? programmes
-                        ?.filter((p) => u.programmeIds.includes(p.id))
-                        .map((p) => p.name)
-                        .join(', ')
-                    : content.noTutorAccess}
+                  {programmes
+                    ?.filter((p) => p.createdBy === u.id)
+                    .map((p) => p.name)
+                    .join(', ') || content.noTutorAccess}
                 </TableCell>
                 <TableCell>
                   <Status label={u.active ? content.active : content.inactive} />

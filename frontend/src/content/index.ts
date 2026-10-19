@@ -1,5 +1,11 @@
 import { brandingContent } from './branding.content'
-import { backendConnectionContent } from './components/assessment/BackendConnection.content'
+import { uploadBatchesPageContent } from './pages/UploadBatchesPage.content'
+import { batchListContent } from './components/batches/BatchList.content'
+import { zipUploadPanelContent } from './components/batches/ZipUploadPanel.content'
+import { moduleCardsContent } from './components/workspace/ModuleCards.content'
+import { intakeCardsContent } from './components/workspace/IntakeCards.content'
+import { modulesPageContent } from './pages/ModulesPage.content'
+import { moduleIntakesPageContent } from './pages/ModuleIntakesPage.content'
 import { createWorkspaceDialogContent } from './components/workspace/CreateWorkspaceDialog.content'
 import { deleteWorkspaceDialogContent } from './components/workspace/DeleteWorkspaceDialog.content'
 import { queueSummaryContent } from './components/applications/QueueSummary.content'
@@ -38,7 +44,6 @@ import { commonContent } from './components/common.content'
 import { criteriaFieldsContent } from './components/criteria/CriteriaFields.content'
 import { criteriaFormContent } from './components/criteria/CriteriaForm.content'
 import { criteriaHistoryContent } from './components/criteria/CriteriaHistory.content'
-import { criteriaRoutingContent } from './components/criteria/CriteriaRouting.content'
 import { documentNavigationContent } from './components/evidence/DocumentNavigation.content'
 import { evidenceClaimContent } from './components/evidence/EvidenceClaim.content'
 import { evidenceLinkContent } from './components/evidence/EvidenceLink.content'
@@ -56,7 +61,13 @@ import { serviceHealthPageContent } from './pages/ServiceHealthPage.content'
 import { usersAccessPageContent } from './pages/UsersAccessPage.content'
 
 export const content = {
-  backendConnection: backendConnectionContent,
+  uploadBatchesPage: uploadBatchesPageContent,
+  batchList: batchListContent,
+  zipUploadPanel: zipUploadPanelContent,
+  moduleCards: moduleCardsContent,
+  intakeCards: intakeCardsContent,
+  modulesPage: modulesPageContent,
+  moduleIntakesPage: moduleIntakesPageContent,
   createWorkspaceDialog: createWorkspaceDialogContent,
   deleteWorkspaceDialog: deleteWorkspaceDialogContent,
   branding: brandingContent,
@@ -96,7 +107,6 @@ export const content = {
   criteriaFields: criteriaFieldsContent,
   criteriaForm: criteriaFormContent,
   criteriaHistory: criteriaHistoryContent,
-  criteriaRouting: criteriaRoutingContent,
   documentNavigation: documentNavigationContent,
   evidenceClaim: evidenceClaimContent,
   evidenceLink: evidenceLinkContent,

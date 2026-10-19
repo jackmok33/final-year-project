@@ -8,7 +8,6 @@ import {
   Stack,
   Switch,
   TextField,
-  Typography,
 } from '@mui/material'
 import type { Programme, User } from '../../domain/types'
 import { Card, ErrorNotice } from '../common'
@@ -67,9 +66,7 @@ export function UserForm({
             <MenuItem value="admin">{content.administrator}</MenuItem>
             <MenuItem value="both">{content.tutorAdministrator}</MenuItem>
           </TextField>
-          {form.roles.includes('tutor') && (
-            <UserPermissions form={form} programmes={programmes} setForm={setForm} />
-          )}
+          {form.roles.includes('tutor') && <UserPermissions form={form} programmes={programmes} />}
           <FormControlLabel
             control={
               <Switch
@@ -85,9 +82,6 @@ export function UserForm({
           <Button type="submit" variant="contained" disabled={mutation.isLoading}>
             {form.id ? content.saveAccount : content.createAccount}
           </Button>
-          <Typography variant="body2" color="text.secondary">
-            {content.accountNotice}
-          </Typography>
         </Stack>
       </Box>
     </Card>

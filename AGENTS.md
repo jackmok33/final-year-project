@@ -1,6 +1,6 @@
 # Project context for agents
 
-Last reviewed: 15 October 2026. Applies to this project and its subdirectories.
+Last reviewed: 19 October 2026. Applies to this project and its subdirectories.
 Read this file when starting a session, then inspect the code relevant to the
 user's request. Follow newer user instructions when they change a convention
 recorded here. Keep this context current after material architectural changes.
@@ -14,8 +14,9 @@ personal statements, with deterministic scoring and recommendations. Tutors
 inspect evidence and record decisions.
 
 The implemented milestone is the frontend under `frontend/`: React, TypeScript,
-Vite, MUI, React Router, Redux Toolkit and RTK Query. All 12 approved screens and
-browser-persistent demo workflows exist. A small stateless FastAPI scaffold now
+Vite, MUI, React Router, Redux Toolkit and RTK Query. All 15 screens, including
+course, intake and ZIP batch selection, and browser-persistent demo workflows exist.
+A small stateless FastAPI scaffold now
 exists under `backend/`, serving health and mocked assessments for seeded cases.
 An independent five-table PostgreSQL foundation exists; HTTP routes are not yet
 connected to it. Real authentication, document assessment and local AI inference
@@ -93,8 +94,10 @@ supported. Timestamps are timezone-aware with server defaults. Users have separa
 tutor/admin flags (at least one required), normalized unique emails and deactivation.
 Programme codes are unique ignoring case; names can repeat. Ownership
 (`created_by`, nullable for shared examples) and membership (composite user/course
-key) are separate. Future access services require an active tutor and membership;
-admin status alone gives no applicant access. The foundation is not authentication.
+key) are separate. These tables predate the 19 October single-owner frontend
+model below; the future HTTP/database integration must use that ownership policy
+instead of reintroducing shared assignments. The foundation schema remains
+unchanged in this frontend milestone. Admin status alone gives no applicant access. The foundation is not authentication.
 
 Applications reference their workspace and submitting tutor. Documents store
 original PDF `bytea` with one row per application/type (transcript, CV, statement),
@@ -105,7 +108,7 @@ constraints do not parse PDFs. Programme/application deletion cascades to PDFs;
 user deletion cascades memberships but restricts creator/submitter attribution.
 
 The explicit seed only writes when **all five tables are empty**. It creates the
-current four frontend accounts, two unowned example courses and four memberships;
+four demo accounts, the original two unowned example courses and four memberships;
 applications/documents start empty. Repeated seeds never overwrite user edits or
 regrant removed assignments. No browser import or frontend persistence switch.
 Upload endpoints, assessment runs, fixed criteria, decisions and corrections remain
@@ -145,7 +148,8 @@ or documents. This snapshot does not replace validation after future changes.
   the **same typed `useContent()` hook** from `src/hooks/useContent.ts`. Do not add
   separate content hooks per component or page.
 - Keep the login concise: UCL/workspace branding, account selector, Continue
-  button and one short demo label. Do not restore the marketing feature list,
+  button. As of 19 October, omit demo/environment labels and connection notices.
+  Do not restore the marketing feature list,
   repeated explanatory notices or read-only email field.
 - Product text is **Application Review Workspace**, with UCL branding. The
   package name and persistence keys still use `ucl-admissions`; do not rename
@@ -196,7 +200,8 @@ only render supplied values do not need empty content files or unused hook calls
 
 ## Screens and permissions
 
-Tutor screens: `/login`, `/applications`, `/applications/new`,
+Tutor screens: `/login`, `/modules`, `/modules/:id`, `/batches`, `/batches/:batchId`,
+`/applications` (legacy full intake queue), `/applications/new`,
 `/applications/:id`, `/applications/:id/evidence`, `/applications/:id/correct`,
 `/applications/:id/decision` and `/criteria`.
 
@@ -204,46 +209,219 @@ Administrator screens: `/admin/health`, `/admin/users`, `/admin/programme` and
 `/admin/data`.
 
 The demo sign-in selects an account without a password. Seeded accounts are
-`tutor-a` (Jack, both example courses), `tutor-b` (first course) and `admin-a`
-(administration). All criteria are read-only for the MVP. Read the seed/README for
+`tutor-a` (Jack, all three example courses), `tutor-b` (starts without courses) and `admin-a`
+(administration). Course owners can tune numeric criteria. Read the seed/README for
 current details rather than assuming accounts cannot be edited.
 
-Tutors see only assigned programmes. Programme selection controls the queue,
-CSV export, upload destination and criteria editor together; an authorised
-application link selects its course. Selection is remembered per account.
+Latest tutor navigation (15 October 2026) supersedes the sidebar workspace
+dropdown: sign-in always opens **Courses**, with one card per owned course
+(displayed by course name). Clicking a card or course sidebar link opens its intake
+picker; choosing an intake opens **Upload batches**. Opening a batch shows its applicant rows. The sidebar contains module links
+and a role/account/sign-out footer. Use **All courses** to return to the cards.
+Admin navigation remains separate. Technical `Programme` IDs/models and `/modules`
+routes stay in use. Sidebar labels wrap long course names; the compact header
+keeps the full name in its title attribute.
+As of 19 October, the header no longer has an intake-year shortcut button.
+Intake selection remains on the course page; Upload batches and applicant queues
+retain the selected intake in their subtitles and their existing Back links.
+
+Queue rows, summary counts and uploads are scoped to the selected
+module and intake; an opened upload batch additionally scopes rows and counts
+to its own applicants. As of 19 October, **Export course results** is available
+only on Upload batches and includes the entire selected course across all intakes
+and batches. Keep intake year in CSV rows; queue filters do not limit this export.
+`Application.intakeYear` is an optional additive field in the
+version-2 dataset/backup: missing legacy values are populated once from the
+existing programme year, preserving documents and history. New uploads record
+the selected intake; valid descriptive legacy year labels remain supported.
+The picker shows the configured year and previous two years plus any additional
+populated years. Criteria versions apply to the whole course rather than an individual
+intake. Per-account/per-module intake choices use sessionStorage
+(`ucl-demo-intakes`) alongside existing workspace selection. An authorised
+application deep link selects both module and intake; upload drafts reset when
+either changes. This is frontend demo behaviour; backend intakes/integration
+have not been implemented.
+
+Tutors see only courses they own.
 Administrator permission alone grants neither applicant-document access nor
 admissions decisions nor criteria publication. Preserve UI and demo-service
 permission checks. Browser demo controls are not real server authentication.
 
-Tutors can create their own named programme workspaces using **New workspace**
-in desktop/mobile navigation, even without existing programme assignments.
+Tutors can create their own course workspaces using **Add course**
+on the Courses page, even without existing courses.
 `workspace` is a dedicated demo command: it creates an empty programme and
 independent example rubric, grants access only to the creator and returns its ID
-for immediate selection. Names are trimmed, limited to 100 characters and unique
-among that tutor's accessible workspaces (case-insensitive). Creation does not
+for opening its intake picker. As of 19 October the form asks only for **Course name**
+(such as `Data Science & AI MSc`), superseding earlier code-only tutor creation.
+Names are trimmed, preserve case, spaces, punctuation and Unicode, and must contain
+1–100 characters. The page and service share `domain/courseName.ts` validation.
+The command accepts `name` and generates `code = COURSE-<uppercase UUID>` for model,
+CSV and backup compatibility. Names already owned by the same tutor are
+rejected ignoring case; different tutors can create independent courses with the
+same name. Administrator metadata forms only edit existing courses and preserve
+course names and ownership. Administrator course creation and assignment controls
+are removed. Tutor cards/navigation/headings and admin owned-course labels show
+`Programme.name`.
+The three browser examples are **Computational Statistics and Machine Learning MSc**,
+**Machine Learning MSc** and **Computer Science MSc**. The loader upgrades only
+unchanged old shared example labels while preserving IDs, edits, histories, PDFs
+and intake selections. During that upgrade it adds the third empty example and
+independent rubric if there is no ID/code/rubric conflict. Jack receives access
+only if he still has both earlier courses and a tutor role. Subsequent loads do
+not recreate a deleted example. Ownership is authoritative over legacy assignments. The independent
+backend seed remains at two courses and never overwrites existing PostgreSQL rows.
+Creation does not
 grant publication/admin permissions. Admin metadata editing remains separate;
 workspaces are included in dataset backup/restore and removed by demo reset.
 
-Latest MVP decision on 14 October 2026 supersedes the earlier criteria-editing
-request: **no account may change scoring weights or activate criteria**. The
-criteria screen is read-only, including thresholds, margin and entry rule, and
-the demo service rejects the `rubric` command. Admin publication controls are
-removed. Legacy `canPublishCriteria` values remain solely for record/backup
-compatibility and cannot bypass the MVP restriction. Preserve saved criteria,
-historic runs and per-workspace defaults; do not reset user data. Owner/shared
-criteria editing, document updates and the other expanded requirements remain
-post-MVP work. The requirements review describes the earlier comparison against
-the completed-system requirements, not the currently authorised MVP scope.
+Latest criteria decision on 19 October 2026 supersedes the earlier read-only MVP
+restriction: an active tutor can tune section weights, offer/reject thresholds and
+the review margin for their own course. Weights must total 100%; thresholds and
+margin must pass `validateRubric`. The unimplemented mandatory academic rule is
+hidden from the UI at the user's request for the professor demonstration. Its
+stored value remains fixed for backup/mock API compatibility. Do not show disabled
+placeholder controls for functionality that is not implemented. **Save criteria**
+creates and activates a new version, retaining all previous versions, assessment
+results and tutor decisions.
+Only a subsequent explicit evaluation/correction uses the new active criteria.
+Draft state lives in `CriteriaPage` and resets on course/active-version changes.
+Version history rows are accessible buttons: clicking or keyboard activation
+loads that version's numeric settings into the form, highlights the selected row,
+announces the loaded version and returns focus/scroll to the form. Selection makes
+no storage change. Save keeps the current active ID/version/internal rule as its
+base and creates a new version through the existing command; never submit the
+historic ID or reactivate/mutate an old record. Discard or selecting the active
+row restores active settings. History selection is disabled during saving and
+for accounts without editing access.
+The demo `rubric` command checks ownership, rejects stale/unchanged/invalid drafts,
+generates version metadata and saves the version/active pointer/audit atomically.
+Admin permission and legacy `canPublishCriteria` flags grant no editing rights.
+Versions remain browser-persistent and join existing backup/restore; no HTTP
+editing endpoint or PostgreSQL criteria table is implemented. Document updates
+and other expanded requirements remain later work. Do not reset existing data.
 
-`Programme.createdBy` is optional creator ownership for tutor-created workspaces.
-Old name-only workspaces recover it from their creation audit in the demo loader;
-seeded/admin-created courses remain unowned shared courses. Metadata edits cannot
-claim/transfer ownership. The `workspaceDeletion` query previews deletion counts;
-`deleteWorkspace` requires assigned tutor access, creator ownership and explicit
-confirmation. Deletion atomically removes the course, its applications/PDFs,
-review history, criteria, associated audit entries and all user assignments,
-then records the deletion event. The UI selects a remaining accessible workspace
-or clears selection. Empty course datasets are valid for backup/restore.
+## Single-owner courses (19 October 2026)
+
+Each course belongs to one tutor. `Programme.createdBy` is the sole owner for
+new courses, and tutor access requires both the tutor role and matching ownership.
+`User.programmeIds` is retained only as a compatibility projection, recalculated
+from ownership; it must never independently grant applicant, PDF, criteria or
+batch access. `useWorkspace` filters by ownership too. Jack owns all three sample
+courses and may delete any of them; tutor B and the inactive former tutor start
+without courses and can create private courses after an active tutor sign-in.
+
+`assignCourseOwners` in `services/migration.ts` upgrades saved data without a reset:
+keep an explicit owner, otherwise recover the creation-audit actor, otherwise use
+the first active tutor already assigned (falling back to the first inactive
+assigned tutor). Remove all shared assignments by rebuilding the compatibility
+lists. Legacy unassigned records without a creator stay as administrator metadata;
+do not grant arbitrary applicant access. IDs, PDFs, runs, decisions and corrections
+remain intact. Backup validation works on a clone and applies the same ownership
+upgrade before restore. Existing version-1/version-2 backups remain supported.
+
+Administrators edit account roles/status and existing course metadata. Owned-course
+lists are read-only; no assignment checkboxes, course transfer or administrator
+course creation is supported. The service rejects forged assignment changes and
+metadata creation. Metadata edits preserve the stored owner. Deactivation or
+removing the tutor role retains ownership and attribution while blocking tutor
+access; restoring the role restores the owner's access.
+
+`workspaceDeletion` previews application, document and criteria counts.
+`deleteWorkspace` requires owner tutor access and explicit confirmation, including
+for seeded examples. Deletion atomically removes the course, its applications,
+original PDFs, batches, review history, criteria and related audit entries, then
+records the deletion event. There is no other-tutor count or shared-access warning.
+The owner opens **Delete course** from the intake page. The UI returns to Courses,
+preserves other courses and offers Add course when none remain. Empty datasets
+remain valid for backup/restore. This changes browser demo behaviour; PostgreSQL
+models, tables and HTTP routes are unchanged in this milestone.
+
+## ZIP upload batches (15 October 2026)
+
+The ZIP format/limits help panel is removed while real archive requirements are
+unconfirmed. Keep the upload panel concise; current demo importer validation
+remains in the service layer.
+
+`/batches` is the intake landing page, showing ZIP upload controls and batch
+history. As of 19 October, a three-card overview above **Upload applications**
+shows **Total applicants**, **Offers given** and **Reviewed by tutor** (reviewed / total), scoped to all
+applications in the selected course/intake, across batches and individual uploads.
+Offer and review totals use only the latest tutor decision matching the current assessment; AI
+recommendations and older-assessment decisions do not. Further review counts as a
+human review but remains unresolved. Loading/failing queries never show false
+zero counts, and upload controls remain usable. The action is **Upload batch**,
+with **Uploading…** while busy. The shared `SummaryCards` adapts to the number of cards.
+Previous batches appear as rows labelled **Batch 1, Batch 2, …**, with local upload date/time (24-hour
+format) and applicant count. `/batches/:batchId`
+reuses `ApplicationsPage` for that batch's applicant rows, without an export action.
+Authorised batch deep links select their module/intake; forbidden/missing batches
+must never fall back to another queue. Assessment links back to its batch.
+Page-header return links use a left-arrow icon and **Back**, retaining explicit
+parent destinations rather than browser-history navigation. Put Back last in the
+page actions so it remains at the far right; the shared Page toolbar right-aligns
+actions at desktop and mobile widths. This applies to the
+course intake picker, upload batches, applicant queue, assessment, evidence and
+criteria views. **Admission criteria** is linked only from Upload batches; the
+application queue no longer has a criteria shortcut. The global **All courses**
+navigation and form-level actions retain their existing labels.
+Batch rows also show **Pending human review**, calculated as applications without
+a latest tutor decision matching the current run. Recorded Further review counts
+as reviewed, while remaining unresolved. New/no-run/failed and superseded-run
+decisions remain pending. `currentDecision()` shares this rule with the dashboard;
+`BatchSummary.pendingReviewCount` is derived, never persisted in batch metadata.
+The browser seed now has two additional CSML batches (2 applicants/1 pending and
+1 applicant/0 pending), giving 8 CSML applicants and 3 batches in the 26/27 intake.
+The original 5-applicant batch remains intact. `addSampleCourseBatches()` upgrades
+unchanged existing example courses once, preserving PDFs, decisions and histories.
+An audit marker prevents deleted examples from returning; ID conflicts and edited
+course names/ownership are preserved. Sample originals use real synthetic PDFs.
+The completion marker is now `sample-csml-batches-v2`. The older v1 marker could
+be saved before installation, so it is not sufficient proof that defaults exist.
+The loader checks actual batch metadata, repairs grouped legacy synthetic cases,
+and adds missing defaults. Existing runs, decisions and PDF bytes are preserved;
+deletion audit events are honoured. Mark v2 complete only when defaults are present
+or inserted, in the same atomic storage write. Conflicts do not consume completion
+and can be retried later. Fresh profiles and older saved browser profiles must
+both show the code-defined defaults without requiring a browser-data reset.
+Samples use `SAMPLE-CSML-01` through `SAMPLE-CSML-03` so they cannot take the
+sequential references used by existing uploads. Earlier sample references remain
+supported by the mock API for browser-data compatibility.
+FastAPI's existing mock fixture map also recognises the three sample cases;
+its HTTP contracts and PostgreSQL foundation are unchanged.
+`/applications` remains a legacy full-intake route; individual uploads are still
+supported and grouped with earlier applications, rather than added to a ZIP batch.
+
+`UploadBatch` metadata and optional `Application.batchId` / `Dataset.batches` are
+additive version-2 fields. The loader groups earlier records into a batch per
+module/intake, keeping IDs, PDFs and review histories. Its internal metadata
+retains **Existing applications**; the table displays its batch number. No fake
+ZIP filename or uploader is assigned to earlier records.
+Batch numbering is computed chronologically within each module/intake (stored
+order breaks equal-timestamp ties). Both list and detail queries return the same
+sequence; newest rows display first. Table rows have no example/individual-upload
+descriptions. Batch detail uses the numbered heading and retains original metadata.
+New ZIP imports retain their true filename, uploader and timestamp, and separate
+uploads remain separate batches even for repeated filenames/candidate references.
+
+Use one folder per applicant, with CV/transcript/statement PDFs directly inside;
+one common outer folder is accepted. The folder name becomes candidate reference.
+Common resume/transcript/personal-statement filenames are recognised; ambiguous
+names, duplicate types, unsafe/duplicate paths, non-PDF documents and unreadable
+PDFs reject the whole import. Missing document types remain missing. Limits are
+100 MB compressed, 200 MB extracted, 100 applicants, 20 MB per PDF and 100 combined
+pages per applicant. macOS ZIP metadata is ignored and archive entry count is capped.
+`services/zip.ts` uses pinned fflate for bounded extraction; `batchImport.ts`
+prepares records/PDFs before one atomic IndexedDB commit in the demo service.
+Temporary archive references stay outside Redux and are released after mutation.
+
+Batch metadata and original extracted PDFs persist and join browser backup/restore,
+workspace deletion and reset. The ZIP container itself is not retained. Backups
+still have a 100 MB cap; validate batch uniqueness, uploader/module references and
+application module/intake/batch consistency before replacement. A refresh before
+an import is committed requires reselecting the ZIP; no partial records should remain.
+New uploads have no fabricated extraction, scores or recommendations. This is
+frontend/browser persistence only; no new FastAPI routes or PostgreSQL batch tables
+are implemented. Keep the five-table backend foundation unchanged for this milestone.
 
 ## Behaviour and data invariants
 
@@ -255,34 +433,75 @@ or clears selection. Empty course datasets are valid for backup/restore.
   Further review keeps the case unresolved.
 - Corrections require a reason and source reference. Preserve the original fact
   and create a new run; do not overwrite old runs or recorded decisions.
-- Criteria are fixed/read-only for the MVP. Existing runs retain their original
-  criteria and each course keeps its independent active criteria. Versioned
-  activation is deferred; do not re-enable it without a newer user instruction.
+- Criteria tuning requires active tutor ownership of the course. Saving numeric
+  settings creates a new version for future assessments. Existing runs and tutor
+  decisions retain their original criteria; each course keeps its own active version.
+  Legacy academic-rule text stays internal and fixed; it is not an editable or
+  disabled UI field. Do not auto-reassess applicants on save.
 - Rubric values and programme names are illustrative, **not UCL admissions policy**.
   Unavailable evidence/scores must not silently become zero.
-- New uploads receive an explicit backend-unavailable state. Do not invent
-  extracted facts, scores or AI explanations for newly uploaded documents.
+- New uploads remain unassessed. Show neutral Not assessed / No assessment available
+  text instead of technical backend-unavailable warnings. Preserve the internal
+  unavailable flag/state and never invent extracted facts, scores or AI explanations.
 - PDFs are validated for readability, at most 20 MB per file and 100 combined
   pages per application. Preserve originals and locally bundled PDF.js viewing.
   Validate citation document/run/page identities and encode navigation parameters.
 - Records and PDF blobs persist in IndexedDB. Keep blobs outside Redux. The
   dataset/backup schema is version 2, with support for version 1 migration.
   The IndexedDB database schema version is separately defined in `storage.ts`.
-- Session identity and per-account course selection use sessionStorage. Preserve
+- Session identity and per-account module/intake selection use sessionStorage. Preserve
   refresh persistence and recovery of interrupted simulated evaluations.
 - Backup/restore includes records, PDFs and history and applies only to this
   browser's demo dataset. Validate backups before replacement. Deletion/reset
   require confirmation. Failed writes must abort atomically and surface errors.
 - PDF loading/rendering tasks must be cleaned up on errors, page changes and
-  unmount. Service-health information remains visibly simulated.
+  unmount. Service health remains simulated internally; do not treat it as actual
+  external-service monitoring, even though the user has removed repeated UI notices.
+
+## Interface notice cleanup (19 October 2026)
+
+The user explicitly removed recurring notices that the app is a demo or is not
+connected to a backend. This supersedes earlier requirements for visible demo
+labels, simulation hints, connection banners and integration warnings. Remove
+these from sign-in, the header, ZIP/batch views, uploads, assessments, criteria and
+administrative pages. Keep actual operation/validation errors, evidence concerns,
+confirmation dialogs and storage-replacement/deletion consequences.
+
+The unused BackendConnection component, its content and tests are deleted;
+AssessmentPage no longer polls backend health solely for a banner. HTTP evaluation
+and API health support remain intact, as do `evaluationSource` / `simulated`
+metadata. `hasUnavailableAssessment` detects the existing backend-unavailable flag
+for presentation: display neutral status text and suppress unavailable-score
+recommendations, stale justification rules and integration-specific messages.
+Stored runs, originals and history are unchanged. SummaryCards permits omitted
+hints, avoiding empty or repetitive environment captions. Fixture names, service
+responses and operation-specific backup/reset labels remain data, not blanket
+notices to restore. Documentation continues to describe the actual mocked and
+browser-only integration boundaries; no backend capability was added by this UI
+change.
 
 ## Design reference
 
-Use the UCL theme already in `src/app/theme.ts`: dark purple `#361A54`, bright
-purple `#993BFF`, off-white `#FAFAFA` and pale purple `#EEDEFF`, with labelled
-green/amber/red status indicators. Font stack: `Aptos, Arial, sans-serif`.
-Official UCL logo/font assets are not bundled. Preserve the 232 px desktop
-sidebar, 72 px header, card hierarchy, responsive stacking and mobile navigation.
+Latest visual direction (15 October 2026): the user and supervisor prefer a plain
+**Mantis-style interface**. This supersedes the earlier UCL purple theme and Figma
+shell dimensions. The supplied reference is Mantis React Next TypeScript 4.0.1,
+locally at `/Users/jack_1/Downloads/mantis-react-next-ts-4.0.1`. Adapt its visual
+patterns within the existing React/Vite/MUI application; do not migrate to Next.js
+or copy its demo routes, authentication or backend integrations.
+
+`src/app/theme.ts` owns a white/light-grey palette, charcoal text, restrained blue
+controls and labelled green/amber/red statuses. Public Sans is self-hosted through
+`@fontsource/public-sans` (Latin weights 400/500/600/700); no external font request
+is required. The action blue is darkened for accessible white labels. Preserve
+the 260 px sidebar, 64 px white header, bordered card headers, compact typography,
+responsive stacking, mobile drawer and centred concise sign-in card. Keep theme
+tokens in components instead of restoring hard-coded purple colours. Product
+name remains. The sidebar shows only the UCL logo; sign-in shows it alongside
+Application Review Workspace (stacked on mobile). `components/UclLogo.tsx` reuses
+the locally bundled white portico/lettering PNG on black, requested by the user
+on 19 October. `src/assets/README.md` records its UCL Indigo source and CleanPNG
+visual reference. Do not use the watermarked preview or hotlink images at runtime.
+UCL fonts are not bundled.
 
 The Figma file is `JUJzxkc6pTAUdqLOhBMhPu`. When doing Figma work, prefer Figma MCP
 as requested by the user and follow the applicable Figma skills. Local saved
@@ -329,16 +548,30 @@ for discovered bugs covered by meaningful regression tests.
 For Chromium, use `npx playwright install chromium` on a new machine. This local
 session installed it at `/private/tmp/ucl-admissions-browsers`; if that directory
 exists, run `PLAYWRIGHT_BROWSERS_PATH=/private/tmp/ucl-admissions-browsers npm run test:e2e`.
+The standalone browser script builds with Vite `--mode e2e`, explicitly clearing
+the optional API URL so local `.env.local` cannot require a running backend. The
+separate backend suite retains its own integration servers and artifact directory.
 Playwright manages its preview on port 4173. Do not rebuild the production bundle
 while that suite is running.
 
-Last full verification on 14 October 2026: **337 frontend tests across 31 files**,
-**31 Python API tests**, **8 demo browser workflows plus 2 real FastAPI integration
-checks**, **98.15% frontend line coverage / 90.97% branch coverage**, with TypeScript,
-lint, formatting and production build passing. Browser checks cover all 12
-screens at 1440×1000 and 390×844 and find no critical/serious axe issues. These
-results are a snapshot, not a substitute for validating later changes. Enforced
-coverage minimums: 95% lines, 90% statements/functions and 85% branches.
+Latest frontend verification on 19 October 2026 after the cleanup:
+**477 tests across 38 files**, **98.79% line / 92.34% branch coverage**;
+TypeScript, production build, lint and formatting pass. All **14 frontend browser
+workflows** and **2 FastAPI browser workflows** pass. The 15-screen desktop/mobile
+audit at 1440×1000 and 390×844 finds no critical/serious axe issues, including the
+mobile drawer and criteria history interaction. Browser checks cover private
+courses, ZIP batches, default-data upgrades, PDF originals, corrections, decisions,
+versioned criteria, refresh, deletion and backup/restore/reset. The mock API suite
+passes **34 tests**. Full PostgreSQL tests and backend Ruff were not rerun for this
+frontend change; the database foundation remains unchanged. See
+[frontend verification](frontend/VERIFICATION.md) for coverage and limits.
+
+The cleanup removes unused domain-label and dataset aliases, plus the RTK health
+query left behind by the deleted connection banner. Layout and upload pages reuse
+workspace results. The HTTP health helper/contract and saved-data compatibility
+code remain. These results are a snapshot, not a substitute for validating future
+changes. Enforced coverage minimums are 95% lines, 90% statements/functions and
+85% branches.
 
 ## Repository and handover
 

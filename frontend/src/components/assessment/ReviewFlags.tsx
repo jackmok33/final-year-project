@@ -1,7 +1,7 @@
 import { useContent } from '../../hooks/useContent'
 import { Alert, Button, Typography } from '@mui/material'
 import { Link } from 'react-router-dom'
-import { type AssessmentRun } from '../../domain/types'
+import { hasUnavailableAssessment, type AssessmentRun } from '../../domain/types'
 import { Card } from '../common'
 
 export function ReviewFlags({
@@ -19,12 +19,16 @@ export function ReviewFlags({
   return (
     <Card title={content.reviewFlags}>
       {!run.flags.length && <Alert severity="success">{content.noFlagsMessage}</Alert>}
-      {run.flags.map((flag) => (
-        <Alert key={flag.code} severity={flag.critical ? 'warning' : 'info'}>
-          <Typography sx={{ fontWeight: 600 }}>{flag.code.replaceAll('_', ' ')}</Typography>
-          {flag.message}
-        </Alert>
-      ))}
+      {run.flags.map((flag) =>
+        flag.code === 'BACKEND_UNAVAILABLE' ? (
+          <Typography key={flag.code}>{content.assessmentUnavailable}</Typography>
+        ) : (
+          <Alert key={flag.code} severity={flag.critical ? 'warning' : 'info'}>
+            <Typography sx={{ fontWeight: 600 }}>{flag.code.replaceAll('_', ' ')}</Typography>
+            {flag.message}
+          </Alert>
+        ),
+      )}
       {run.extractedGrade !== null && (
         <Button
           component={Link}
@@ -34,7 +38,9 @@ export function ReviewFlags({
           {content.inspectCorrectFact}
         </Button>
       )}
-      {run.error && <Typography variant="body2">{content.failureCategory(run.error)}</Typography>}
+      {run.error && !hasUnavailableAssessment(run) && (
+        <Typography variant="body2">{content.failureCategory(run.error)}</Typography>
+      )}
     </Card>
   )
 }

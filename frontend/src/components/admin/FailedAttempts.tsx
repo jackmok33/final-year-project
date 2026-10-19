@@ -14,7 +14,7 @@ export function FailedAttempts({
     <Card title={content.failedEvaluationAttempts}>
       {data?.logs.length ? (
         data.logs.map((row) => (
-          <Box key={row.jobId} sx={{ bgcolor: '#FAFAFA', borderRadius: 1, p: 2 }}>
+          <Box key={row.jobId} sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 2 }}>
             <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1 }}>
               <Typography sx={{ fontWeight: 600 }}>{row.jobId}</Typography>
               <Status label={content.failed} />

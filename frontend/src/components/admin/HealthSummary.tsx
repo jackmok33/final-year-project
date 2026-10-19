@@ -10,15 +10,13 @@ export function HealthSummary({ data }: { data?: DemoHealth }) {
         {
           label: content.availableServices,
           value: data?.modelAvailable ? content.allServicesAvailable : content.modelUnavailable,
-          hint: content.simulationHint,
         },
-        { label: content.failedJobs, value: data?.failed ?? 0, hint: content.simulationHint },
+        { label: content.failedJobs, value: data?.failed ?? 0 },
         {
           label: content.queuedEvaluations,
           value: data?.queued ?? 0,
-          hint: content.simulationHint,
         },
-        { label: content.storage, value: content.browserStorage, hint: content.simulationHint },
+        { label: content.storage, value: content.browserStorage },
       ]}
     />
   )

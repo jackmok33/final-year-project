@@ -3,8 +3,8 @@ import '../test/domSetup'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { apiMocks, command, queryResult, resetPageMocks } from '../test/pageMocks'
-import { application, detail, documents, run } from '../test/fixtures'
+import { apiMocks, command, queryResult, resetPageMocks, workspaceMock } from '../test/pageMocks'
+import { application, detail, documents, run, programme, tutor } from '../test/fixtures'
 import { renderPage } from '../test/renderPage'
 import { ApplicationsPage } from './ApplicationsPage'
 import { AssessmentPage } from './AssessmentPage'
@@ -29,6 +29,26 @@ vi.mock('../components/evidence/PdfViewer', () => ({
 }))
 beforeEach(resetPageMocks)
 describe('application queue', () => {
+  it('scopes rows and summary counts to the selected intake', () => {
+    workspaceMock.mockReturnValue({
+      user: tutor,
+      programme,
+      programmes: [programme],
+      intakeYear: '2025 / 26',
+    })
+    apiMocks.useApplicationsQuery.mockReturnValue(
+      queryResult([
+        application,
+        { ...application, id: 'APP-OLDER', candidate: 'OLDER', intakeYear: '2025 / 26' },
+      ]),
+    )
+    renderPage(<ApplicationsPage />, '/applications', '*')
+    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/batches')
+    expect(screen.queryByRole('link', { name: 'Admission criteria' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open APP-TEST' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open APP-OLDER' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Export/ })).not.toBeInTheDocument()
+  })
   it('filters candidate search, workflow and recommendation independently', async () => {
     apiMocks.useApplicationsQuery.mockReturnValue(
       queryResult([
@@ -52,23 +72,45 @@ describe('application queue', () => {
     await userEvent.click(screen.getByRole('combobox', { name: 'Recommendation' }))
     await userEvent.click(screen.getByRole('option', { name: 'Offer' }))
     expect(screen.getByText(/No applications match/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Export filtered results' })).toBeDisabled()
-  })
-  it('exports only visible rows with safe CSV cells and separate tutor decisions', async () => {
-    apiMocks.useApplicationsQuery.mockReturnValue(
-      queryResult([{ ...application, candidate: '=1+2' }]),
-    )
-    renderPage(<ApplicationsPage />, '/applications', '*')
-    await userEvent.click(screen.getByRole('button', { name: 'Export filtered results' }))
-    const [blob, filename] = vi.mocked(downloadBlob).mock.calls[0]
-    expect(filename).toBe('admissions-demo-results.csv')
-    const csv = await blob.text()
-    expect(csv).toContain('Tutor decision')
-    expect(csv).toContain('"\'=1+2"')
-    expect(csv).toContain('"Offer","","1.0"')
+    expect(screen.queryByRole('button', { name: /Export/ })).not.toBeInTheDocument()
   })
 })
 describe('assessment page', () => {
+  it('shows unavailable assessments without integration notices or fabricated results', () => {
+    const unavailable = {
+      ...run,
+      overall: null,
+      extractedGrade: null,
+      flags: [
+        {
+          code: 'BACKEND_UNAVAILABLE',
+          message: 'This upload needs the backend and local AI service.',
+          critical: true,
+        },
+      ],
+      sections: run.sections.map((section) => ({
+        ...section,
+        score: null,
+        explanation: 'Evaluation requires the backend and local model.',
+        citations: [],
+      })),
+      justification: {
+        ...run.justification,
+        summary: 'Connect the backend and local model before evaluating this application.',
+        citations: [],
+      },
+    }
+    const original = structuredClone(unavailable)
+    apiMocks.useApplicationQuery.mockReturnValue(
+      queryResult({ ...detail, application: { ...application, runs: [unavailable] } }),
+    )
+    renderPage(<AssessmentPage />)
+    expect(screen.getByText('Not assessed', { exact: true })).toBeInTheDocument()
+    expect(screen.getByText('No assessment available for these documents.')).toBeInTheDocument()
+    expect(screen.queryByText(/backend|local AI service/i)).not.toBeInTheDocument()
+    expect(screen.queryByText('88')).not.toBeInTheDocument()
+    expect(unavailable).toEqual(original)
+  })
   it('does not invent an assessment for a new upload and can request evaluation', async () => {
     apiMocks.useApplicationQuery.mockReturnValue(
       queryResult({ ...detail, application: { ...application, fixture: undefined, runs: [] } }),

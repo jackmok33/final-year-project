@@ -1,11 +1,11 @@
 export const programmeAccessContent = {
-  programmeAccess: 'Programme access',
+  programmeAccess: 'Course ownership',
   configuredProgramme: 'Configured programme',
-  accessDescription: 'Tutors see only programmes assigned to their account.',
-  manageTutorAccess: 'Manage tutor access',
+  accessDescription:
+    'Each course belongs to one tutor. Only its owner can review applicants and delete the course.',
   admissionPolicy: 'Admission policy',
   policyDescription:
-    'An authorised tutor maintains the rubric. Website administrator permission does not grant rubric publication.',
+    'Course owners manage admission criteria. Administrator permission alone does not grant applicant access or admissions decisions.',
   courseDescription:
-    'Each course has its own application queue and versioned criteria. New courses start with an illustrative example rubric; assign tutor access in Users & access.',
+    'Tutors add courses from Courses. Each course starts with its own illustrative rubric and an empty application queue.',
 } as const

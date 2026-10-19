@@ -30,13 +30,14 @@ export const apiMocks = {
   useAccountsQuery: vi.fn(),
   useMeQuery: vi.fn(),
   useApplicationsQuery: vi.fn(),
+  useBatchesQuery: vi.fn(),
+  useBatchQuery: vi.fn(),
   useApplicationQuery: vi.fn(),
   useProgrammesQuery: vi.fn(),
   useWorkspaceDeletionQuery: vi.fn(),
   useRubricsQuery: vi.fn(),
   useUsersQuery: vi.fn(),
   useHealthQuery: vi.fn(),
-  useBackendHealthQuery: vi.fn(),
   useAuditQuery: vi.fn(),
   useCommandMutation: vi.fn(() => [command, mutation]),
 }
@@ -44,7 +45,11 @@ export const workspaceMock = vi.fn()
 export const dispatch = vi.fn()
 export const state = {
   session: { userId: 'tutor-a' as string | null },
-  ui: { navigationOpen: false, programmeByUser: {} as Record<string, string> },
+  ui: {
+    navigationOpen: false,
+    programmeByUser: {} as Record<string, string>,
+    intakeByUser: {} as Record<string, Record<string, string>>,
+  },
 }
 export const storeMocks = {
   useAppDispatch: () => dispatch,
@@ -62,6 +67,8 @@ export function resetPageMocks() {
   apiMocks.useAccountsQuery.mockReturnValue(queryResult([tutor, administrator]))
   apiMocks.useMeQuery.mockReturnValue(queryResult(tutor))
   apiMocks.useApplicationsQuery.mockReturnValue(queryResult([application]))
+  apiMocks.useBatchesQuery.mockReturnValue(queryResult([]))
+  apiMocks.useBatchQuery.mockReturnValue(queryResult())
   apiMocks.useApplicationQuery.mockReturnValue(queryResult(structuredClone(detail)))
   apiMocks.useProgrammesQuery.mockReturnValue(queryResult([programme, otherProgramme]))
   apiMocks.useWorkspaceDeletionQuery.mockReturnValue({
@@ -70,7 +77,6 @@ export function resetPageMocks() {
       applications: 1,
       documents: 3,
       criteriaVersions: 2,
-      otherTutors: 1,
     }),
     isFetching: false,
   })
@@ -85,10 +91,10 @@ export function resetPageMocks() {
     }),
   )
   apiMocks.useAuditQuery.mockReturnValue(queryResult([]))
-  apiMocks.useBackendHealthQuery.mockReturnValue(queryResult())
   workspaceMock.mockReturnValue({
     user: tutor,
     programme,
+    intakeYear: programme.year,
     programmes: [programme, otherProgramme],
     isLoading: false,
     error: undefined,
@@ -96,4 +102,5 @@ export function resetPageMocks() {
   state.session.userId = tutor.id
   state.ui.navigationOpen = false
   state.ui.programmeByUser = {}
+  state.ui.intakeByUser = {}
 }

@@ -36,12 +36,41 @@ function savedWorkspaces(): Record<string, string> {
   }
   return {}
 }
+function savedIntakes(): Record<string, Record<string, string>> {
+  try {
+    const value: unknown = JSON.parse(sessionStorage.getItem('ucl-demo-intakes') ?? '{}')
+    const record = (item: unknown): item is Record<string, unknown> =>
+      !!item && typeof item === 'object' && !Array.isArray(item)
+    if (
+      record(value) &&
+      Object.values(value).every(
+        (years) => record(years) && Object.values(years).every((year) => typeof year === 'string'),
+      )
+    )
+      return value as Record<string, Record<string, string>>
+  } catch {
+    /* Continue with the module's saved intake year. */
+  }
+  return {}
+}
 const ui = createSlice({
   name: 'ui',
-  initialState: { navigationOpen: false, programmeByUser: savedWorkspaces() },
+  initialState: {
+    navigationOpen: false,
+    programmeByUser: savedWorkspaces(),
+    intakeByUser: savedIntakes(),
+  },
   reducers: {
-    selectProgramme(state, action: PayloadAction<{ userId: string; programmeId: string }>) {
+    selectProgramme(
+      state,
+      action: PayloadAction<{ userId: string; programmeId: string; intakeYear?: string }>,
+    ) {
       state.programmeByUser[action.payload.userId] = action.payload.programmeId
+      if (action.payload.intakeYear) {
+        state.intakeByUser[action.payload.userId] ??= {}
+        state.intakeByUser[action.payload.userId][action.payload.programmeId] =
+          action.payload.intakeYear
+      }
     },
     setNavigationOpen(state, action: PayloadAction<boolean>) {
       state.navigationOpen = action.payload
@@ -64,6 +93,7 @@ store.subscribe(() => {
       'ucl-demo-workspaces',
       JSON.stringify(store.getState().ui.programmeByUser),
     )
+    sessionStorage.setItem('ucl-demo-intakes', JSON.stringify(store.getState().ui.intakeByUser))
     const id = store.getState().session.userId
     if (id) sessionStorage.setItem('ucl-demo-user', id)
     else sessionStorage.removeItem('ucl-demo-user')

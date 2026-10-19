@@ -1,4 +1,5 @@
 import { useContent } from '../../hooks/useContent'
+import { ArrowBackOutlined } from '@mui/icons-material'
 import { Button } from '@mui/material'
 import { Link } from 'react-router-dom'
 import { applicationState, type Application, type AssessmentRun } from '../../domain/types'
@@ -37,6 +38,15 @@ export function AssessmentActions({
       <Button variant="outlined" onClick={onEvaluate} disabled={busy || inProgress}>
         {app.runs.length ? content.reEvaluateDemoCase : content.requestEvaluation}
       </Button>
+      {app.batchId && (
+        <Button
+          component={Link}
+          to={`/batches/${encodeURIComponent(app.batchId)}`}
+          startIcon={<ArrowBackOutlined />}
+        >
+          {content.back}
+        </Button>
+      )}
     </>
   )
 }

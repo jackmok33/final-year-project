@@ -24,7 +24,7 @@ describe('source verification and correction access', () => {
     )
     expect(screen.getByText('Needs verification')).toBeInTheDocument()
     expect(screen.getByLabelText('Extracted final grade')).toHaveValue('71%')
-    expect(screen.getByText(/synthetic transcript shows 74%/)).toBeInTheDocument()
+    expect(screen.getByText(/extracted grade may differ from the original/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Correct extracted fact' })).toHaveAttribute(
       'href',
       '/applications/APP-TEST/correct',

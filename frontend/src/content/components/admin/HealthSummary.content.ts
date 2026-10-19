@@ -6,5 +6,4 @@ export const healthSummaryContent = {
   queuedEvaluations: 'Queued evaluations',
   storage: 'Storage',
   browserStorage: 'Browser',
-  simulationHint: 'Simulated environment',
 } as const

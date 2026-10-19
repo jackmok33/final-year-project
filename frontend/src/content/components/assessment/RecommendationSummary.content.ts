@@ -1,5 +1,6 @@
 export const recommendationSummaryContent = {
   recommendation: 'Recommendation',
+  notAssessed: 'Not assessed',
   unavailableScore: '—',
   overallScore100: 'Overall score / 100',
   tutorDecision: 'Tutor decision',

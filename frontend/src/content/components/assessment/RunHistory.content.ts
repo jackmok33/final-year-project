@@ -6,7 +6,7 @@ export const runHistoryContent = {
   assessmentRun: 'Assessment run',
   runOption: (number: number, criteriaVersion: string | undefined, status: Workflow) =>
     `Run ${String(number).padStart(3, '0')} · Criteria v${criteriaVersion ?? ''} · ${domainLabelsContent.workflowLabels[status]}`,
-  assessmentTime: (time: string) => `${time} · Simulated assessment`,
+  assessmentTime: (time: string) => `${time} · Assessment`,
   gradeCorrection: (original: number | null, corrected: number) =>
     `Grade corrected: ${original ?? 'Unknown'}% → ${corrected}%`,
   correctionDetails: (reason: string, time: string) => `${reason} · ${time}`,

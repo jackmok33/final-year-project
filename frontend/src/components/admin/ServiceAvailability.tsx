@@ -23,9 +23,7 @@ export function ServiceAvailability({
           >
             <Typography sx={{ fontWeight: 600 }}>{label}</Typography>
             <Status
-              label={
-                i === 3 && !data?.modelAvailable ? content.unavailable : content.availableSimulated
-              }
+              label={i === 3 && !data?.modelAvailable ? content.unavailable : content.available}
             />
           </Stack>
         ),
@@ -42,7 +40,6 @@ export function ServiceAvailability({
         }
         label={content.simulateModelAvailability}
       />
-      <Typography variant="body2">{content.simulationHint}</Typography>
     </Card>
   )
 }

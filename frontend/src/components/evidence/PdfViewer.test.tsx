@@ -55,7 +55,7 @@ describe('local PDF viewer lifecycle', () => {
     getPage.mockRejectedValue(new Error('Page unavailable'))
     render(<PdfViewer document={documents[0]} page={1} userId="tutor-a" />)
     expect(await screen.findByRole('alert')).toHaveTextContent('Page unavailable')
-    expect(screen.getByText(/OCR is not available/)).toBeInTheDocument()
+    expect(screen.getByText(/no readable embedded text/)).toBeInTheDocument()
   })
   it('destroys a PDF that finishes loading after the viewer has unmounted', async () => {
     let finish!: (value: Awaited<ReturnType<typeof openPdf>>) => void

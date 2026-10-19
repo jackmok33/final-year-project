@@ -6,12 +6,12 @@ export const evidenceClaimContent = {
   citedSource: 'Cited source',
   quotedClaim: (claim: ContentValue) => `“${textValue(claim)}”`,
   sourceContext: (name: ContentValue, page: ContentValue) =>
-    `${textValue(name)} · page ${textValue(page)} · Simulated assessment`,
+    `${textValue(name)} · page ${textValue(page)} · Assessment`,
   noClaimMessage:
     'No assessment claim cites this page. You are viewing the preserved original document.',
   extractedFinalGrade: 'Extracted final grade',
   mismatchWarning:
-    'The synthetic transcript shows 74%. Verify the original before correcting the extracted 71%.',
+    'The extracted grade may differ from the original. Check the cited page before correcting it.',
   correctExtractedFact: 'Correct extracted fact',
   citationHint:
     'A citation points to a source. Inspect the document to decide whether it supports the claim.',

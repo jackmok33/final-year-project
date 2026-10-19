@@ -5,7 +5,6 @@ export const serviceAvailabilityContent = {
   documentStorage: 'Document storage',
   localModel: 'Local model',
   unavailable: 'Unavailable',
-  availableSimulated: 'Available · simulated',
+  available: 'Available',
   simulateModelAvailability: 'Simulate model availability',
-  simulationHint: 'This switch affects only subsequent evaluations of seeded demo cases.',
 } as const

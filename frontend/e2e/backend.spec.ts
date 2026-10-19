@@ -12,23 +12,24 @@ for (const viewport of [
     await page.goto('/login')
     await page.getByRole('button', { name: 'Continue' }).click()
     await page.goto('/applications/APP-2026-0143')
-    await expect(page.getByText(/FastAPI connected/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'APP-2026-0143', exact: true })).toBeVisible()
+    await expect(page.getByText(/FastAPI connected/)).toHaveCount(0)
     const responsePromise = page.waitForResponse(
       (response) =>
         response.url().endsWith('/api/v1/mock/assessments') &&
         response.request().method() === 'POST',
     )
-    await page.getByRole('button', { name: 'Re-evaluate demo case' }).click()
+    await page.getByRole('button', { name: 'Re-evaluate application' }).click()
     const response = await responsePromise
     expect(response.status()).toBe(200)
     const run = await response.json()
     expect(run.overall).toBe(88.5)
     expect(run.recommendation).toBe('Offer')
     expect(run.evaluationSource).toBe('fastapi-mock')
-    await expect(page.getByText(/This assessment came from FastAPI/)).toBeVisible()
+    await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
     await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
     await page.reload()
-    await expect(page.getByText(/This assessment came from FastAPI/)).toBeVisible()
+    await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
     const results = await new AxeBuilder({ page }).analyze()
     expect(
       results.violations.filter((v) => ['critical', 'serious'].includes(v.impact ?? '')),
@@ -42,10 +43,28 @@ for (const viewport of [
     await expect(page).toHaveURL(/document=APP-2026-0143-transcript.*page=2/)
     await page.goBack()
     await page.route('http://127.0.0.1:8001/api/v1/mock/assessments', (route) => route.abort())
-    await page.getByRole('button', { name: 'Re-evaluate demo case' }).click()
+    await page.getByRole('button', { name: 'Re-evaluate application' }).click()
     await expect(page.getByText(/Cannot reach the FastAPI/)).toBeVisible()
     await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
     await page.reload()
-    await expect(page.getByText(/This assessment came from FastAPI/)).toBeVisible()
+    await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
+    await page.unroute('http://127.0.0.1:8001/api/v1/mock/assessments')
+    await page.goto('/criteria')
+    await page.getByLabel('Offer from', { exact: true }).fill('95')
+    await page.getByRole('button', { name: 'Save criteria', exact: true }).click()
+    await expect(page.getByText('Active: v1.1', { exact: true })).toBeVisible()
+    await page.goto('/applications/APP-2026-0143')
+    const nextResponse = page.waitForResponse((response) =>
+      response.url().endsWith('/api/v1/mock/assessments'),
+    )
+    await page.getByRole('button', { name: 'Re-evaluate application', exact: true }).click()
+    const updatedResponse = await nextResponse
+    expect(updatedResponse.status()).toBe(200)
+    const updated = await updatedResponse.json()
+    const request = updatedResponse.request().postDataJSON()
+    expect(request.criteria).toMatchObject({ version: '1.1', offerFrom: 95 })
+    expect(updated.rubricId).toBe(request.criteria.id)
+    expect(updated.recommendation).toBe('Further review')
+    await expect(page.getByText('Criteria v1.1', { exact: true })).toBeVisible()
   })
 }

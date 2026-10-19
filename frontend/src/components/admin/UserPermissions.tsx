@@ -1,40 +1,17 @@
 import { useContent } from '../../hooks/useContent'
-import { Checkbox, FormControlLabel, Typography } from '@mui/material'
+import { Typography } from '@mui/material'
 import type { Programme, User } from '../../domain/types'
 
-export function UserPermissions({
-  form,
-  programmes,
-  setForm,
-}: {
-  form: User
-  programmes: Programme[]
-  setForm: (user: User) => void
-}) {
+export function UserPermissions({ form, programmes }: { form: User; programmes: Programme[] }) {
   const content = useContent('userPermissions')
+  const owned = programmes.filter((p) => p.createdBy === form.id)
   return (
     <>
-      <Typography sx={{ fontWeight: 600 }}>{content.assignedCourseWorkspaces}</Typography>
-      {programmes.map((programme) => (
-        <FormControlLabel
-          key={programme.id}
-          control={
-            <Checkbox
-              color="secondary"
-              checked={form.programmeIds.includes(programme.id)}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  programmeIds: e.target.checked
-                    ? [...form.programmeIds, programme.id]
-                    : form.programmeIds.filter((id) => id !== programme.id),
-                })
-              }
-            />
-          }
-          label={content.programmeAccessLabel(programme.name)}
-        />
-      ))}
+      <Typography sx={{ fontWeight: 600 }}>{content.ownedCourses}</Typography>
+      <Typography>{owned.map((p) => p.name).join(', ') || content.empty}</Typography>
+      <Typography variant="body2" color="text.secondary">
+        {content.ownershipHint}
+      </Typography>
     </>
   )
 }

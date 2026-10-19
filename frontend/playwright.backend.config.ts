@@ -3,6 +3,7 @@ import { defineConfig } from '@playwright/test'
 // This suite owns separate ports and does not replace the user's running app/data.
 export default defineConfig({
   testDir: './e2e',
+  outputDir: './test-results/backend',
   testMatch: 'backend.spec.ts',
   timeout: 60000,
   workers: 1,

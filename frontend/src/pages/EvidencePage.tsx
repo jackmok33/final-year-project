@@ -1,4 +1,5 @@
 import { useContent } from '../hooks/useContent'
+import { ArrowBackOutlined } from '@mui/icons-material'
 import { Alert, Button, Stack, Typography } from '@mui/material'
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -53,12 +54,17 @@ export function EvidencePage() {
       subtitle={content.subtitle(id)}
       actions={
         <>
-          <Button component={Link} to={`/applications/${id}`} variant="outlined">
-            {content.backToAssessment}
-          </Button>
           <Status label={content.originalDocument} />
           <Button onClick={() => void download()} disabled={!valid}>
             {content.downloadOriginal}
+          </Button>
+          <Button
+            component={Link}
+            to={`/applications/${id}`}
+            variant="outlined"
+            startIcon={<ArrowBackOutlined />}
+          >
+            {content.back}
           </Button>
         </>
       }

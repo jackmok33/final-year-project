@@ -7,6 +7,7 @@ import type {
   DocumentType,
   Rubric,
   SectionScore,
+  UploadBatch,
 } from '../domain/types'
 import { sha256 } from './storage'
 
@@ -21,13 +22,35 @@ export const baseRubric: Rubric = {
   margin: 3,
   mandatoryRule: 'Relevant undergraduate qualification',
 }
+export const firstProgramme = {
+  id: 'programme-1',
+  name: 'Computational Statistics and Machine Learning MSc',
+  code: 'COMP0001',
+  year: '2026 / 27',
+  department: 'Example department',
+  description: 'Illustrative course workspace. Not UCL admissions policy.',
+}
 export const secondProgramme = {
   id: 'programme-2',
-  name: 'Data Science · Example',
-  code: 'PG-DS-DEMO',
+  name: 'Machine Learning MSc',
+  code: 'COMP0002',
   year: '2026 / 27',
   department: 'Example department',
   description: 'Synthetic second course workspace. Not UCL admissions policy.',
+}
+export const thirdProgramme = {
+  id: 'programme-3',
+  name: 'Computer Science MSc',
+  code: 'CS-MSC-DEMO',
+  year: '2026 / 27',
+  department: 'Example department',
+  description: 'Illustrative course workspace. Not UCL admissions policy.',
+}
+export const thirdRubric: Rubric = {
+  ...baseRubric,
+  id: 'rubric-3',
+  programmeId: thirdProgramme.id,
+  weights: { ...baseRubric.weights },
 }
 export const secondRubric: Rubric = {
   ...baseRubric,
@@ -259,20 +282,63 @@ export function simulateRun(
     simulated: true,
   }
 }
+const sampleBatches: UploadBatch[] = [
+  {
+    id: 'sample-csml-october-12',
+    programmeId: 'programme-1',
+    intakeYear: '2026 / 27',
+    filename: 'Sample October applications.zip',
+    uploadedAt: '2026-10-12T10:30:00Z',
+    uploadedBy: 'tutor-a',
+    source: 'zip',
+  },
+  {
+    id: 'sample-csml-october-16',
+    programmeId: 'programme-1',
+    intakeYear: '2026 / 27',
+    filename: 'Sample reviewed applications.zip',
+    uploadedAt: '2026-10-16T13:00:00Z',
+    uploadedBy: 'tutor-a',
+    source: 'zip',
+  },
+]
+const sampleBatchAudit = {
+  id: 'sample-csml-batches-v2',
+  at: '2026-10-16T15:00:00Z',
+  actor: 'tutor-a',
+  action: 'Add sample course batches',
+  target: 'sample-batches',
+}
 export async function createSeed(): Promise<{ dataset: Dataset; files: Record<string, Blob> }> {
   const files: Record<string, Blob> = {}
   const documents: DocumentRecord[] = []
   const applications: Application[] = []
   for (const [index, fixture] of (
-    ['review', 'offer', 'reject', 'missing', 'failed', 'offer'] as const
+    [
+      'review',
+      'offer',
+      'reject',
+      'missing',
+      'failed',
+      'offer',
+      'offer',
+      'missing',
+      'reject',
+    ] as const
   ).entries()) {
-    const id = `APP-2026-${String(142 + index).padStart(4, '0')}`
+    const id =
+      index >= 6
+        ? `SAMPLE-CSML-${String(index - 5).padStart(2, '0')}`
+        : `APP-2026-${String(142 + index).padStart(4, '0')}`
     const candidate = `SYN-${142 + index}`
+    const batch = index >= 6 ? sampleBatches[index === 8 ? 1 : 0] : undefined
     const app: Application = {
       id,
       candidate,
       programmeId: index === 5 ? 'programme-2' : 'programme-1',
-      submittedAt: '2026-10-08T09:00:00Z',
+      intakeYear: '2026 / 27',
+      submittedAt: batch?.uploadedAt ?? '2026-10-08T09:00:00Z',
+      ...(batch ? { batchId: batch.id } : {}),
       documentIds: [],
       fixture,
       runs: [],
@@ -307,10 +373,21 @@ export async function createSeed(): Promise<{ dataset: Dataset; files: Record<st
       fixture === 'review' ? 71 : 74,
       false,
     )
-    run.startedAt = '2026-10-09T10:42:00Z'
-    run.finishAt = '2026-10-09T10:42:01Z'
+    run.startedAt = batch?.uploadedAt ?? '2026-10-09T10:42:00Z'
+    run.finishAt = new Date(Date.parse(run.startedAt) + 1000).toISOString()
     run.status = fixture === 'failed' ? 'failed' : 'awaiting review'
     app.runs.push(run)
+    if (index === 6 || index === 8) {
+      app.decisions.push({
+        id: `sample-decision-${id}`,
+        runId: run.id,
+        recommendation: run.recommendation,
+        outcome: index === 6 ? 'Offer' : 'Reject',
+        reason: 'Synthetic example: source evidence reviewed by the tutor.',
+        actor: 'tutor-a',
+        at: new Date(Date.parse(run.finishAt) + 3600000).toISOString(),
+      })
+    }
     applications.push(app)
   }
   return {
@@ -323,7 +400,7 @@ export async function createSeed(): Promise<{ dataset: Dataset; files: Record<st
           name: 'Jack · Demo tutor',
           email: 'tutor@demo.ucl.local',
           roles: ['tutor'],
-          programmeIds: ['programme-1', 'programme-2'],
+          programmeIds: ['programme-1', 'programme-2', 'programme-3'],
           canPublishCriteria: true,
           active: true,
         },
@@ -332,7 +409,7 @@ export async function createSeed(): Promise<{ dataset: Dataset; files: Record<st
           name: 'Demo tutor B',
           email: 'tutor.b@demo.ucl.local',
           roles: ['tutor'],
-          programmeIds: ['programme-1'],
+          programmeIds: [],
           canPublishCriteria: false,
           active: true,
         },
@@ -350,28 +427,144 @@ export async function createSeed(): Promise<{ dataset: Dataset; files: Record<st
           name: 'Former tutor',
           email: 'former@demo.ucl.local',
           roles: ['tutor'],
-          programmeIds: ['programme-1'],
+          programmeIds: [],
           canPublishCriteria: false,
           active: false,
         },
       ],
-      programmes: [
-        {
-          id: 'programme-1',
-          name: 'Programme · TBC',
-          code: 'PG-TBC',
-          year: '2026 / 27',
-          department: 'To be confirmed',
-          description: 'Postgraduate admissions workspace for the selected programme.',
-        },
-        secondProgramme,
-      ],
-      rubrics: [baseRubric, secondRubric],
-      activeRubricIds: { 'programme-1': baseRubric.id, 'programme-2': secondRubric.id },
+      programmes: [firstProgramme, secondProgramme, thirdProgramme].map((p) => ({
+        ...p,
+        createdBy: 'tutor-a',
+      })),
+      rubrics: [baseRubric, secondRubric, thirdRubric],
+      activeRubricIds: {
+        'programme-1': baseRubric.id,
+        'programme-2': secondRubric.id,
+        'programme-3': thirdRubric.id,
+      },
       applications,
+      batches: structuredClone(sampleBatches),
       documents,
-      audit: [],
+      audit: [{ ...sampleBatchAudit }],
       modelAvailable: false,
     },
   }
+}
+
+/** Install code-defined defaults and repair older incomplete upgrades without resetting data. */
+export async function addSampleCourseBatches(data: Dataset): Promise<Record<string, Blob>> {
+  if (data.audit.some((event) => event.id === sampleBatchAudit.id)) return {}
+  const programme = data.programmes.find((p) => p.id === 'programme-1')
+  const rubric = data.rubrics.find((r) => r.id === baseRubric.id && r.programmeId === programme?.id)
+  if (
+    programme?.name !== 'Computational Statistics and Machine Learning MSc' ||
+    programme.createdBy !== 'tutor-a' ||
+    !rubric ||
+    !data.users.some((u) => u.id === 'tutor-a' && u.roles.includes('tutor'))
+  )
+    return {}
+
+  const installed = sampleBatches.map((example) => data.batches?.find((b) => b.id === example.id))
+  // Reserved IDs must never overwrite another course or intake's batch.
+  if (
+    installed.some(
+      (batch) => batch && (batch.programmeId !== programme.id || batch.intakeYear !== '2026 / 27'),
+    )
+  )
+    return {}
+  const complete = () => data.audit.push({ ...sampleBatchAudit, at: new Date().toISOString() })
+  if (installed.every(Boolean)) {
+    // A successful older install may have intentional applicant deletions. Keep them.
+    complete()
+    return {}
+  }
+
+  const cases = [
+    {
+      id: 'SAMPLE-CSML-01',
+      legacyId: 'APP-2026-0148',
+      candidate: 'SYN-148',
+      fixture: 'offer',
+      batch: sampleBatches[0],
+    },
+    {
+      id: 'SAMPLE-CSML-02',
+      legacyId: 'APP-2026-0149',
+      candidate: 'SYN-149',
+      fixture: 'missing',
+      batch: sampleBatches[0],
+    },
+    {
+      id: 'SAMPLE-CSML-03',
+      legacyId: 'APP-2026-0150',
+      candidate: 'SYN-150',
+      fixture: 'reject',
+      batch: sampleBatches[1],
+    },
+  ] as const
+  const existing = cases.map((example) =>
+    data.applications.find(
+      (a) =>
+        (a.id === example.id || a.id === example.legacyId) &&
+        a.programmeId === programme.id &&
+        a.candidate === example.candidate &&
+        a.fixture === example.fixture,
+    ),
+  )
+  if (
+    cases.some((example, index) => {
+      const application = existing[index]
+      const currentBatch = data.batches?.find((b) => b.id === application?.batchId)
+      return (
+        // An unrelated record/PDF at a reserved reference is preserved; do not mark success.
+        (data.applications.some((a) => a.id === example.id) && application?.id !== example.id) ||
+        (!application && data.documents.some((d) => d.id.startsWith(`${example.id}-`))) ||
+        (currentBatch?.source === 'zip' && currentBatch.id !== example.batch.id)
+      )
+    })
+  )
+    return {}
+
+  const seed = await createSeed()
+  const files: Record<string, Blob> = {}
+  for (const [index, example] of cases.entries()) {
+    const application = existing[index]
+    if (application) {
+      // Legacy backups may group synthetic cases into the original batch. Restore
+      // their default grouping without touching facts, decisions, runs or PDFs.
+      application.batchId = example.batch.id
+      continue
+    }
+    if (
+      data.audit.some(
+        (event) =>
+          event.action === 'Delete application and documents' &&
+          (event.target === example.id || event.target === example.legacyId),
+      )
+    )
+      continue
+    const added = seed.dataset.applications.find((a) => a.id === example.id)!
+    const documents = seed.dataset.documents.filter((d) => d.applicationId === added.id)
+    const previous = added.runs[0]
+    const run = simulateRun(added, documents, rubric, 74, false)
+    Object.assign(run, {
+      startedAt: previous.startedAt,
+      finishAt: previous.finishAt,
+      status: previous.status,
+    })
+    added.runs = [run]
+    added.decisions.forEach((decision) => {
+      decision.runId = run.id
+      decision.recommendation = run.recommendation
+    })
+    data.applications.push(added)
+    data.documents.push(...documents)
+    for (const document of documents) files[document.id] = seed.files[document.id]
+  }
+  data.batches ??= []
+  for (const [index, example] of sampleBatches.entries()) {
+    if (!installed[index]) data.batches.push({ ...example })
+  }
+  complete()
+  return files
 }

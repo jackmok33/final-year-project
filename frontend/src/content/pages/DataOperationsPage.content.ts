@@ -8,7 +8,5 @@ export const dataOperationsPageContent = {
   restoreSuccess: 'Browser demo restored. Records, PDFs and evidence links are available.',
   resetSuccess: 'Browser demo reset to the original synthetic cases.',
   dataOperations: 'Data operations',
-  subtitle: 'Manage browser demo recovery and deletion through recorded maintenance actions.',
-  demoNotice:
-    'These actions affect this browser’s synthetic dataset. Server retention, backups and university storage are not connected.',
+  subtitle: 'Manage backups, recovery and deletion through recorded maintenance actions.',
 } as const

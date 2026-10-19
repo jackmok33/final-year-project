@@ -1,6 +1,7 @@
 import { useContent } from '../../hooks/useContent'
 import { Divider, Stack, Typography } from '@mui/material'
 import { type AssessmentRun, type DocumentRecord, type Rubric } from '../../domain/types'
+import { hasUnavailableAssessment } from '../../domain/types'
 import { Card } from '../common'
 import { EvidenceLink } from '../evidence/EvidenceLink'
 
@@ -26,7 +27,9 @@ export function SectionAssessments({
               {content.scoreSummary(section.score, rubric?.weights[section.key])}
             </Typography>
           </Stack>
-          <Typography color="text.secondary">{section.explanation}</Typography>
+          <Typography color="text.secondary">
+            {hasUnavailableAssessment(run) ? content.noAssessment : section.explanation}
+          </Typography>
           <Stack direction="row" sx={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
             <Typography variant="body2">{section.uncertainty}</Typography>
             {section.citations.map((citation, index) => (

@@ -1,95 +1,91 @@
 import { useContent } from '../hooks/useContent'
-import { Add, DownloadOutlined } from '@mui/icons-material'
+import { Add, ArrowBackOutlined } from '@mui/icons-material'
 import { Alert, Button, Typography } from '@mui/material'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useApplicationsQuery, useRubricsQuery } from '../app/api'
+import { Link, useParams } from 'react-router-dom'
+import { useApplicationsQuery, useBatchQuery } from '../app/api'
 import { useWorkspace } from '../app/workspace'
 import { ApplicationFilters } from '../components/applications/ApplicationFilters'
 import { ApplicationTable } from '../components/applications/ApplicationTable'
 import { QueueSummary } from '../components/applications/QueueSummary'
 import { Card, ErrorNotice, Loading, Page } from '../components/common'
-import { downloadBlob } from '../components/files'
-import { csvCell } from '../domain/rules'
-import { applicationState, latestDecision, latestRun } from '../domain/types'
+import { applicationState, latestRun } from '../domain/types'
+import { applicationIntakeYear, normalizeIntakeYear } from '../domain/intakes'
+import { batchApplications } from '../domain/batches'
 
 export function ApplicationsPage() {
   const content = useContent('applicationsPage')
-  const { programme, isLoading: workspaceLoading, error: workspaceError } = useWorkspace()
+  const {
+    programme: selectedProgramme,
+    programmes,
+    intakeYear,
+    isLoading: workspaceLoading,
+    error: workspaceError,
+  } = useWorkspace()
+  const { batchId } = useParams()
+  const batchQuery = useBatchQuery(batchId ?? '', { skip: !batchId })
+  const batch = batchQuery.currentData
+  const programme = batchId
+    ? programmes.find((p) => p.id === batch?.programmeId)
+    : selectedProgramme
   const {
     currentData: applications,
     error,
     isLoading,
   } = useApplicationsQuery(programme?.id ?? '', { skip: !programme, pollingInterval: 1000 })
-  const { currentData: criteria } = useRubricsQuery(programme?.id ?? '', { skip: !programme })
   const [status, setStatus] = useState('all')
   const [recommendation, setRecommendation] = useState('all')
   const [search, setSearch] = useState('')
-  if (isLoading || workspaceLoading) return <Loading />
+  if (isLoading || workspaceLoading || (batchId && batchQuery.isLoading)) return <Loading />
+  if (batchId && (!batch || !programme))
+    return <ErrorNotice error={batchQuery.error ?? content.batchUnavailable} />
   if (workspaceError) return <ErrorNotice error={workspaceError} />
   if (!programme) return <Alert severity="info">{content.noWorkspaceMessage}</Alert>
+  const currentYear =
+    batch?.intakeYear ??
+    normalizeIntakeYear(intakeYear ?? programme.year) ??
+    intakeYear ??
+    programme.year
+  const scopedApplications = batch ? batchApplications(batch, applications ?? []) : applications
+  const intakeApplications = scopedApplications?.filter(
+    (a) => applicationIntakeYear(a, programme) === currentYear,
+  )
   const filtered =
-    applications?.filter(
+    intakeApplications?.filter(
       (a) =>
         (status === 'all' || applicationState(a) === status) &&
         (recommendation === 'all' || latestRun(a)?.recommendation === recommendation) &&
         `${a.id} ${a.candidate}`.toLowerCase().includes(search.toLowerCase()),
     ) ?? []
-  function exportCsv() {
-    const rows: unknown[][] = [
-      [
-        content.application,
-        content.candidate,
-        content.programme,
-        content.state,
-        content.overallScore,
-        content.recommendation,
-        content.tutorDecision,
-        content.criteriaVersion,
-      ],
-    ]
-    filtered.forEach((a) => {
-      const run = latestRun(a)
-      rows.push([
-        a.id,
-        a.candidate,
-        programme?.name,
-        applicationState(a),
-        run?.overall,
-        run?.recommendation,
-        latestDecision(a)?.outcome,
-        criteria?.rubrics.find((r) => r.id === run?.rubricId)?.version,
-      ])
-    })
-    downloadBlob(
-      new Blob(['\uFEFF' + rows.map((r) => r.map(csvCell).join(',')).join('\r\n')], {
-        type: 'text/csv;charset=utf-8',
-      }),
-      'admissions-demo-results.csv',
-    )
-  }
   return (
     <Page
       title={content.applications}
-      subtitle={content.subtitle(programme?.name ?? content.programmeFallback)}
+      subtitle={content.subtitle(programme.name, currentYear)}
       actions={
         <>
-          <Button variant="contained" startIcon={<Add />} component={Link} to="/applications/new">
-            {content.newApplication}
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<DownloadOutlined />}
-            onClick={exportCsv}
-            disabled={!filtered.length}
-          >
-            {content.exportFilteredResults}
+          {!batchId && (
+            <Button variant="contained" startIcon={<Add />} component={Link} to="/applications/new">
+              {content.newApplication}
+            </Button>
+          )}
+          <Button component={Link} to="/batches" startIcon={<ArrowBackOutlined />}>
+            {content.back}
           </Button>
         </>
       }
     >
       <ErrorNotice error={error ?? workspaceError} />
-      <QueueSummary applications={applications} />
+      {batch && (
+        <Typography variant="h5" component="h2" sx={{ overflowWrap: 'anywhere' }}>
+          {content.batchName(batch.sequence)}
+        </Typography>
+      )}
+      {batch?.source === 'zip' && (
+        <Typography variant="body2" color="text.secondary">
+          {batch.filename}
+        </Typography>
+      )}
+      <QueueSummary applications={intakeApplications} />
       <Card title={content.applicationQueue}>
         <ApplicationFilters
           search={search}

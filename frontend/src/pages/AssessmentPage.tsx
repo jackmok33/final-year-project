@@ -2,9 +2,7 @@ import { useContent } from '../hooks/useContent'
 import { Alert, Box, Typography } from '@mui/material'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useApplicationQuery, useBackendHealthQuery, useCommandMutation } from '../app/api'
-import { backendUrl } from '../services/backend'
-import { BackendConnection } from '../components/assessment/BackendConnection'
+import { useApplicationQuery, useCommandMutation } from '../app/api'
 import { AssessmentActions } from '../components/assessment/AssessmentActions'
 import { RecommendationSummary } from '../components/assessment/RecommendationSummary'
 import { ReviewFlags } from '../components/assessment/ReviewFlags'
@@ -20,11 +18,6 @@ export function AssessmentPage() {
   const { data, error, isLoading } = useApplicationQuery(id, { pollingInterval: 1000 })
   const [command, mutation] = useCommandMutation()
   const [selectedRunId, setSelectedRunId] = useState('')
-  const backendEnabled = !!backendUrl()
-  const backend = useBackendHealthQuery(undefined, {
-    skip: !backendEnabled,
-    pollingInterval: 10000,
-  })
   if (isLoading) return <Loading />
   if (!data) return <ErrorNotice error={error} />
   const { application: app, documents, rubrics } = data
@@ -49,14 +42,6 @@ export function AssessmentPage() {
       }
     >
       <ErrorNotice error={error || mutation.error} />
-      {backendEnabled && (
-        <BackendConnection
-          health={backend.data}
-          pending={backend.isLoading}
-          error={!!backend.error}
-          fromBackend={run?.evaluationSource === 'fastapi-mock'}
-        />
-      )}
       {inProgress && (
         <Alert severity="info" role="status">
           {content.processingMessage(latest?.status)}
@@ -65,7 +50,6 @@ export function AssessmentPage() {
       {!run ? (
         <Card title={content.readyForReview}>
           <Typography>{content.uploadDescription}</Typography>
-          <Alert severity="info">{content.backendNotice}</Alert>
         </Card>
       ) : (
         <>

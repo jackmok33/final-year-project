@@ -4,7 +4,9 @@ import { brandingContent } from './src/content/branding.content.ts'
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // Standalone browser checks must not inherit the optional local FastAPI adapter.
+  define: mode === 'e2e' ? { 'import.meta.env.VITE_API_BASE_URL': JSON.stringify('') } : undefined,
   plugins: [
     react(),
     {
@@ -14,7 +16,13 @@ export default defineConfig({
       ],
     },
   ],
-  server: { watch: { usePolling: true, interval: 300 } },
+  server: {
+    watch: {
+      usePolling: true,
+      interval: 300,
+      ignored: ['**/test-results/**', '**/playwright-report/**', '**/coverage/**'],
+    },
+  },
   cacheDir: join(
     tmpdir(),
     `ucl-admissions-vite-${createHash('sha256')
@@ -47,4 +55,4 @@ export default defineConfig({
       thresholds: { statements: 90, branches: 85, functions: 90, lines: 95 },
     },
   },
-})
+}))

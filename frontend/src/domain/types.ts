@@ -1,4 +1,3 @@
-import { domainLabelsContent } from '../content/domain/types.content'
 export type Outcome = 'Offer' | 'Reject' | 'Further review'
 export type Workflow = 'queued' | 'running' | 'awaiting review' | 'completed' | 'failed'
 export type DocumentType = 'transcript' | 'cv' | 'statement'
@@ -8,6 +7,7 @@ export interface User {
   name: string
   email: string
   roles: ('tutor' | 'admin')[]
+  /** Compatibility projection of courses owned by this tutor. */
   programmeIds: string[]
   canPublishCriteria: boolean
   active: boolean
@@ -19,6 +19,7 @@ export interface Programme {
   year: string
   department: string
   description: string
+  /** Sole owner; optional only for legacy records that had no assigned tutor. */
   createdBy?: string
 }
 export interface WorkspaceDeletionImpact {
@@ -26,7 +27,6 @@ export interface WorkspaceDeletionImpact {
   applications: number
   documents: number
   criteriaVersions: number
-  otherTutors: number
 }
 export interface Rubric {
   id: string
@@ -98,6 +98,10 @@ export interface Correction {
   actor: string
   at: string
 }
+
+export function hasUnavailableAssessment(run: AssessmentRun): boolean {
+  return run.flags.some((flag) => flag.code === 'BACKEND_UNAVAILABLE')
+}
 export interface Decision {
   id: string
   runId: string
@@ -111,6 +115,8 @@ export interface Application {
   id: string
   candidate: string
   programmeId: string
+  intakeYear?: string
+  batchId?: string
   submittedAt: string
   documentIds: string[]
   fixture?: 'review' | 'offer' | 'reject' | 'missing' | 'failed'
@@ -132,9 +138,24 @@ export interface Dataset {
   rubrics: Rubric[]
   activeRubricIds: Record<string, string>
   applications: Application[]
+  batches?: UploadBatch[]
   documents: DocumentRecord[]
   audit: AuditEvent[]
   modelAvailable: boolean
+}
+export interface UploadBatch {
+  id: string
+  programmeId: string
+  intakeYear: string
+  filename: string
+  uploadedAt: string
+  uploadedBy?: string
+  source: 'zip' | 'existing'
+}
+export interface BatchSummary extends UploadBatch {
+  sequence: number
+  applicantCount: number
+  pendingReviewCount: number
 }
 export interface DemoHealth {
   modelAvailable: boolean
@@ -149,13 +170,16 @@ export interface Backup {
   dataset: Dataset
   files: { id: string; base64: string; hash: string }[]
 }
-export const sectionNames: Record<SectionKey, string> = domainLabelsContent.sectionNames
-export const documentNames: Record<DocumentType, string> = domainLabelsContent.documentNames
 export function latestRun(app: Application) {
   return app.runs.at(-1)
 }
 export function latestDecision(app: Application) {
   return app.decisions.at(-1)
+}
+export function currentDecision(app: Application) {
+  const run = latestRun(app)
+  const decision = latestDecision(app)
+  return run && decision?.runId === run.id ? decision : undefined
 }
 export function applicationState(app: Application): Workflow | 'not evaluated' {
   const run = latestRun(app)

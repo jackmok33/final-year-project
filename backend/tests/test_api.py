@@ -31,6 +31,8 @@ def test_health_is_honest_about_unimplemented_dependencies(client):
         ("APP-2026-0144", 47, "Reject"),
         ("APP-2026-0142", 78.4, "Further review"),
         ("APP-2026-0147", 88.5, "Offer"),
+        ("SAMPLE-CSML-01", 88.5, "Offer"),
+        ("SAMPLE-CSML-03", 47, "Reject"),
     ],
 )
 def test_assessment_contract_and_source_links(
@@ -66,8 +68,9 @@ def test_critical_grade_mismatch_blocks_offer_even_above_threshold(client, paylo
     assert "74% on page 2" in run["justification"]["summary"]
 
 
-def test_missing_evidence_is_null_not_zero(client, payload):
-    case(payload, "APP-2026-0145")
+@pytest.mark.parametrize("application_id", ["APP-2026-0145", "SAMPLE-CSML-02"])
+def test_missing_evidence_is_null_not_zero(client, payload, application_id):
+    case(payload, application_id)
     payload["documents"].pop()
     run = client.post(ENDPOINT, json=payload).json()
     assert run["overall"] is None

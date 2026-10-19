@@ -1,6 +1,5 @@
-import type { ContentValue } from '../../formatText'
-
 export const userPermissionsContent = {
-  assignedCourseWorkspaces: 'Assigned course workspaces',
-  programmeAccessLabel: (name: ContentValue) => `Programme access: ${String(name)}`,
+  ownedCourses: 'Owned courses',
+  empty: 'No courses yet.',
+  ownershipHint: 'Tutors create and manage their own courses. Course access cannot be shared.',
 } as const
