@@ -1,9 +1,11 @@
 export const recommendationSummaryContent = {
-  recommendation: 'Recommendation',
+  reviewOverview: 'Application summary',
+  recommendation: 'AI recommendation',
   notAssessed: 'Not assessed',
   unavailableScore: '—',
   overallScore100: 'Overall score / 100',
   tutorDecision: 'Tutor decision',
   notRecorded: 'Not recorded',
-  historicDecisionHint: ' · Recorded against another run; preserved in history.',
+  historicDecisionHint: 'Previous assessment',
+  recordDecision: 'Record decision',
 } as const

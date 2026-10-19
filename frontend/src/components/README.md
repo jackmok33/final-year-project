@@ -34,6 +34,33 @@ tutor decisions and labels historical decisions and unfinished assessments.
 `pages/NewApplicationPage.tsx` owns file selection, PDF validation, upload staging and
 submission; `NewApplicationForm` renders the controlled fields and upload cards.
 
+`AssessmentPage.tsx` owns the selected assessment, history expansion, queries and
+re-evaluation command. Its private review controller is keyed by application so
+navigation resets history and selection. Assessment, decision, correction and
+evidence pages use the
+query's current application data, showing loading while a different record is
+fetched rather than displaying the previous record. `RecommendationSummary` renders the compact score,
+AI recommendation, tutor decision and primary decision action. `ReviewFlags`
+shows actionable concerns near the top, without raw flag codes or an empty
+success panel. The shared `Rationale` has a compact presentation with inline
+citations and expandable rules. `SectionAssessments` keeps scores visible and
+expands each section's explanation, uncertainty and evidence on demand.
+`RunHistory` is a controlled, initially collapsed panel containing the run picker,
+corrections, decisions and re-evaluation action. Historical results cannot expose
+actions that change the latest result; the page provides an explicit return to
+the latest assessment. The header retains document viewing and Back.
+The correction draft starts from the selected run's extracted grade, including
+zero and fractional values; it does not prefill an example correction.
+
+`DecisionPage` accepts a tutor outcome independently of the AI recommendation.
+`DecisionForm` uses the same optional review note for every outcome; there is no
+override-specific field or required explanation. The evidence-review checkbox and
+its state/props are removed. The record action calls the page's save handler
+directly; there is no extra decision confirmation dialog or modal state. The demo
+`decide` command has no acknowledgement flag. It retains permission, current-run,
+valid-outcome and critical-evidence checks, and stores the recommendation separately from the decision. Blank
+notes display as Decision recorded in history, without implying AI agreement.
+
 Some pages include a private draft controller in the same file, keyed to an
 application run, criteria version, account or programme. This resets the draft
 when the selected record changes while keeping all of its state and actions in

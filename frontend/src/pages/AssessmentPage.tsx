@@ -1,5 +1,5 @@
 import { useContent } from '../hooks/useContent'
-import { Alert, Box, Typography } from '@mui/material'
+import { Alert, Button, Typography } from '@mui/material'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useApplicationQuery, useCommandMutation } from '../app/api'
@@ -8,73 +8,135 @@ import { RecommendationSummary } from '../components/assessment/RecommendationSu
 import { ReviewFlags } from '../components/assessment/ReviewFlags'
 import { RunHistory } from '../components/assessment/RunHistory'
 import { SectionAssessments } from '../components/assessment/SectionAssessments'
-import { Card, ErrorNotice, Loading, Page, TwoColumns } from '../components/common'
+import { Card, ErrorNotice, Loading, Page, Rationale, TwoColumns } from '../components/common'
 import { displayTime } from '../components/files'
-import { latestDecision, latestRun } from '../domain/types'
+import {
+  hasUnavailableAssessment,
+  latestDecision,
+  latestRun,
+  type Application,
+  type DocumentRecord,
+  type Rubric,
+} from '../domain/types'
 
 export function AssessmentPage() {
-  const content = useContent('assessmentPage')
   const { id = '' } = useParams()
-  const { data, error, isLoading } = useApplicationQuery(id, { pollingInterval: 1000 })
+  const { currentData: data, error } = useApplicationQuery(id, { pollingInterval: 1000 })
+  if (!data) return error ? <ErrorNotice error={error} /> : <Loading />
+  return (
+    <AssessmentReview
+      key={data.application.id}
+      app={data.application}
+      documents={data.documents}
+      rubrics={data.rubrics}
+      queryError={error}
+    />
+  )
+}
+
+// Keep review state in the page and reset it when navigating to another application.
+function AssessmentReview({
+  app,
+  documents,
+  rubrics,
+  queryError,
+}: {
+  app: Application
+  documents: DocumentRecord[]
+  rubrics: Rubric[]
+  queryError?: unknown
+}) {
+  const content = useContent('assessmentPage')
+  const id = app.id
   const [command, mutation] = useCommandMutation()
   const [selectedRunId, setSelectedRunId] = useState('')
-  if (isLoading) return <Loading />
-  if (!data) return <ErrorNotice error={error} />
-  const { application: app, documents, rubrics } = data
-  const run = app.runs.find((r) => r.id === selectedRunId) ?? latestRun(app)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const latest = latestRun(app)
-  const decision = latestDecision(app)
+  const run = app.runs.find((r) => r.id === selectedRunId) ?? latest
   const rubric = rubrics.find((r) => r.id === run?.rubricId)
   const inProgress = ['queued', 'running'].includes(latest?.status ?? '')
+  const historic = run !== latest
+  const assessed = Boolean(
+    run && !['queued', 'running', 'failed'].includes(run.status) && !hasUnavailableAssessment(run),
+  )
+  const canCorrect = Boolean(assessed && !historic && !inProgress && run?.extractedGrade !== null)
+  const hasConcerns = run?.flags.some((flag) => flag.code !== 'BACKEND_UNAVAILABLE') ?? false
+  const rationale = run && (
+    <Card>
+      <Rationale run={run} rubric={rubric} documents={documents} applicationId={id} compact />
+    </Card>
+  )
+  function evaluate() {
+    setSelectedRunId('')
+    void command({ op: 'evaluate', id })
+  }
   return (
     <Page
       title={app.id}
       subtitle={content.subtitle(app.candidate, displayTime(app.submittedAt))}
-      actions={
-        <AssessmentActions
-          app={app}
-          id={id}
-          latest={latest}
-          inProgress={inProgress}
-          busy={mutation.isLoading}
-          onEvaluate={() => void command({ op: 'evaluate', id })}
-        />
-      }
+      actions={<AssessmentActions app={app} id={id} />}
     >
-      <ErrorNotice error={error || mutation.error} />
+      <ErrorNotice error={queryError || mutation.error} />
       {inProgress && (
         <Alert severity="info" role="status">
           {content.processingMessage(latest?.status)}
         </Alert>
       )}
+      {historic && (
+        <Alert
+          severity="info"
+          action={<Button onClick={() => setSelectedRunId('')}>{content.showLatest}</Button>}
+        >
+          {content.historicRunNotice}
+        </Alert>
+      )}
       {!run ? (
         <Card title={content.readyForReview}>
           <Typography>{content.uploadDescription}</Typography>
+          <Button
+            variant="contained"
+            onClick={evaluate}
+            disabled={mutation.isLoading}
+            sx={{ alignSelf: 'flex-start' }}
+          >
+            {content.requestEvaluation}
+          </Button>
         </Card>
       ) : (
         <>
-          {run !== latest && <Alert severity="info">{content.historicRunNotice}</Alert>}
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', lg: 'minmax(280px, 1fr) minmax(0, 2fr)' },
-              gap: 3,
-              alignItems: 'start',
-            }}
-          >
-            <RecommendationSummary
-              run={run}
-              rubric={rubric}
-              documents={documents}
-              id={id}
-              decision={decision}
-            />
-            <SectionAssessments run={run} rubric={rubric} documents={documents} id={id} />
-          </Box>
-          <TwoColumns equal>
-            <ReviewFlags run={run} id={id} inProgress={inProgress} latest={latest} />
-            <RunHistory app={app} run={run} rubrics={rubrics} setSelectedRunId={setSelectedRunId} />
-          </TwoColumns>
+          <RecommendationSummary
+            run={run}
+            id={id}
+            decision={
+              historic ? app.decisions.findLast((d) => d.runId === run.id) : latestDecision(app)
+            }
+            canDecide={assessed && !historic && !inProgress}
+          />
+          <ReviewFlags run={run} id={id} canCorrect={canCorrect} />
+          {assessed ? (
+            <TwoColumns>
+              {rationale}
+              <SectionAssessments
+                run={run}
+                rubric={rubric}
+                documents={documents}
+                id={id}
+                canCorrect={canCorrect && !hasConcerns}
+              />
+            </TwoColumns>
+          ) : !inProgress ? (
+            rationale
+          ) : null}
+          <RunHistory
+            app={app}
+            run={run}
+            rubrics={rubrics}
+            setSelectedRunId={setSelectedRunId}
+            expanded={historyOpen}
+            onExpandedChange={setHistoryOpen}
+            onEvaluate={evaluate}
+            evaluationDisabled={mutation.isLoading || inProgress || historic}
+          />
         </>
       )}
     </Page>

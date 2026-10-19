@@ -5,6 +5,6 @@ export const decisionRecordContent = {
   recordedTutorOutcome: 'Recorded tutor outcome',
   notRecorded: 'Not recorded',
   decisionExplanation:
-    'Further Review keeps the case unresolved. Offer and Reject are recorded only after tutor confirmation.',
+    'Further review keeps the case unresolved. Offer and Reject record a final decision.',
   inspectSourceEvidence: 'Inspect source evidence',
 } as const

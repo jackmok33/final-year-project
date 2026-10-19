@@ -1,14 +1,5 @@
 import { useContent } from '../../hooks/useContent'
-import {
-  Alert,
-  Button,
-  Checkbox,
-  Divider,
-  FormControlLabel,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material'
+import { Alert, Button, Divider, Stack, TextField, Typography } from '@mui/material'
 import { Link } from 'react-router-dom'
 import {
   type Application,
@@ -17,7 +8,7 @@ import {
   type Outcome,
   type Rubric,
 } from '../../domain/types'
-import { Card, Confirm, ErrorNotice, Page, Rationale, TwoColumns } from '../common'
+import { Card, ErrorNotice, Page, Rationale, TwoColumns } from '../common'
 import { DecisionRecord } from './DecisionRecord'
 import { OutcomeOptions } from './OutcomeOptions'
 
@@ -31,15 +22,9 @@ export function DecisionForm({
   setOutcome,
   reason,
   setReason,
-  confirmed,
-  setConfirmed,
-  open,
-  setOpen,
   mutation,
   critical,
-  override,
   disabled,
-  save,
   record,
 }: {
   app: Application
@@ -51,15 +36,9 @@ export function DecisionForm({
   setOutcome: (outcome: Outcome) => void
   reason: string
   setReason: (reason: string) => void
-  confirmed: boolean
-  setConfirmed: (confirmed: boolean) => void
-  open: boolean
-  setOpen: (open: boolean) => void
   mutation: { isLoading: boolean; error?: unknown }
   critical: boolean
-  override: boolean
   disabled: boolean
-  save: () => Promise<void>
   record: () => void
 }) {
   const content = useContent('decisionForm')
@@ -76,22 +55,11 @@ export function DecisionForm({
           <Divider />
           <OutcomeOptions outcome={outcome} setOutcome={setOutcome} critical={critical} />
           <TextField
-            label={override ? content.reasonForOverride : content.reviewNote}
-            required={override}
+            label={content.reviewNote}
             multiline
             minRows={3}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={confirmed}
-                onChange={(e) => setConfirmed(e.target.checked)}
-                color="secondary"
-              />
-            }
-            label={content.reviewConfirmation}
           />
           <ErrorNotice error={mutation.error} />
           <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
@@ -105,16 +73,6 @@ export function DecisionForm({
         </Card>
         <DecisionRecord app={app} run={run} userName={userName} />
       </TwoColumns>
-      <Confirm
-        open={open}
-        title={content.confirmationTitle(outcome)}
-        onClose={() => setOpen(false)}
-        onConfirm={() => void save()}
-        busy={mutation.isLoading}
-      >
-        <Typography>{content.confirmationBody(outcome, app.id, rubric?.version)}</Typography>
-        {override && <Typography sx={{ mt: 2 }}>{content.overrideReason(reason)}</Typography>}
-      </Confirm>
     </Page>
   )
 }

@@ -17,9 +17,8 @@ import {
 export function DecisionPage() {
   const content = useContent('decisionPage')
   const { id = '' } = useParams()
-  const { data, isLoading, error } = useApplicationQuery(id, { pollingInterval: 1000 })
-  if (isLoading) return <Loading />
-  if (!data) return <ErrorNotice error={error} />
+  const { currentData: data, error } = useApplicationQuery(id, { pollingInterval: 1000 })
+  if (!data) return error ? <ErrorNotice error={error} /> : <Loading />
   const run = latestRun(data.application)
   if (!run || ['queued', 'running', 'failed'].includes(run.status))
     return (
@@ -32,7 +31,7 @@ export function DecisionPage() {
     )
   return (
     <DecisionEditor
-      key={run.id}
+      key={`${data.application.id}:${run.id}`}
       app={data.application}
       run={run}
       rubric={data.rubrics.find((r) => r.id === run.rubricId)}
@@ -56,12 +55,9 @@ function DecisionEditor({
   const { data: user } = useMeQuery()
   const [outcome, setOutcome] = useState<Outcome>('Further review')
   const [reason, setReason] = useState('')
-  const [confirmed, setConfirmed] = useState(false)
-  const [open, setOpen] = useState(false)
   const [command, mutation] = useCommandMutation()
   const navigate = useNavigate()
   const critical = run.flags.some((f) => f.critical)
-  const override = outcome !== run.recommendation
   async function save() {
     try {
       await command({
@@ -70,23 +66,14 @@ function DecisionEditor({
         runId: run.id,
         outcome,
         reason,
-        confirmed,
       }).unwrap()
-      setOpen(false)
       navigate(`/applications/${app.id}`)
     } catch {
-      setOpen(false)
+      /* Keep the draft and show the mutation error for retry. */
     }
   }
-  const disabled =
-    mutation.isLoading ||
-    (override && !reason.trim()) ||
-    (outcome !== 'Further review' && (!confirmed || critical))
+  const disabled = mutation.isLoading || (outcome !== 'Further review' && critical)
   const userName = user?.name
-  function record() {
-    if (outcome === 'Further review') void save()
-    else setOpen(true)
-  }
 
   return (
     <DecisionForm
@@ -99,16 +86,10 @@ function DecisionEditor({
       setOutcome={setOutcome}
       reason={reason}
       setReason={setReason}
-      confirmed={confirmed}
-      setConfirmed={setConfirmed}
-      open={open}
-      setOpen={setOpen}
       mutation={mutation}
       critical={critical}
-      override={override}
       disabled={disabled}
-      save={save}
-      record={record}
+      record={() => void save()}
     />
   )
 }

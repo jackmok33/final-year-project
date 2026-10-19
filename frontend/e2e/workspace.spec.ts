@@ -49,6 +49,14 @@ async function signOut(page: Page) {
     await page.getByRole('button', { name: 'Open navigation' }).click()
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
 }
+async function openAssessmentHistory(page: Page) {
+  const history = page.getByRole('button', { name: 'Assessment history', exact: true })
+  if ((await history.getAttribute('aria-expanded')) !== 'true') await history.click()
+}
+async function reEvaluate(page: Page) {
+  await openAssessmentHistory(page)
+  await page.getByRole('button', { name: 'Re-evaluate application', exact: true }).click()
+}
 async function newWorkspace(page: Page, name: string) {
   await page.goto('/modules')
   await page.getByRole('button', { name: 'Add course', exact: true }).click()
@@ -73,11 +81,24 @@ async function uploadTranscript(page: Page, candidate: string) {
   return page.url()
 }
 async function audit(page: Page) {
+  // Audit settled controls, including colour transitions when queries enable a button.
+  await page.evaluate(async () => {
+    await document.fonts.ready
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+        .map((animation) => animation.finished.catch(() => undefined)),
+    )
+  })
   const results = await new AxeBuilder({ page }).analyze()
   expect(
     results.violations
       .filter((v) => v.impact === 'critical' || v.impact === 'serious')
-      .map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })),
+      .map((v) => ({
+        id: v.id,
+        nodes: v.nodes.map((n) => ({ target: n.target, summary: n.failureSummary })),
+      })),
   ).toEqual([])
 }
 async function checkBackPosition(page: Page) {
@@ -204,7 +225,65 @@ test('all fifteen screens render at desktop and mobile sizes with no serious acc
   await screenshot(page, testInfo.outputPath('00-login-mobile.png'))
   expect(errors).toEqual([])
 })
-test('tutor correction, evidence review, override confirmation and persistence work end to end', async ({
+test('application review prioritises the outcome and concerns with expandable details', async ({
+  page,
+}, testInfo) => {
+  await login(page)
+  await page.getByRole('link', { name: 'Open APP-2026-0142', exact: true }).click()
+  for (const viewport of [
+    { name: 'desktop', width: 1440, height: 1000 },
+    { name: 'mobile', width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.reload()
+    const summary = page.getByRole('region', { name: 'Application summary', exact: true })
+    await expect(summary.getByText('78.4', { exact: true })).toBeVisible()
+    await expect(summary.getByText('Further review', { exact: true })).toBeVisible()
+    await expect(summary.getByRole('link', { name: 'Record decision', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toBeVisible()
+    await expect(page.getByText('GRADE MISMATCH', { exact: true })).toHaveCount(0)
+    const correction = page.getByRole('link', { name: 'Inspect & correct fact', exact: true })
+    await expect(correction).toBeVisible()
+    const correctionBounds = await correction.boundingBox()
+    expect(correctionBounds!.y + correctionBounds!.height).toBeLessThan(viewport.height)
+    const history = page.getByRole('button', { name: 'Assessment history', exact: true })
+    await expect(history).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByRole('combobox', { name: 'Assessment run', exact: true })).toHaveCount(0)
+    await expect(
+      page.getByRole('button', { name: 'Re-evaluate application', exact: true }),
+    ).toHaveCount(0)
+    const academic = page.getByRole('button', { name: /Academic performance/ })
+    await expect(academic).toHaveAttribute('aria-expanded', 'false')
+    await audit(page)
+    await screenshot(page, testInfo.outputPath(`application-review-${viewport.name}.png`))
+    await academic.focus()
+    await academic.press('Enter')
+    await expect(academic).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.getByText('Moderate uncertainty', { exact: true })).toBeVisible()
+    const rules = page.locator('summary').filter({ hasText: 'Scoring rules' })
+    await rules.focus()
+    await rules.press('Enter')
+    await expect(rules.locator('..')).toHaveAttribute('open', '')
+    await history.focus()
+    await history.press('Enter')
+    await expect(page.getByRole('combobox', { name: 'Assessment run', exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Re-evaluate application', exact: true }),
+    ).toBeEnabled()
+    await audit(page)
+    await screenshot(page, testInfo.outputPath(`application-review-expanded-${viewport.name}.png`))
+  }
+  await page
+    .getByRole('link', { name: /Transcript.pdf.*p\.2/ })
+    .first()
+    .click()
+  await expect(page).toHaveURL(/document=APP-2026-0142-transcript.*page=2/)
+  await expect(page.getByText('Loading PDF page…')).toBeHidden()
+  await page.getByText('Accessible page text').click()
+  await expect(page.locator('pre')).toContainText('Final weighted average: 74%')
+})
+
+test('tutor correction, evidence review, direct decision recording and persistence work end to end', async ({
   page,
 }) => {
   await login(page)
@@ -213,25 +292,33 @@ test('tutor correction, evidence review, override confirmation and persistence w
   await page.getByRole('link', { name: 'Record decision', exact: true }).click()
   await expect(page.getByRole('radio', { name: 'Offer', exact: true })).toBeDisabled()
   await page.goto('/applications/APP-2026-0142/correct')
+  await expect(page.getByLabel('Corrected value (%)')).toHaveValue('71')
+  await page.getByLabel('Corrected value (%)').fill('74')
   await page.getByLabel('Reason for correction').fill('Original transcript page 2 states 74%.')
   await page.getByRole('button', { name: 'Save & re-evaluate' }).click()
   await expect(page).toHaveURL(/\/applications\/APP-2026-0142$/)
   await page.reload()
-  await expect(page.getByText('No unresolved critical flags.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Record decision', exact: true })).toBeEnabled()
+  await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toHaveCount(0)
+  await openAssessmentHistory(page)
   await expect(page.getByText('Grade corrected: 71% → 74%')).toBeVisible()
   await page.getByRole('link', { name: 'Record decision', exact: true }).click()
   await page.getByRole('radio', { name: 'Offer', exact: true }).check()
-  await expect(page.getByRole('button', { name: 'Record offer', exact: true })).toBeDisabled()
-  await page
-    .getByLabel('Reason for override')
-    .fill('Reviewed evidence and authorised a synthetic demo override.')
-  await page.getByRole('checkbox').check()
+  await expect(page.getByRole('button', { name: 'Record offer', exact: true })).toBeEnabled()
+  await expect(page.getByRole('checkbox')).toHaveCount(0)
+  await expect(page.getByLabel('Review note (optional)')).toHaveValue('')
+  await expect(page.getByLabel(/Reason for override/)).toHaveCount(0)
   await page.getByRole('button', { name: 'Record offer', exact: true }).click()
-  await expect(page.getByRole('dialog')).toBeVisible()
-  await page.getByRole('button', { name: 'Confirm', exact: true }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page).toHaveURL(/\/applications\/APP-2026-0142$/)
   await page.reload()
-  await expect(page.getByText('Tutor recorded: Offer')).toBeVisible()
+  await expect(
+    page
+      .getByRole('group', { name: 'Tutor decision', exact: true })
+      .getByText('Offer', { exact: true }),
+  ).toBeVisible()
+  await openAssessmentHistory(page)
+  await expect(page.getByText(/Decision recorded ·/)).toBeVisible()
   await page.goto('/batches')
   const overview = page.getByRole('region', { name: 'Intake overview' })
   await expect(overview.getByRole('heading', { name: 'Offers given' })).toBeVisible()
@@ -272,6 +359,43 @@ test('tutor correction, evidence review, override confirmation and persistence w
   await page.getByRole('button', { name: 'Export course results' }).click()
   expect((await download).suggestedFilename()).toContain('.csv')
 })
+test('tutors record a different outcome without a note on desktop and mobile', async ({
+  page,
+}, testInfo) => {
+  await login(page)
+  for (const viewport of [
+    { name: 'desktop', width: 1440, height: 1000 },
+    { name: 'mobile', width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/applications/APP-2026-0143/decision')
+    await expect(page.getByText('AI recommendation: Offer', { exact: true })).toBeVisible()
+    await page.getByRole('radio', { name: 'Reject', exact: true }).check()
+    const note = page.getByLabel('Review note (optional)', { exact: true })
+    await expect(note).toHaveValue('')
+    await expect(note).not.toHaveAttribute('required')
+    await expect(page.getByRole('checkbox')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Record reject', exact: true })).toBeEnabled()
+    await audit(page)
+    await screenshot(page, testInfo.outputPath(`decision-form-${viewport.name}.png`))
+    await page.getByRole('button', { name: 'Record reject', exact: true }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page).toHaveURL(/\/applications\/APP-2026-0143$/)
+    await page.reload()
+    const summary = page.getByRole('region', { name: 'Application summary', exact: true })
+    await expect(summary.getByText('Offer', { exact: true })).toBeVisible()
+    await expect(
+      summary
+        .getByRole('group', { name: 'Tutor decision', exact: true })
+        .getByText('Reject', { exact: true }),
+    ).toBeVisible()
+    await openAssessmentHistory(page)
+    await expect(page.getByText(/Decision recorded ·/)).toBeVisible()
+    await expect(page.getByText('Tutor recorded: Reject', { exact: true })).toHaveCount(1)
+    await audit(page)
+  }
+})
+
 test('PDF validation, new uploads and backend-unavailable state are honest', async ({ page }) => {
   await login(page)
   await page.goto('/applications/new')
@@ -469,6 +593,9 @@ test('module cards, sidebar links and intake years keep applications separated a
   ).toBeVisible()
   await page.reload()
   await expect(page.locator('main').getByText(/24\/25 intake$/)).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Export course results', exact: true }),
+  ).toBeEnabled()
   await audit(page)
   await screenshot(page, test.info().outputPath('intake-queue-mobile.png'))
   await signOut(page)
@@ -546,7 +673,7 @@ test('course owners save versioned criteria without changing existing assessment
   await expect(page.getByLabel('Offer from', { exact: true })).toHaveValue('85')
   await page.goto('/applications/APP-2026-0143')
   await expect(page.getByText('Criteria v1.0', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Re-evaluate application', exact: true }).click()
+  await reEvaluate(page)
   await expect(page.getByText('Criteria v1.2', { exact: true })).toBeVisible()
   await expect(
     page.getByRole('button', { name: 'Re-evaluate application', exact: true }),
@@ -588,7 +715,7 @@ test('course owners save versioned criteria without changing existing assessment
   await audit(page)
   await screenshot(page, testInfo.outputPath('criteria-restored-desktop.png'))
   await page.goto('/applications/APP-2026-0143')
-  await page.getByRole('button', { name: 'Re-evaluate application', exact: true }).click()
+  await reEvaluate(page)
   await expect(page.getByText('Criteria v1.3', { exact: true })).toBeVisible()
   await expect(
     page.getByRole('button', { name: 'Re-evaluate application', exact: true }),
@@ -967,7 +1094,11 @@ test('sample CSML batches show pending work, recorded decisions and original evi
   await table.getByRole('link', { name: 'Open batch 2', exact: true }).click()
   await expect(page.getByRole('button', { name: /Export/ })).toHaveCount(0)
   await page.getByRole('link', { name: 'Open SAMPLE-CSML-01', exact: true }).click()
-  await expect(page.getByText('Tutor recorded: Offer')).toBeVisible()
+  await expect(
+    page
+      .getByRole('group', { name: 'Tutor decision', exact: true })
+      .getByText('Offer', { exact: true }),
+  ).toBeVisible()
   await page.getByRole('link', { name: 'View documents', exact: true }).click()
   await expect(page.getByText('Loading PDF page…')).toBeHidden()
   await page.getByText('Accessible page text').click()
@@ -977,7 +1108,11 @@ test('sample CSML batches show pending work, recorded decisions and original evi
   await page.getByRole('link', { name: 'Back', exact: true }).click()
   await table.getByRole('link', { name: 'Open batch 3', exact: true }).click()
   await page.getByRole('link', { name: 'Open SAMPLE-CSML-03', exact: true }).click()
-  await expect(page.getByText('Tutor recorded: Reject')).toBeVisible()
+  await expect(
+    page
+      .getByRole('group', { name: 'Tutor decision', exact: true })
+      .getByText('Reject', { exact: true }),
+  ).toBeVisible()
 })
 
 test('older saved browser data receives default CSML batches without a reset', async ({ page }) => {

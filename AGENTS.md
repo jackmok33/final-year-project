@@ -184,11 +184,27 @@ failed runs show their processing status instead of a recommendation/score, and
 decisions from older runs are labelled Previous assessment. CSV exports retain
 the fuller operational fields.
 
+Application detail layout (19 October): start with the compact overall score,
+AI recommendation, tutor decision and Record decision action. Show Needs attention
+concerns immediately below, without raw flag codes or an empty success card.
+The recommendation explanation and source-page links remain visible; scoring
+rules, individual score-section details and Assessment history expand on demand.
+History contains the run picker, corrections, decisions and Re-evaluate application;
+the header keeps View documents and Back. AssessmentPage owns history/selection
+state and mutations. Viewing an older result disables decision/correction and
+re-evaluation actions until returning to the latest assessment. Unavailable,
+processing and failed runs must not display precomputed scores as ready results.
+The private review controller is keyed by application, resetting history and run
+selection on navigation. Assessment, evidence, correction and decision queries
+use `currentData` to avoid displaying a preceding application's records while
+the next one loads. Correction drafts start from the selected run's extracted
+grade, including zero; never prefill a hardcoded example correction.
+
 The content registry is `src/content/index.ts`. For example:
 
 ```tsx
 const content = useContent("decisionForm");
-const title = content.confirmationTitle(outcome);
+const label = content.recordAction(outcome);
 ```
 
 Register new content files there. Use named formatter functions for dynamic
@@ -428,9 +444,15 @@ are implemented. Keep the five-table backend foundation unchanged for this miles
 - Recommendations and tutor decisions are separate records. Show **Why this
   recommendation** on assessment and decision screens, with source pages,
   criteria version, decisive rules and unresolved concerns.
-- Critical unresolved evidence blocks final Offer/Reject decisions. Overrides
-  require a reason. Final outcomes require tutor acknowledgement and confirmation;
-  Further review keeps the case unresolved.
+- Critical unresolved evidence blocks final Offer/Reject decisions. Tutors may
+  choose an outcome independently of the AI recommendation without a required
+  explanation (19 October update). The review note is optional for every outcome;
+  remove override-specific labels and validation in both UI and demo service.
+  Preserve the recommendation and tutor outcome separately. The latest 19 October
+  update removes both the evidence-review checkbox and the extra decision dialog.
+  Record saves directly; the local `decide` command has no `confirmed` field or
+  acknowledgement requirement. Keep confirmation dialogs for deletion, reset and
+  restore. Further review keeps the case unresolved.
 - Corrections require a reason and source reference. Preserve the original fact
   and create a new run; do not overwrite old runs or recorded decisions.
 - Criteria tuning requires active tutor ownership of the course. Saving numeric
@@ -554,17 +576,17 @@ separate backend suite retains its own integration servers and artifact director
 Playwright manages its preview on port 4173. Do not rebuild the production bundle
 while that suite is running.
 
-Latest frontend verification on 19 October 2026 after the cleanup:
-**477 tests across 38 files**, **98.79% line / 92.34% branch coverage**;
-TypeScript, production build, lint and formatting pass. All **14 frontend browser
-workflows** and **2 FastAPI browser workflows** pass. The 15-screen desktop/mobile
-audit at 1440×1000 and 390×844 finds no critical/serious axe issues, including the
-mobile drawer and criteria history interaction. Browser checks cover private
-courses, ZIP batches, default-data upgrades, PDF originals, corrections, decisions,
-versioned criteria, refresh, deletion and backup/restore/reset. The mock API suite
-passes **34 tests**. Full PostgreSQL tests and backend Ruff were not rerun for this
-frontend change; the database foundation remains unchanged. See
-[frontend verification](frontend/VERIFICATION.md) for coverage and limits.
+Latest frontend verification on 19 October 2026 after the application-review cleanup:
+**496 tests across 38 files**, **98.84% line / 92.78% branch coverage**;
+TypeScript, production build, lint and formatting pass. All **16 frontend browser
+workflows** and **2 FastAPI browser workflows** pass. The all-15-screen audit at
+desktop/mobile widths finds no critical/serious axe issues. Browser checks cover
+corrections, direct independent decisions with optional notes, expandable history,
+intake switching, uploads, permissions and persistence. Accessibility audits wait
+for query-enabled controls, fonts and finite animations to settle.
+The mock API suite passes **34 tests**. Backend source and PostgreSQL code are
+outside this frontend PR; full database tests and Ruff were not rerun. See
+[frontend verification](frontend/VERIFICATION.md) for limits.
 
 The cleanup removes unused domain-label and dataset aliases, plus the RTK health
 query left behind by the deleted connection banner. Layout and upload pages reuse

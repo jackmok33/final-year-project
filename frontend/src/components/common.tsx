@@ -197,17 +197,26 @@ export function Rationale({
   rubric,
   documents,
   applicationId,
+  compact = false,
 }: {
   run: AssessmentRun
   rubric?: Rubric
   documents: DocumentRecord[]
   applicationId: string
+  compact?: boolean
 }) {
   const content = useContent('common')
   const unavailable = hasUnavailableAssessment(run)
+  const rules =
+    !unavailable &&
+    run.justification.rules.map((rule) => (
+      <Typography key={rule} variant="body2">
+        {rule}
+      </Typography>
+    ))
   return (
     <Stack spacing={1.5}>
-      <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600 }}>
+      <Typography variant="subtitle1" component={compact ? 'h2' : 'h3'} sx={{ fontWeight: 600 }}>
         {unavailable ? content.assessmentStatus : content.whyThisRecommendation}
       </Typography>
       <Typography>
@@ -216,13 +225,19 @@ export function Rationale({
       <Typography variant="body2" color="text.secondary">
         {content.criteriaContext(rubric?.version)}
       </Typography>
-      {!unavailable &&
-        run.justification.rules.map((rule) => (
-          <Typography key={rule} variant="body2">
-            {rule}
-          </Typography>
-        ))}
-      <Stack spacing={0.5}>
+      {compact && !unavailable && run.justification.rules.length > 0 ? (
+        <Box component="details">
+          <Box component="summary" sx={{ cursor: 'pointer', typography: 'body2', py: 0.5 }}>
+            {content.scoringRules}
+          </Box>
+          <Stack spacing={1} sx={{ mt: 1 }}>
+            {rules}
+          </Stack>
+        </Box>
+      ) : (
+        rules
+      )}
+      <Stack direction={compact ? 'row' : 'column'} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
         {!unavailable &&
           run.justification.citations.map((citation, i) => (
             <EvidenceLink

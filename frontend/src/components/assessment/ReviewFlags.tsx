@@ -1,45 +1,32 @@
 import { useContent } from '../../hooks/useContent'
-import { Alert, Button, Typography } from '@mui/material'
+import { Alert, Button } from '@mui/material'
 import { Link } from 'react-router-dom'
-import { hasUnavailableAssessment, type AssessmentRun } from '../../domain/types'
+import { type AssessmentRun } from '../../domain/types'
 import { Card } from '../common'
 
 export function ReviewFlags({
   run,
   id,
-  inProgress,
-  latest,
+  canCorrect,
 }: {
   run: AssessmentRun
   id: string
-  inProgress: boolean
-  latest?: AssessmentRun
+  canCorrect: boolean
 }) {
   const content = useContent('reviewFlags')
+  const flags = run.flags.filter((flag) => flag.code !== 'BACKEND_UNAVAILABLE')
+  if (!flags.length) return null
   return (
     <Card title={content.reviewFlags}>
-      {!run.flags.length && <Alert severity="success">{content.noFlagsMessage}</Alert>}
-      {run.flags.map((flag) =>
-        flag.code === 'BACKEND_UNAVAILABLE' ? (
-          <Typography key={flag.code}>{content.assessmentUnavailable}</Typography>
-        ) : (
-          <Alert key={flag.code} severity={flag.critical ? 'warning' : 'info'}>
-            <Typography sx={{ fontWeight: 600 }}>{flag.code.replaceAll('_', ' ')}</Typography>
-            {flag.message}
-          </Alert>
-        ),
-      )}
-      {run.extractedGrade !== null && (
-        <Button
-          component={Link}
-          to={`/applications/${id}/correct`}
-          disabled={inProgress || latest?.status === 'failed'}
-        >
+      {flags.map((flag) => (
+        <Alert key={flag.code} severity={flag.critical ? 'warning' : 'info'}>
+          {flag.message}
+        </Alert>
+      ))}
+      {canCorrect && (
+        <Button component={Link} to={`/applications/${encodeURIComponent(id)}/correct`}>
           {content.inspectCorrectFact}
         </Button>
-      )}
-      {run.error && !hasUnavailableAssessment(run) && (
-        <Typography variant="body2">{content.failureCategory(run.error)}</Typography>
       )}
     </Card>
   )

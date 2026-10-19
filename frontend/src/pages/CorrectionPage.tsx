@@ -10,9 +10,8 @@ import { latestRun, type AssessmentRun, type DocumentRecord } from '../domain/ty
 export function CorrectionPage() {
   const content = useContent('correctionPage')
   const { id = '' } = useParams()
-  const { data, isLoading, error } = useApplicationQuery(id, { pollingInterval: 1000 })
-  if (isLoading) return <Loading />
-  if (!data) return <ErrorNotice error={error} />
+  const { currentData: data, error } = useApplicationQuery(id, { pollingInterval: 1000 })
+  if (!data) return error ? <ErrorNotice error={error} /> : <Loading />
   const run = latestRun(data.application)
   if (!run || run.extractedGrade === null || ['queued', 'running', 'failed'].includes(run.status))
     return (
@@ -23,7 +22,7 @@ export function CorrectionPage() {
         </Button>
       </Page>
     )
-  return <CorrectionEditor key={run.id} id={id} run={run} documents={data.documents} />
+  return <CorrectionEditor key={`${id}:${run.id}`} id={id} run={run} documents={data.documents} />
 }
 
 // Keep the draft tied to the selected record/version without moving page logic into UI components.
@@ -37,7 +36,7 @@ function CorrectionEditor({
   documents: DocumentRecord[]
 }) {
   const transcript = documents.find((d) => d.type === 'transcript')
-  const [value, setValue] = useState('74')
+  const [value, setValue] = useState(String(run.extractedGrade))
   const [page, setPage] = useState(String(Math.min(2, transcript?.pages ?? 1)))
   const [reason, setReason] = useState('')
   const [command, mutation] = useCommandMutation()

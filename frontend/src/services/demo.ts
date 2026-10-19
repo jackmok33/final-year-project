@@ -87,7 +87,6 @@ export type Command =
       runId: string
       outcome: Decision['outcome']
       reason: string
-      confirmed: boolean
     }
   | { op: 'rubric'; rubric: Rubric }
   | { op: 'user'; user: User }
@@ -536,15 +535,8 @@ export async function commandDemo(command: Command, userId: string | null): Prom
         const run = readyRun(app, command.runId)
         if (!['Offer', 'Reject', 'Further review'].includes(command.outcome))
           throw new Error('Select a valid outcome.')
-        if (
-          command.outcome !== 'Further review' &&
-          (!command.confirmed || run.flags.some((f) => f.critical))
-        )
-          throw new Error(
-            'Resolve critical review flags and confirm evidence review before a final decision.',
-          )
-        if (command.outcome !== run.recommendation && !command.reason.trim())
-          throw new Error('An override requires a reason.')
+        if (command.outcome !== 'Further review' && run.flags.some((f) => f.critical))
+          throw new Error('Resolve critical review flags before a final decision.')
         const previous = app.decisions.at(-1)
         if (
           previous?.runId === run.id &&
