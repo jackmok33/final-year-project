@@ -1,9 +1,8 @@
 export const programmeFormContent = {
   programmeSettings: 'Programme settings',
-  subtitle: 'Create course workspaces and maintain their programme metadata.',
+  subtitle: 'Maintain metadata for tutor-owned courses.',
   programmeMetadata: 'Programme metadata',
-  programmeName: 'Programme name',
-  programmeCode: 'Programme code',
+  programmeCode: 'Course code',
   academicYear: 'Academic year',
   department: 'Department',
   description: 'Description',

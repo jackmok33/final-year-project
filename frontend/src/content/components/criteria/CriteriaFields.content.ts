@@ -12,6 +12,5 @@ export const criteriaFieldsContent = {
   offerFrom: 'Offer from',
   reviewMarginPoints: 'Review margin (± points)',
   marginHint: 'Review margins include their boundary values. Missing sections never become zero.',
-  mandatoryAcademicRule: 'Mandatory academic rule',
   sectionNames: domainLabelsContent.sectionNames,
 } as const

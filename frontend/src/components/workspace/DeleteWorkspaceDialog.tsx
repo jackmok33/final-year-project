@@ -39,9 +39,6 @@ export function DeleteWorkspaceDialog({
             <Typography>
               {content.impact(impact.applications, impact.documents, impact.criteriaVersions)}
             </Typography>
-            {impact.otherTutors > 0 && (
-              <Typography>{content.shared(impact.otherTutors)}</Typography>
-            )}
           </>
         )}
         <Alert severity="warning">{content.warning}</Alert>

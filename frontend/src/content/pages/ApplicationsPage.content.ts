@@ -1,22 +1,17 @@
 import type { ContentValue } from '../formatText'
+import { intakeContent } from '../domain/intakes.content'
+import { batchListContent } from '../components/batches/BatchList.content'
 
 export const applicationsPageContent = {
-  noWorkspaceMessage: 'Create a programme workspace using New workspace in the navigation.',
-  application: 'Application',
-  candidate: 'Candidate',
-  programme: 'Programme',
-  state: 'State',
-  overallScore: 'Overall score',
-  recommendation: 'Recommendation',
-  tutorDecision: 'Tutor decision',
-  criteriaVersion: 'Criteria version',
+  batchName: batchListContent.batchName,
+  batchUnavailable: 'This upload batch is unavailable or you do not have access.',
+  back: 'Back',
+  noWorkspaceMessage: 'Choose a course from All courses to review applications.',
   applications: 'Applications',
-  subtitle: (programmeName: ContentValue) =>
-    `${String(programmeName)} / Review your assigned applications and unresolved cases.`,
+  subtitle: (moduleCode: ContentValue, year: string) =>
+    `${String(moduleCode)} · ${intakeContent.yearLabel(year)} intake`,
   newApplication: 'New application',
-  exportFilteredResults: 'Export filtered results',
   applicationQueue: 'Application queue',
   noApplicationsMatchTheseFilters: 'No applications match these filters.',
   recommendationHint: 'Decision is the tutor’s recorded choice.',
-  programmeFallback: 'Programme · TBC',
 } as const

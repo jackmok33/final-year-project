@@ -9,11 +9,24 @@ vi.mock('./api', async () => (await import('../test/pageMocks')).apiMocks)
 vi.mock('./store', async () => (await import('../test/pageMocks')).storeMocks)
 beforeEach(resetPageMocks)
 describe('assigned programme selection', () => {
-  it('uses the selected course only if the user is still assigned to it', () => {
+  it('keeps intake preferences independent per tutor and module', () => {
+    state.ui.intakeByUser[tutor.id] = { [programme.id]: '25/26', [otherProgramme.id]: '2024 / 25' }
+    const { result, rerender } = renderHook(useWorkspace)
+    expect(result.current.intakeYear).toBe('2025 / 26')
+    state.ui.programmeByUser[tutor.id] = otherProgramme.id
+    rerender()
+    expect(result.current.intakeYear).toBe('2024 / 25')
+    state.ui.intakeByUser[tutor.id][otherProgramme.id] = ''
+    rerender()
+    expect(result.current.intakeYear).toBe(otherProgramme.year)
+  })
+  it('uses the selected course only if the user still owns it', () => {
     state.ui.programmeByUser[tutor.id] = otherProgramme.id
     const { result, rerender } = renderHook(useWorkspace)
     expect(result.current.programme).toEqual(otherProgramme)
-    apiMocks.useMeQuery.mockReturnValue(queryResult({ ...tutor, programmeIds: [programme.id] }))
+    apiMocks.useProgrammesQuery.mockReturnValue(
+      queryResult([programme, { ...otherProgramme, createdBy: 'other-tutor' }]),
+    )
     rerender()
     expect(result.current.programme).toEqual(programme)
     expect(result.current.programmes).toEqual([programme])
@@ -23,7 +36,9 @@ describe('assigned programme selection', () => {
     expect(renderHook(useWorkspace).result.current.programme).toEqual(programme)
   })
   it('returns no workspace for users without course permissions', () => {
-    apiMocks.useMeQuery.mockReturnValue(queryResult({ ...tutor, programmeIds: [] }))
+    apiMocks.useMeQuery.mockReturnValue(
+      queryResult({ ...tutor, id: 'other-tutor', programmeIds: [programme.id] }),
+    )
     const { result } = renderHook(useWorkspace)
     expect(result.current.programme).toBeUndefined()
     expect(result.current.programmes).toEqual([])

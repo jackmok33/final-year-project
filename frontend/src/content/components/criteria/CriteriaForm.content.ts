@@ -1,9 +1,14 @@
 import type { ContentValue } from '../../formatText'
 
 export const criteriaFormContent = {
+  back: 'Back',
   admissionCriteria: 'Admission criteria',
-  subtitle: 'View the criteria used to assess this programme’s applications.',
+  subtitle: 'Criteria used to assess this course’s applications.',
+  saveCriteria: 'Save criteria',
+  saving: 'Saving…',
+  discardChanges: 'Discard changes',
+  saveNotice:
+    'Saving creates a new version for future assessments. Existing results stay unchanged.',
   activeVersion: (version: ContentValue) => `Active: v${String(version)}`,
-  policyNotice:
-    'Weights and rules are fixed for the MVP. These are illustrative values, not UCL admissions policy.',
+  loadedVersion: (version: string) => `Loaded v${version} into the form`,
 } as const

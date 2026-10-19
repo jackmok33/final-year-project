@@ -8,10 +8,20 @@ import type {
   Programme,
   User,
 } from '../domain/types'
-import { validateRubric } from '../domain/rules'
-import { baseRubric, createSeed } from './seed'
+import { criteriaChanged, validateRubric } from '../domain/rules'
+import { currentDecision } from '../domain/types'
+import { applicationIntakeYear, normalizeIntakeYear } from '../domain/intakes'
+import { normalizeModuleCode } from '../domain/moduleCode'
+import { normalizeCourseName } from '../domain/courseName'
+import {
+  assignExistingBatches,
+  batchApplications,
+  numberBatches,
+  validBatches,
+} from '../domain/batches'
+import { addSampleCourseBatches, baseRubric, createSeed } from './seed'
 import { evaluateApplication } from './evaluation'
-import { migrateDataset } from './migration'
+import { assignCourseOwners, migrateDataset, renameExampleCourses } from './migration'
 import { readDataset, readFile, sha256, writeDataset } from './storage'
 
 export interface UploadReference {
@@ -19,6 +29,15 @@ export interface UploadReference {
   type: DocumentType
 }
 const uploads = new Map<string, File>()
+const archives = new Map<string, File>()
+export function stageArchive(file: File) {
+  const id = crypto.randomUUID()
+  archives.set(id, file)
+  return id
+}
+export function releaseArchive(id: string) {
+  archives.delete(id)
+}
 const backups = new Map<string, Backup>()
 export function stageBackup(backup: Backup) {
   const id = crypto.randomUUID()
@@ -44,7 +63,14 @@ export function releaseUploads(refs: UploadReference[]) {
   refs.forEach((r) => uploads.delete(r.id))
 }
 export type Command =
-  | { op: 'create'; candidate: string; programmeId: string; uploads: UploadReference[] }
+  | { op: 'importBatch'; programmeId: string; intakeYear: string; archiveId: string }
+  | {
+      op: 'create'
+      candidate: string
+      programmeId: string
+      intakeYear?: string
+      uploads: UploadReference[]
+    }
   | { op: 'evaluate'; id: string }
   | {
       op: 'correct'
@@ -75,9 +101,11 @@ export type Command =
   | { op: 'reset' }
 export type Query =
   | { op: 'accounts' | 'me' | 'programmes' | 'users' | 'health' | 'audit' }
-  | { op: 'applications' | 'rubrics'; programmeId: string }
+  | { op: 'applications' | 'rubrics'; programmeId: string; intakeYear?: string }
   | { op: 'application'; id: string }
   | { op: 'workspaceDeletion'; id: string }
+  | { op: 'batches'; programmeId: string; intakeYear: string }
+  | { op: 'batch'; id: string }
 export interface CommandResult {
   id?: string
   backupId?: string
@@ -133,18 +161,15 @@ async function load(): Promise<Dataset> {
     await writeDataset(seeded.dataset, seeded.files)
     data = seeded.dataset
   }
-  // Earlier name-only workspaces recorded their creator in the audit trail.
-  // Retain that ownership when upgrading without assigning seeded/shared courses.
-  for (const programme of data.programmes) {
-    if (programme.createdBy === undefined) {
-      const creation = data.audit.find(
-        (event) => event.action === 'Create programme workspace' && event.target === programme.id,
-      )
-      if (creation && data.users.some((u) => u.id === creation.actor))
-        programme.createdBy = creation.actor
-    }
-  }
+  renameExampleCourses(data)
+  assignCourseOwners(data)
+  const sampleFiles = await addSampleCourseBatches(data)
   // Runs use stored deadlines rather than in-memory timers, so refresh cannot strand a job.
+  for (const application of data.applications) {
+    const programme = data.programmes.find((p) => p.id === application.programmeId)
+    if (programme && application.intakeYear === undefined)
+      application.intakeYear = applicationIntakeYear(application, programme)
+  }
   for (const app of data.applications)
     for (const run of app.runs) {
       if (run.status === 'queued' || run.status === 'running') {
@@ -158,7 +183,8 @@ async function load(): Promise<Dataset> {
             : 'queued'
       }
     }
-  await writeDataset(data)
+  assignExistingBatches(data)
+  await writeDataset(data, sampleFiles)
   return data
 }
 function actorFor(data: Dataset, userId: string | null) {
@@ -172,9 +198,37 @@ function actorFor(data: Dataset, userId: string | null) {
 function admin(user: User) {
   if (!user.roles.includes('admin')) throw new Error('Administrator access is required.')
 }
-function tutor(user: User, programmeId: string) {
-  if (!user.roles.includes('tutor') || !user.programmeIds.includes(programmeId))
+function tutor(data: Dataset, user: User, programmeId: string) {
+  if (
+    !user.roles.includes('tutor') ||
+    !data.programmes.some((p) => p.id === programmeId && p.createdBy === user.id)
+  )
     throw new Error('You do not have tutor access to this programme.')
+}
+function batchSummaries(data: Dataset, programmeId: string, intakeYear: string) {
+  return numberBatches(
+    data.batches!.filter((b) => b.programmeId === programmeId && b.intakeYear === intakeYear),
+  ).map((batch) => {
+    const applications = batchApplications(batch, data.applications)
+    return {
+      ...batch,
+      applicantCount: applications.length,
+      pendingReviewCount: applications.filter((application) => !currentDecision(application))
+        .length,
+    }
+  })
+}
+function selectedIntake(data: Dataset, programme: Programme, year = programme.year) {
+  if (
+    typeof year !== 'string' ||
+    (!normalizeIntakeYear(year) &&
+      year !== programme.year &&
+      !data.applications.some(
+        (a) => a.programmeId === programme.id && applicationIntakeYear(a, programme) === year,
+      ))
+  )
+    throw new Error('Select a valid intake year before creating an application.')
+  return normalizeIntakeYear(year) ?? year
 }
 function addProgramme(data: Dataset, programme: Programme) {
   data.programmes.push(programme)
@@ -190,15 +244,13 @@ function addProgramme(data: Dataset, programme: Programme) {
 function ownedWorkspace(data: Dataset, user: User, id: string) {
   const programme = data.programmes.find((p) => p.id === id)
   if (!programme) throw new Error('Programme workspace not found.')
-  tutor(user, id)
-  if (programme.createdBy !== user.id)
-    throw new Error('Only the tutor who created this workspace can delete it.')
+  tutor(data, user, id)
   return programme
 }
 function appFor(data: Dataset, user: User, id: string) {
   const app = data.applications.find((a) => a.id === id)
   if (!app) throw new Error('Application not found.')
-  tutor(user, app.programmeId)
+  tutor(data, user, app.programmeId)
   return app
 }
 export async function queryDemo(query: Query, userId: string | null): Promise<unknown> {
@@ -216,9 +268,32 @@ export async function queryDemo(query: Query, userId: string | null): Promise<un
     switch (query.op) {
       case 'me':
         return user
+      case 'batches':
+        tutor(data, user, query.programmeId)
+        return batchSummaries(
+          data,
+          query.programmeId,
+          normalizeIntakeYear(query.intakeYear) ?? query.intakeYear,
+        )
+      case 'batch': {
+        const batch = data.batches!.find((b) => b.id === query.id)
+        if (!batch) throw new Error('Upload batch not found.')
+        tutor(data, user, batch.programmeId)
+        return batchSummaries(data, batch.programmeId, batch.intakeYear).find(
+          (b) => b.id === batch.id,
+        )!
+      }
       case 'applications': {
-        tutor(user, query.programmeId)
-        return data.applications.filter((a) => a.programmeId === query.programmeId)
+        tutor(data, user, query.programmeId)
+        const programme = data.programmes.find((p) => p.id === query.programmeId)
+        return data.applications.filter(
+          (a) =>
+            a.programmeId === query.programmeId &&
+            (!query.intakeYear ||
+              (programme &&
+                applicationIntakeYear(a, programme) ===
+                  (normalizeIntakeYear(query.intakeYear) ?? query.intakeYear))),
+        )
       }
       case 'application': {
         const application = appFor(data, user, query.id)
@@ -230,7 +305,9 @@ export async function queryDemo(query: Query, userId: string | null): Promise<un
       }
       case 'programmes':
         return data.programmes.filter(
-          (p) => user.roles.includes('admin') || user.programmeIds.includes(p.id),
+          (p) =>
+            user.roles.includes('admin') ||
+            (user.roles.includes('tutor') && p.createdBy === user.id),
         )
       case 'workspaceDeletion': {
         const programme = ownedWorkspace(data, user, query.id)
@@ -241,13 +318,10 @@ export async function queryDemo(query: Query, userId: string | null): Promise<un
           applications: applications.length,
           documents: data.documents.filter((d) => ids.has(d.applicationId)).length,
           criteriaVersions: data.rubrics.filter((r) => r.programmeId === programme.id).length,
-          otherTutors: data.users.filter(
-            (u) => u.id !== user.id && u.programmeIds.includes(programme.id),
-          ).length,
         }
       }
       case 'rubrics':
-        tutor(user, query.programmeId)
+        tutor(data, user, query.programmeId)
         return {
           rubrics: data.rubrics.filter((r) => r.programmeId === query.programmeId),
           activeId: data.activeRubricIds[query.programmeId],
@@ -306,16 +380,31 @@ export async function commandDemo(command: Command, userId: string | null): Prom
     const removed: string[] = []
     let result: CommandResult = {}
     switch (command.op) {
+      case 'importBatch': {
+        tutor(data, user, command.programmeId)
+        const programme = data.programmes.find((p) => p.id === command.programmeId)
+        if (!programme) throw new Error('Programme not found.')
+        const year = selectedIntake(data, programme, command.intakeYear)
+        const file = archives.get(command.archiveId)
+        if (!file) throw new Error('Select the ZIP file again before importing.')
+        const { prepareBatchImport } = await import('./batchImport')
+        const imported = await prepareBatchImport(data, file, programme, year, user.id)
+        data.batches!.push(imported.batch)
+        data.applications.push(...imported.applications)
+        data.documents.push(...imported.documents)
+        Object.assign(addedFiles, imported.files)
+        audit(data, user.id, 'Import ZIP batch', imported.batch.id)
+        result = { id: imported.batch.id }
+        break
+      }
       case 'create': {
-        tutor(user, command.programmeId)
-        if (
-          !data.programmes.some((p) => p.id === command.programmeId) ||
-          !command.candidate.trim() ||
-          !command.uploads.length
-        )
+        tutor(data, user, command.programmeId)
+        const programme = data.programmes.find((p) => p.id === command.programmeId)
+        if (!programme || !command.candidate.trim() || !command.uploads.length)
           throw new Error(
             'An application identifier, assigned programme and at least one PDF are required.',
           )
+        const intakeYear = selectedIntake(data, programme, command.intakeYear)
         if (new Set(command.uploads.map((r) => r.type)).size !== command.uploads.length)
           throw new Error('Upload one document per type.')
         const id = `APP-2026-${String(Math.max(146, ...data.applications.map((a) => Number(a.id.split('-').at(-1)) || 0)) + 1).padStart(4, '0')}`
@@ -323,6 +412,7 @@ export async function commandDemo(command: Command, userId: string | null): Prom
           id,
           candidate: command.candidate.trim(),
           programmeId: command.programmeId,
+          intakeYear,
           submittedAt: new Date().toISOString(),
           documentIds: [],
           runs: [],
@@ -353,6 +443,7 @@ export async function commandDemo(command: Command, userId: string | null): Prom
           app.documentIds.push(docId)
         }
         data.applications.push(app)
+        assignExistingBatches(data)
         audit(data, user.id, 'Create application', id)
         result = { id }
         break
@@ -474,8 +565,40 @@ export async function commandDemo(command: Command, userId: string | null): Prom
         break
       }
       case 'rubric': {
-        tutor(user, command.rubric.programmeId)
-        throw new Error('Criteria editing is disabled for the MVP.')
+        tutor(data, user, command.rubric.programmeId)
+        const draft = command.rubric
+        const active = data.rubrics.find((r) => r.id === data.activeRubricIds[draft.programmeId])
+        if (!active || draft.id !== active.id || draft.version !== active.version)
+          throw new Error('The active criteria have changed. Reload the page before editing.')
+        const invalid = validateRubric(draft)
+        if (invalid) throw new Error(invalid)
+        if (draft.mandatoryRule !== active.mandatoryRule)
+          throw new Error('The mandatory academic rule cannot be changed yet.')
+        if (!criteriaChanged(draft, active))
+          throw new Error('Change at least one weight, threshold or review margin before saving.')
+        const versions = data.rubrics
+          .filter((r) => r.programmeId === active.programmeId)
+          .map((r) => /^(\d+)\.(\d+)$/.exec(r.version))
+          .filter((match) => match !== null)
+        const major = Math.max(1, ...versions.map((v) => Number(v[1])))
+        const minor =
+          Math.max(-1, ...versions.filter((v) => Number(v[1]) === major).map((v) => Number(v[2]))) +
+          1
+        const saved: Rubric = {
+          ...active,
+          id: crypto.randomUUID(),
+          version: `${major}.${minor}`,
+          createdAt: new Date().toISOString(),
+          weights: { ...draft.weights },
+          rejectBelow: draft.rejectBelow,
+          offerFrom: draft.offerFrom,
+          margin: draft.margin,
+        }
+        data.rubrics.push(saved)
+        data.activeRubricIds[saved.programmeId] = saved.id
+        audit(data, user.id, 'Save admission criteria', saved.id)
+        result = { id: saved.id }
+        break
       }
       case 'user': {
         admin(user)
@@ -495,6 +618,14 @@ export async function commandDemo(command: Command, userId: string | null): Prom
         )
           throw new Error('This email is already assigned to an account.')
         const existing = data.users.findIndex((u) => u.id === edited.id)
+        const previousAccess = existing < 0 ? [] : data.users[existing].programmeIds
+        if (
+          new Set(edited.programmeIds).size !== previousAccess.length ||
+          previousAccess.some((id) => !edited.programmeIds.includes(id))
+        )
+          throw new Error(
+            'Course access follows ownership and cannot be assigned to another account.',
+          )
         const others = data.users.filter(
           (u) => u.id !== edited.id && u.active && u.roles.includes('admin'),
         )
@@ -504,10 +635,10 @@ export async function commandDemo(command: Command, userId: string | null): Prom
           data.users.find((u) => u.id === edited.id)?.roles.includes('admin')
         )
           throw new Error('Keep at least one active administrator.')
-        if (!edited.roles.includes('tutor')) {
-          edited.programmeIds = []
-          edited.canPublishCriteria = false
-        }
+        edited.programmeIds = edited.roles.includes('tutor')
+          ? data.programmes.filter((p) => p.createdBy === edited.id).map((p) => p.id)
+          : []
+        if (!edited.roles.includes('tutor')) edited.canPublishCriteria = false
         if (existing >= 0) data.users[existing] = edited
         else data.users.push({ ...edited, id: crypto.randomUUID() })
         audit(data, user.id, 'Save account and permissions', edited.id || edited.email)
@@ -515,23 +646,20 @@ export async function commandDemo(command: Command, userId: string | null): Prom
       }
       case 'workspace': {
         if (!user.roles.includes('tutor')) throw new Error('Tutor access is required.')
-        const name = command.name.trim()
-        if (!name || name.length > 100)
-          throw new Error('Enter a workspace name between 1 and 100 characters.')
+        const name = normalizeCourseName(command.name)
+        if (!name) throw new Error('Enter a course name of 1 to 100 characters.')
         if (
           data.programmes.some(
-            (p) =>
-              user.programmeIds.includes(p.id) &&
-              p.name.trim().toLowerCase() === name.toLowerCase(),
+            (p) => p.createdBy === user.id && p.name.trim().toLowerCase() === name.toLowerCase(),
           )
         )
-          throw new Error('You already have a programme workspace with this name.')
+          throw new Error('You already have access to a course with this name.')
         const id = crypto.randomUUID()
         const year = new Date().getFullYear()
         addProgramme(data, {
           id,
           name,
-          code: `WS-${id}`,
+          code: `COURSE-${id.toUpperCase()}`,
           year: `${year} / ${String(year + 1).slice(-2)}`,
           department: '',
           description:
@@ -552,6 +680,7 @@ export async function commandDemo(command: Command, userId: string | null): Prom
         const rubrics = data.rubrics.filter((r) => r.programmeId === programme.id)
         const targets = new Set([
           programme.id,
+          ...data.batches!.filter((b) => b.programmeId === programme.id).map((b) => b.id),
           ...documents.map((d) => d.id),
           ...rubrics.map((r) => r.id),
           ...applications.flatMap((a) => [
@@ -566,6 +695,7 @@ export async function commandDemo(command: Command, userId: string | null): Prom
         data.documents = data.documents.filter((d) => !appIds.has(d.applicationId))
         data.rubrics = data.rubrics.filter((r) => r.programmeId !== programme.id)
         data.programmes = data.programmes.filter((p) => p.id !== programme.id)
+        data.batches = data.batches!.filter((b) => b.programmeId !== programme.id)
         delete data.activeRubricIds[programme.id]
         for (const account of data.users)
           account.programmeIds = account.programmeIds.filter((id) => id !== programme.id)
@@ -576,24 +706,19 @@ export async function commandDemo(command: Command, userId: string | null): Prom
       case 'programme': {
         admin(user)
         const edited = { ...command.programme }
+        if (!edited.id) throw new Error('Tutors add their own courses from the Courses page.')
         // Metadata editing cannot claim or transfer ownership.
         delete edited.createdBy
         if (!edited.name.trim() || !edited.code.trim() || !edited.year.trim())
           throw new Error('Programme name, code and academic year are required.')
-        if (
-          data.programmes.some(
-            (p) => p.id !== edited.id && p.code.toLowerCase() === edited.code.toLowerCase(),
-          )
-        )
+        const code = normalizeModuleCode(edited.code)
+        if (!code) throw new Error('Enter a valid module code.')
+        edited.code = code
+        if (data.programmes.some((p) => p.id !== edited.id && p.code.trim().toUpperCase() === code))
           throw new Error('This programme code is already configured.')
         const index = data.programmes.findIndex((p) => p.id === edited.id)
         if (edited.id && index < 0) throw new Error('Programme not found.')
-        if (index >= 0)
-          data.programmes[index] = { ...edited, createdBy: data.programmes[index].createdBy }
-        else {
-          edited.id = crypto.randomUUID()
-          addProgramme(data, edited)
-        }
+        data.programmes[index] = { ...edited, createdBy: data.programmes[index].createdBy }
         audit(data, user.id, 'Save programme metadata', edited.id)
         result = { id: edited.id }
         break
@@ -661,6 +786,7 @@ export async function commandDemo(command: Command, userId: string | null): Prom
       case 'reset': {
         admin(user)
         const seed = await createSeed()
+        assignExistingBatches(seed.dataset)
         audit(seed.dataset, user.id, 'Reset browser demo', 'demo-dataset')
         await writeDataset(seed.dataset, seed.files, [], true)
         return {}
@@ -676,7 +802,7 @@ export async function validateBackup(
 ): Promise<{ dataset: Dataset; files: Record<string, Blob> }> {
   try {
     const backup = value as Backup
-    const d = migrateDataset(backup.dataset)
+    const d = migrateDataset(structuredClone(backup.dataset))
     if (
       backup.format !== 'ucl-admissions-demo' ||
       ![1, 2].includes(Number(backup.version)) ||
@@ -702,6 +828,7 @@ export async function validateBackup(
     )
       throw new Error()
     const programmeIds = new Set(d.programmes.map((p) => p.id))
+    if (!validBatches(d)) throw new Error()
     if (
       !d.users.every(
         (u) =>
@@ -760,6 +887,10 @@ export async function validateBackup(
         (a) =>
           [a.id, a.candidate, a.submittedAt].every(string) &&
           programmeIds.has(a.programmeId) &&
+          (a.intakeYear === undefined ||
+            (string(a.intakeYear) &&
+              a.intakeYear.trim().length > 0 &&
+              a.intakeYear.length <= 100)) &&
           Array.isArray(a.documentIds) &&
           Array.isArray(a.runs) &&
           Array.isArray(a.corrections) &&
@@ -873,6 +1004,7 @@ export async function validateBackup(
       if (blob.size !== doc.size || (await sha256(blob)) !== doc.hash) throw new Error()
       files[file.id] = blob
     }
+    assignCourseOwners(d)
     return { dataset: d, files }
   } catch {
     throw new Error(

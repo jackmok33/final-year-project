@@ -89,7 +89,6 @@ export function DataOperationsPage() {
 
   return (
     <Page title={content.dataOperations} subtitle={content.subtitle}>
-      <Alert severity="info">{content.demoNotice}</Alert>
       <ErrorNotice error={error || mutation.error || localError} />
       {notice && (
         <Alert severity="success" role="status">

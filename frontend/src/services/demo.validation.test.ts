@@ -75,6 +75,11 @@ describe('service mutation validation and failure atomicity', () => {
       'admin-a',
     ],
     [
+      'invalid module code',
+      () => ({ op: 'programme', programme: { ...data.programmes[0], code: 'COMP 0003' } }),
+      'admin-a',
+    ],
+    [
       'duplicate programme code',
       () => ({
         op: 'programme',

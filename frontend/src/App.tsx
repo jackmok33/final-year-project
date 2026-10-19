@@ -3,8 +3,17 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout, Protected } from './components/Layout'
 import { Loading } from './components/common'
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })))
+const ModulesPage = lazy(() =>
+  import('./pages/ModulesPage').then((m) => ({ default: m.ModulesPage })),
+)
+const ModuleIntakesPage = lazy(() =>
+  import('./pages/ModuleIntakesPage').then((m) => ({ default: m.ModuleIntakesPage })),
+)
 const ApplicationsPage = lazy(() =>
   import('./pages/ApplicationsPage').then((m) => ({ default: m.ApplicationsPage })),
+)
+const UploadBatchesPage = lazy(() =>
+  import('./pages/UploadBatchesPage').then((m) => ({ default: m.UploadBatchesPage })),
 )
 const NewApplicationPage = lazy(() =>
   import('./pages/NewApplicationPage').then((m) => ({ default: m.NewApplicationPage })),
@@ -43,7 +52,11 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<Protected />}>
           <Route element={<Layout />}>
+            <Route path="/modules" element={<ModulesPage />} />
+            <Route path="/modules/:id" element={<ModuleIntakesPage />} />
             <Route path="/applications" element={<ApplicationsPage />} />
+            <Route path="/batches" element={<UploadBatchesPage />} />
+            <Route path="/batches/:batchId" element={<ApplicationsPage />} />
             <Route path="/applications/new" element={<NewApplicationPage />} />
             <Route path="/applications/:id" element={<AssessmentPage />} />
             <Route path="/applications/:id/evidence" element={<EvidencePage />} />
@@ -60,7 +73,7 @@ export function App() {
             <Route path="/admin/data" element={<DataOperationsPage />} />
           </Route>
         </Route>
-        <Route path="/" element={<Navigate to="/applications" replace />} />
+        <Route path="/" element={<Navigate to="/modules" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

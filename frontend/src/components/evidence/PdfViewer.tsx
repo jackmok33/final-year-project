@@ -102,10 +102,11 @@ export function PdfViewer({
       )}
       <Box
         sx={{
-          border: '1px solid #E5DEEC',
+          border: 1,
+          borderColor: 'divider',
           borderRadius: 1,
           overflow: 'hidden',
-          bgcolor: '#FAFAFA',
+          bgcolor: 'action.hover',
           display: 'flex',
           justifyContent: 'center',
         }}

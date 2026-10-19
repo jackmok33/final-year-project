@@ -19,12 +19,14 @@ export function ApplicationTable({ filtered }: { filtered: Application[] }) {
     <TableContainer>
       <Table
         aria-label={content.applicationQueue}
-        sx={{ '& .MuiTableCell-root': { px: { xs: 1, sm: 2 } } }}
+        sx={{ minWidth: 620, '& .MuiTableCell-root': { px: { xs: 1.5, sm: 2 } } }}
       >
         <TableHead>
           <TableRow>
             {content.headers.map((h, i) => (
-              <TableCell key={i}>{h}</TableCell>
+              <TableCell key={i} align={i === 1 ? 'right' : 'left'}>
+                {h}
+              </TableCell>
             ))}
           </TableRow>
         </TableHead>
@@ -40,7 +42,7 @@ export function ApplicationTable({ filtered }: { filtered: Application[] }) {
                     component={Link}
                     to={`/applications/${encodeURIComponent(a.id)}`}
                     aria-label={content.openLabel(a.id)}
-                    sx={{ fontWeight: 600 }}
+                    sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}
                   >
                     {a.id}
                   </MuiLink>
@@ -48,7 +50,10 @@ export function ApplicationTable({ filtered }: { filtered: Application[] }) {
                     {a.candidate}
                   </Typography>
                 </TableCell>
-                <TableCell>
+                <TableCell
+                  align="right"
+                  sx={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
+                >
                   {assessed ? (run?.overall ?? content.unavailableScore) : content.unavailableScore}
                 </TableCell>
                 <TableCell>

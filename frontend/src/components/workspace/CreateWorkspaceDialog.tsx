@@ -13,6 +13,7 @@ import { ErrorNotice } from '../common'
 export function CreateWorkspaceDialog({
   open,
   name,
+  valid,
   saving,
   error,
   onNameChange,
@@ -21,6 +22,7 @@ export function CreateWorkspaceDialog({
 }: {
   open: boolean
   name: string
+  valid: boolean
   saving: boolean
   error: unknown
   onNameChange: (name: string) => void
@@ -40,7 +42,7 @@ export function CreateWorkspaceDialog({
       <form
         onSubmit={(event) => {
           event.preventDefault()
-          if (!saving && name.trim() && name.trim().length <= 100) onSubmit()
+          if (!saving && valid) onSubmit()
         }}
       >
         <DialogTitle id="create-workspace-title">{content.title}</DialogTitle>
@@ -57,8 +59,8 @@ export function CreateWorkspaceDialog({
             value={name}
             disabled={saving}
             onChange={(event) => onNameChange(event.target.value)}
-            helperText={content.nameHint}
-            error={name.trim().length > 100}
+            helperText={name.trim() && !valid ? content.invalidName : content.nameHint}
+            error={!!name.trim() && !valid}
             sx={{ mt: 1 }}
           />
         </DialogContent>
@@ -66,12 +68,8 @@ export function CreateWorkspaceDialog({
           <Button onClick={onClose} disabled={saving}>
             {content.cancel}
           </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={saving || !name.trim() || name.trim().length > 100}
-          >
-            {saving ? content.creating : content.create}
+          <Button type="submit" variant="contained" disabled={saving || !valid}>
+            {saving ? content.adding : content.addCourse}
           </Button>
         </DialogActions>
       </form>

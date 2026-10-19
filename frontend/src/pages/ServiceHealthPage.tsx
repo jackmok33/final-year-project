@@ -18,7 +18,6 @@ export function ServiceHealthPage() {
   if (isLoading) return <Loading />
   return (
     <Page title={content.serviceHealth} subtitle={content.subtitle}>
-      <Alert severity="info">{content.demoNotice}</Alert>
       <ErrorNotice error={error || mutation.error} />
       <HealthSummary data={data} />
       {!data?.modelAvailable && <Alert severity="warning">{content.modelUnavailableNotice}</Alert>}

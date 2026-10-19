@@ -60,6 +60,11 @@ export function NewApplicationForm({
               value={programme?.name ?? ''}
               slotProps={{ input: { readOnly: true } }}
             />
+            <TextField
+              label={content.intakeYear}
+              value={programme.year}
+              slotProps={{ input: { readOnly: true } }}
+            />
             <Typography variant="h6" component="h2">
               {content.applicationDocuments}
             </Typography>
@@ -83,7 +88,7 @@ export function NewApplicationForm({
               <Button variant="contained" type="submit" disabled={disabled}>
                 {isLoading ? content.saving : content.createApplication}
               </Button>
-              <Button component={Link} to="/applications">
+              <Button component={Link} to="/batches">
                 {content.cancel}
               </Button>
             </Stack>

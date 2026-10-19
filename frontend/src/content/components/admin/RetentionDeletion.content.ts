@@ -2,7 +2,7 @@ export const retentionDeletionContent = {
   retentionDeletion: 'Retention & deletion',
   retentionPolicy: 'Retention policy',
   retentionValue: 'To be agreed with the university',
-  retentionNotice: 'There is no automatic retention policy in this demo.',
+  retentionNotice: 'No automatic retention policy is configured.',
   applicationIdentifier: 'Application identifier',
   applicationPlaceholder: 'APP-2026-0142',
   reviewDeletionImpact: 'Review deletion impact',

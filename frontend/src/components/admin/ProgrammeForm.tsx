@@ -32,7 +32,6 @@ export function ProgrammeForm({
             <Stack spacing={2.5}>
               {(
                 [
-                  ['name', content.programmeName],
                   ['code', content.programmeCode],
                   ['year', content.academicYear],
                   ['department', content.department],
@@ -42,7 +41,7 @@ export function ProgrammeForm({
                 <TextField
                   key={key}
                   label={label}
-                  required={['name', 'code', 'year'].includes(key)}
+                  required={['code', 'year'].includes(key)}
                   value={form[key]}
                   multiline={key === 'description'}
                   minRows={key === 'description' ? 3 : undefined}

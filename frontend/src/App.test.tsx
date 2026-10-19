@@ -16,7 +16,10 @@ beforeEach(resetPageMocks)
 describe('routed screens and lazy imports', () => {
   it.each([
     ['/login', 'Sign in'],
+    ['/modules', 'Courses'],
+    ['/modules/programme-1', 'Computational Statistics and Machine Learning MSc'],
     ['/applications', 'Applications'],
+    ['/batches', 'Upload batches'],
     ['/applications/new', 'New application'],
     ['/applications/APP-TEST', 'APP-TEST'],
     ['/applications/APP-TEST/evidence', 'Source evidence'],
@@ -38,26 +41,27 @@ describe('routed screens and lazy imports', () => {
       await screen.findByRole('heading', { name: title, level: url === '/login' ? 2 : 1 }),
     ).toBeInTheDocument()
   })
-  it.each(['/', '/unknown-path'])('returns %s to the authorised queue', async (url) => {
+  it.each(['/', '/unknown-path'])('returns %s to the module landing page', async (url) => {
     render(
       <MemoryRouter initialEntries={[url]}>
         <App />
       </MemoryRouter>,
     )
-    expect(
-      await screen.findByRole('heading', { name: 'Applications', level: 1 }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Courses', level: 1 })).toBeInTheDocument()
   })
-  it('does not let an admin-only session open applicant routes', async () => {
-    apiMocks.useMeQuery.mockReturnValue(queryResult(administrator))
-    render(
-      <MemoryRouter initialEntries={['/applications/APP-TEST']}>
-        <App />
-      </MemoryRouter>,
-    )
-    expect(
-      await screen.findByRole('heading', { name: 'Service health', level: 1 }),
-    ).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'APP-TEST' })).not.toBeInTheDocument()
-  })
+  it.each(['/applications/APP-TEST', '/batches', '/batches/secret'])(
+    'does not let an admin-only session open %s',
+    async (url) => {
+      apiMocks.useMeQuery.mockReturnValue(queryResult(administrator))
+      render(
+        <MemoryRouter initialEntries={[url]}>
+          <App />
+        </MemoryRouter>,
+      )
+      expect(
+        await screen.findByRole('heading', { name: 'Service health', level: 1 }),
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'APP-TEST' })).not.toBeInTheDocument()
+    },
+  )
 })

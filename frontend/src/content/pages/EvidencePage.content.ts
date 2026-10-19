@@ -3,7 +3,7 @@ import { textValue, type ContentValue } from '../formatText'
 export const evidencePageContent = {
   sourceEvidence: 'Source evidence',
   subtitle: (id: ContentValue) => `${String(id)} / Original document and cited claim`,
-  backToAssessment: 'Back to assessment',
+  back: 'Back',
   originalDocument: 'Original document',
   downloadOriginal: 'Download original',
   invalidCitationMessage:

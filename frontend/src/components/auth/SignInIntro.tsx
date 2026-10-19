@@ -1,17 +1,22 @@
 import { useContent } from '../../hooks/useContent'
 import { Stack, Typography } from '@mui/material'
+import { UclLogo } from '../UclLogo'
 
 export function SignInIntro() {
   const content = useContent('signInIntro')
   return (
     <Stack
+      direction={{ xs: 'column', sm: 'row' }}
       spacing={2}
-      sx={{ bgcolor: '#361A54', color: '#FFF', p: { xs: 4, md: 8 }, justifyContent: 'center' }}
+      sx={{
+        p: { xs: 3, sm: 4 },
+        pb: 2,
+        alignItems: 'center',
+        textAlign: { xs: 'center', sm: 'left' },
+      }}
     >
-      <Typography variant="h3" component="p" sx={{ fontWeight: 800 }}>
-        {content.ucl}
-      </Typography>
-      <Typography variant="h3" component="h1" sx={{ maxWidth: 500 }}>
+      <UclLogo />
+      <Typography variant="h5" component="h1">
         {content.applicationReviewWorkspace}
       </Typography>
     </Stack>

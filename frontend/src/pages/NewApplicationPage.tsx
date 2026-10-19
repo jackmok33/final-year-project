@@ -2,7 +2,7 @@ import { useContent } from '../hooks/useContent'
 import { Alert } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useCommandMutation, useMeQuery } from '../app/api'
+import { useCommandMutation } from '../app/api'
 import { useWorkspace } from '../app/workspace'
 import {
   NewApplicationForm,
@@ -13,8 +13,13 @@ import { type DocumentType } from '../domain/types'
 import { releaseUploads, stageUploads } from '../services/demo'
 export function NewApplicationPage() {
   const content = useContent('newApplicationPage')
-  const { programme, isLoading: workspaceLoading, error: workspaceError } = useWorkspace()
-  const { data: user } = useMeQuery()
+  const {
+    user,
+    programme,
+    intakeYear,
+    isLoading: workspaceLoading,
+    error: workspaceError,
+  } = useWorkspace()
   const [candidate, setCandidate] = useState('')
   const [files, setFiles] = useState<SelectedDocuments>({})
   const [validationError, setValidationError] = useState('')
@@ -61,6 +66,7 @@ export function NewApplicationPage() {
         op: 'create',
         candidate,
         programmeId: programme.id,
+        intakeYear: intakeYear ?? programme.year,
         uploads: refs,
       }).unwrap()
       navigate(`/applications/${result.id}`)
@@ -83,7 +89,7 @@ export function NewApplicationPage() {
     !user?.programmeIds.includes(programme?.id ?? '')
   return (
     <NewApplicationForm
-      programme={programme}
+      programme={{ ...programme, year: intakeYear ?? programme.year }}
       candidate={candidate}
       setCandidate={setCandidate}
       files={files}

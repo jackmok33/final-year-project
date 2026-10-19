@@ -22,6 +22,13 @@ FIXTURES = {
     "APP-2026-0145": "missing",
     "APP-2026-0146": "failed",
     "APP-2026-0147": "offer",
+    "SAMPLE-CSML-01": "offer",
+    "SAMPLE-CSML-02": "missing",
+    "SAMPLE-CSML-03": "reject",
+    # Preserve sample cases already saved by earlier browser builds.
+    "APP-2026-0148": "offer",
+    "APP-2026-0149": "missing",
+    "APP-2026-0150": "reject",
 }
 
 

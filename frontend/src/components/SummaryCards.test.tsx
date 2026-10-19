@@ -41,7 +41,7 @@ describe('shared summary cards', () => {
     expect(card('Failed runs').getByText('1')).toBeInTheDocument()
   })
 
-  it('keeps health figures separate from queue counts and explicitly simulated', () => {
+  it('keeps health figures separate from queue counts without repeated environment notices', () => {
     const { rerender } = render(<HealthSummary />)
     expect(card('Available services').getByText('3 / 4')).toBeInTheDocument()
     expect(card('Failed jobs').getByText('0')).toBeInTheDocument()
@@ -49,6 +49,6 @@ describe('shared summary cards', () => {
     expect(card('Available services').getByText('4 / 4')).toBeInTheDocument()
     expect(card('Failed jobs').getByText('2')).toBeInTheDocument()
     expect(card('Queued evaluations').getByText('3')).toBeInTheDocument()
-    expect(screen.getAllByText('Simulated environment')).toHaveLength(4)
+    expect(screen.queryByText('Simulated environment')).not.toBeInTheDocument()
   })
 })

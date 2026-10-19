@@ -9,7 +9,7 @@ beforeEach(async () => {
 })
 
 async function createWorkspace() {
-  return (await commandDemo({ op: 'workspace', name: 'My workspace' }, 'tutor-a')).id!
+  return (await commandDemo({ op: 'workspace', name: 'COMP0003' }, 'tutor-a')).id!
 }
 
 describe('workspace deletion and ownership', () => {
@@ -19,9 +19,8 @@ describe('workspace deletion and ownership', () => {
     data.users.find((u) => u.id === 'tutor-b')!.programmeIds.push(id)
     await writeDataset(data)
     for (const [user, target, message] of [
-      ['tutor-b', id, 'Only the tutor who created'],
+      ['tutor-b', id, 'tutor access'],
       ['admin-a', id, 'tutor access'],
-      ['tutor-a', 'programme-1', 'Only the tutor who created'],
       ['tutor-a', 'missing', 'not found'],
     ]) {
       await expect(
@@ -34,7 +33,9 @@ describe('workspace deletion and ownership', () => {
     await expect(
       commandDemo({ op: 'deleteWorkspace', id, confirmed: false }, 'tutor-a'),
     ).rejects.toThrow('Confirm workspace deletion')
-    expect(await readDataset()).toEqual(data)
+    const saved = (await readDataset())!
+    expect(saved.users.find((u) => u.id === 'tutor-b')!.programmeIds).not.toContain(id)
+    expect(saved.applications).toEqual(data.applications)
   })
 
   it('removes the complete workspace atomically while preserving unrelated courses and original PDFs', async () => {
@@ -42,6 +43,7 @@ describe('workspace deletion and ownership', () => {
     const data = (await readDataset())!
     const app = data.applications[0]
     app.programmeId = id
+    delete app.batchId
     app.runs.forEach((r) => {
       r.rubricId = data.activeRubricIds[id]
     })
@@ -63,7 +65,6 @@ describe('workspace deletion and ownership', () => {
       applications: 1,
       documents: app.documentIds.length,
       criteriaVersions: 1,
-      otherTutors: 1,
     })
     const exported = await commandDemo({ op: 'backup' }, 'admin-a')
     const backup = takeBackup(exported.backupId!)!
@@ -102,6 +103,7 @@ describe('workspace deletion and ownership', () => {
     data.rubrics = data.rubrics.filter((r) => r.programmeId === id)
     data.activeRubricIds = { [id]: data.activeRubricIds[id] }
     data.applications = []
+    data.batches = []
     data.documents = []
     data.users.forEach((u) => {
       u.programmeIds = u.programmeIds.filter((p) => p === id)
@@ -117,18 +119,18 @@ describe('workspace deletion and ownership', () => {
     expect(await queryDemo({ op: 'programmes' }, 'admin-a')).toEqual([])
     expect((await readDataset())!.rubrics).toEqual([])
     await expect(
-      commandDemo({ op: 'workspace', name: 'Start again' }, 'tutor-a'),
+      commandDemo({ op: 'workspace', name: 'COMP0004' }, 'tutor-a'),
     ).resolves.toHaveProperty('id')
   })
 
-  it('recovers ownership of earlier workspaces from their creation audit without claiming shared courses', async () => {
+  it('recovers ownership of earlier workspaces from their creation audit and keeps ownership of the seeded courses', async () => {
     const id = await createWorkspace()
     const data = (await readDataset())!
     delete data.programmes.find((p) => p.id === id)!.createdBy
     await writeDataset(data)
     const programmes = (await queryDemo({ op: 'programmes' }, 'tutor-a')) as Programme[]
     expect(programmes.find((p) => p.id === id)?.createdBy).toBe('tutor-a')
-    expect(programmes.find((p) => p.id === 'programme-1')?.createdBy).toBeUndefined()
+    expect(programmes.find((p) => p.id === 'programme-1')?.createdBy).toBe('tutor-a')
     await expect(
       commandDemo({ op: 'deleteWorkspace', id, confirmed: true }, 'tutor-a'),
     ).resolves.toEqual({})

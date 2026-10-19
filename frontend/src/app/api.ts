@@ -2,13 +2,13 @@ import { createApi, type BaseQueryFn } from '@reduxjs/toolkit/query/react'
 import type {
   Application,
   AuditEvent,
-  Dataset,
   DemoHealth,
   DocumentRecord,
   Programme,
   Rubric,
   User,
   WorkspaceDeletionImpact,
+  BatchSummary,
 } from '../domain/types'
 import {
   commandDemo,
@@ -17,21 +17,16 @@ import {
   type CommandResult,
   type Query,
 } from '../services/demo'
-import { getBackendHealth, type BackendHealth } from '../services/backend'
 
 export interface ApiError {
   status: string
   data: string
 }
-const demoBaseQuery: BaseQueryFn<
-  Query | Command | { op: 'backendHealth' },
-  unknown,
-  ApiError
-> = async (args, api) => {
+const demoBaseQuery: BaseQueryFn<Query | Command, unknown, ApiError> = async (args, api) => {
   const userId = (api.getState() as { session: { userId: string | null } }).session.userId
   try {
-    if (args.op === 'backendHealth') return { data: await getBackendHealth(api.signal) }
     const mutationOps = [
+      'importBatch',
       'create',
       'evaluate',
       'correct',
@@ -76,6 +71,14 @@ export const admissionsApi = createApi({
       query: (programmeId) => ({ op: 'applications', programmeId }),
       providesTags: ['Dataset'],
     }),
+    batches: builder.query<BatchSummary[], { programmeId: string; intakeYear: string }>({
+      query: (scope) => ({ op: 'batches', ...scope }),
+      providesTags: ['Dataset'],
+    }),
+    batch: builder.query<BatchSummary, string>({
+      query: (id) => ({ op: 'batch', id }),
+      providesTags: ['Dataset'],
+    }),
     application: builder.query<
       { application: Application; documents: DocumentRecord[]; rubrics: Rubric[] },
       string
@@ -100,9 +103,6 @@ export const admissionsApi = createApi({
       query: () => ({ op: 'health' }),
       providesTags: ['Dataset'],
     }),
-    backendHealth: builder.query<BackendHealth, void>({
-      query: () => ({ op: 'backendHealth' }),
-    }),
     audit: builder.query<AuditEvent[], void>({
       query: () => ({ op: 'audit' }),
       providesTags: ['Dataset'],
@@ -113,18 +113,18 @@ export const admissionsApi = createApi({
     }),
   }),
 })
-export type DemoDataset = Dataset
 export const {
   useAccountsQuery,
   useMeQuery,
   useApplicationsQuery,
+  useBatchesQuery,
+  useBatchQuery,
   useApplicationQuery,
   useProgrammesQuery,
   useWorkspaceDeletionQuery,
   useRubricsQuery,
   useUsersQuery,
   useHealthQuery,
-  useBackendHealthQuery,
   useAuditQuery,
   useCommandMutation,
 } = admissionsApi

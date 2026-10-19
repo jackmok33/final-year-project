@@ -10,8 +10,9 @@ import type {
 
 export const programme: Programme = {
   id: 'programme-1',
-  name: 'Computer Science Example',
-  code: 'DEMO-CS',
+  createdBy: 'tutor-a',
+  name: 'Computational Statistics and Machine Learning MSc',
+  code: 'COMP0001',
   year: '2026 / 27',
   department: 'Computer Science',
   description: 'Illustrative course.',
@@ -19,8 +20,8 @@ export const programme: Programme = {
 export const otherProgramme: Programme = {
   ...programme,
   id: 'programme-2',
-  name: 'Data Science Example',
-  code: 'DEMO-DS',
+  name: 'Machine Learning MSc',
+  code: 'COMP0002',
 }
 export const tutor: User = {
   id: 'tutor-a',

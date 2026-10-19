@@ -22,7 +22,9 @@ export function OutcomeOptions({
         <Box
           key={o}
           sx={{
-            bgcolor: outcome === o ? '#EEDEFF' : '#FAFAFA',
+            bgcolor: outcome === o ? 'primary.light' : 'background.paper',
+            border: 1,
+            borderColor: outcome === o ? 'primary.main' : 'divider',
             borderRadius: 1,
             px: 2,
             py: 1,
@@ -31,7 +33,7 @@ export function OutcomeOptions({
         >
           <FormControlLabel
             value={o}
-            control={<Radio color="secondary" />}
+            control={<Radio />}
             label={content.outcomeLabels[o]}
             disabled={critical && o !== 'Further review'}
           />

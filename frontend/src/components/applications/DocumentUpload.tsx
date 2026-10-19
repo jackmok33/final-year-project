@@ -20,7 +20,15 @@ export function DocumentUpload({
 }) {
   const content = useContent('documentUpload')
   return (
-    <Box sx={{ border: '1px dashed #BFA5D6', borderRadius: 1, p: 2 }}>
+    <Box
+      sx={{
+        border: '1px dashed',
+        borderColor: 'divider',
+        bgcolor: 'action.hover',
+        borderRadius: 1,
+        p: 2,
+      }}
+    >
       <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
         <Box>
           <Typography sx={{ fontWeight: 600 }}>{content.documentNames[type]}</Typography>

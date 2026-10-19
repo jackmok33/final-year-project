@@ -35,9 +35,10 @@ npm run dev
 ```
 
 Use Node 24+. Restart Vite after changing `.env.local`. Sign in as Jack, open
-`APP-2026-0143`, and choose **Re-evaluate demo case**. The frontend sends an HTTP
+`APP-2026-0143`, and choose **Re-evaluate application**. The frontend sends an HTTP
 request and renders the returned score (88.5), Offer recommendation, explanation
-and source-page links. The connection notice labels the run as a FastAPI mock.
+and source-page links. Runs retain `evaluationSource: "fastapi-mock"` in their
+saved data; the frontend no longer displays a connection notice.
 The original run remains in history; refresh and browser backup/restore retain
 both runs. Removing `VITE_API_BASE_URL` restores standalone browser evaluation.
 
@@ -51,14 +52,19 @@ both runs. Removing `VITE_API_BASE_URL` restores standalone browser evaluation.
 The POST body contains `applicationId`, `criteria` (ID, version, weights,
 thresholds, margin and entry rule), `documents` (IDs, types and page counts),
 `grade`, `modelAvailable` and optional `parentRunId`. The frontend does **not**
-send applicant names, tutor notes or PDF bytes. The context does not edit or
-activate criteria; all frontend criteria remain read-only.
+send applicant names, tutor notes or PDF bytes. Course owners can edit numeric
+criteria in the browser and save a new version. The endpoint uses the supplied
+criteria context for that assessment; it does not store or activate criteria.
 
-Only the six existing `APP-2026-0142`–`APP-2026-0147` synthetic IDs and matching
+Only the six original `APP-2026-0142`–`APP-2026-0147` IDs, the three
+`SAMPLE-CSML-01`–`SAMPLE-CSML-03` cases and matching
 document references are supported. Offer, Reject, Further review, missing evidence
 and simulated model failure/recovery are covered. Only known fixture grades have
 scores; unsupported corrections return no fabricated assessment. Critical/missing
 evidence takes precedence over thresholds. Values are examples, not UCL policy.
+The earlier sample references `APP-2026-0148`–`APP-2026-0150` remain accepted for
+browser datasets already saved with those references. New samples use the
+separate `SAMPLE-CSML` namespace; ordinary uploaded applications are not fixtures.
 
 Responses use the existing frontend `AssessmentRun` shape with
 `evaluationSource: "fastapi-mock"` and `simulated: true`. Nullable scores remain

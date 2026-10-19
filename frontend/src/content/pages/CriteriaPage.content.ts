@@ -1,3 +1,4 @@
 export const criteriaPageContent = {
-  noWorkspaceMessage: 'Create a programme workspace using New workspace in the navigation.',
+  noWorkspaceMessage: 'Choose a course from All courses to view its criteria.',
+  criteriaUnavailable: 'The criteria for this course are unavailable.',
 } as const

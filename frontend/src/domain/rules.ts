@@ -1,7 +1,14 @@
 import type { Outcome, Rubric, SectionScore } from './types'
 
 export function validateRubric(rubric: Rubric): string | null {
-  const weights = Object.values(rubric.weights)
+  const keys = ['academic', 'cv', 'statement'] as const
+  if (
+    !rubric.weights ||
+    Object.keys(rubric.weights).length !== keys.length ||
+    keys.some((key) => !Object.hasOwn(rubric.weights, key))
+  )
+    return 'Provide weights for academic performance, CV and personal statement.'
+  const weights = keys.map((key) => rubric.weights[key])
   if (
     weights.some((w) => !Number.isFinite(w) || w < 0 || w > 100) ||
     Math.abs(weights.reduce((a, b) => a + b, 0) - 100) > 0.001
@@ -16,8 +23,17 @@ export function validateRubric(rubric: Rubric): string | null {
     rubric.margin > 100
   )
     return 'Use thresholds between 0 and 100, reject below offer, and a non-negative review margin.'
-  if (!rubric.mandatoryRule.trim()) return 'A mandatory academic rule is required.'
+  if (typeof rubric.mandatoryRule !== 'string' || !rubric.mandatoryRule.trim())
+    return 'A mandatory academic rule is required.'
   return null
+}
+
+export function criteriaChanged(draft: Rubric, active: Rubric): boolean {
+  return (
+    (['academic', 'cv', 'statement'] as const).some(
+      (key) => draft.weights[key] !== active.weights[key],
+    ) || (['rejectBelow', 'offerFrom', 'margin'] as const).some((key) => draft[key] !== active[key])
+  )
 }
 export function aggregate(
   sections: SectionScore[],

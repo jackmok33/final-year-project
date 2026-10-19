@@ -7,7 +7,8 @@ export const commonContent = {
   saving: 'Saving…',
   confirm: 'Confirm',
   whyThisRecommendation: 'Why this recommendation',
-  criteriaContext: (version?: string) =>
-    `Simulated AI justification · Criteria v${version ?? 'unknown'}`,
+  assessmentStatus: 'Assessment status',
+  assessmentUnavailable: 'No assessment available for these documents.',
+  criteriaContext: (version?: string) => `Criteria v${version ?? 'unknown'}`,
   statusLabels: { ...domainLabelsContent.outcomeLabels, ...domainLabelsContent.workflowLabels },
 } as const

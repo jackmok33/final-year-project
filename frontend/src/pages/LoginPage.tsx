@@ -1,4 +1,4 @@
-import { Box } from '@mui/material'
+import { Box, Paper } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { admissionsApi, useAccountsQuery } from '../app/api'
@@ -16,7 +16,7 @@ export function LoginPage() {
     if (!account?.active) return
     dispatch(admissionsApi.util.resetApiState())
     dispatch(signIn(account.id))
-    navigate(account.roles.includes('tutor') ? '/applications' : '/admin/health')
+    navigate(account.roles.includes('tutor') ? '/modules' : '/admin/health')
   }
 
   return (
@@ -24,18 +24,31 @@ export function LoginPage() {
       sx={{
         minHeight: '100vh',
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+        placeItems: 'center',
+        bgcolor: 'background.default',
+        px: 2,
+        py: 5,
       }}
     >
-      <SignInIntro />
-      <DemoSignIn
-        accounts={accounts}
-        account={account}
-        error={error}
-        isLoading={isLoading}
-        setSelected={setSelected}
-        login={login}
-      />
+      <Paper
+        variant="outlined"
+        sx={{
+          width: '100%',
+          maxWidth: 440,
+          borderRadius: 2,
+          boxShadow: '0 2px 8px rgb(0 0 0 / 3%)',
+        }}
+      >
+        <SignInIntro />
+        <DemoSignIn
+          accounts={accounts}
+          account={account}
+          error={error}
+          isLoading={isLoading}
+          setSelected={setSelected}
+          login={login}
+        />
+      </Paper>
     </Box>
   )
 }

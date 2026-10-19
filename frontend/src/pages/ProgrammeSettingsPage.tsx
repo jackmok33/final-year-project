@@ -1,30 +1,26 @@
 import { useContent } from '../hooks/useContent'
-import { Alert, Button, MenuItem, Stack, TextField } from '@mui/material'
+import { Alert, MenuItem, Stack, TextField } from '@mui/material'
 import { useState } from 'react'
 import { useCommandMutation, useProgrammesQuery } from '../app/api'
 import { ProgrammeForm } from '../components/admin/ProgrammeForm'
-import { ErrorNotice, Loading } from '../components/common'
+import { ErrorNotice, Loading, Page } from '../components/common'
 import type { Programme } from '../domain/types'
+import { normalizeModuleCode } from '../domain/moduleCode'
 
 export function ProgrammeSettingsPage() {
   const content = useContent('programmeSettingsPage')
   const { data, isLoading, error } = useProgrammesQuery()
   const [notice, setNotice] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
   if (isLoading) return <Loading />
   if (!data) return <ErrorNotice error={error} />
-  const newProgramme = creating || !data.length
-  const programme = newProgramme
-    ? {
-        id: '',
-        name: '',
-        code: '',
-        year: '2026 / 27',
-        department: '',
-        description: '',
-      }
-    : (data.find((p) => p.id === selected) ?? data[0])
+  if (!data.length)
+    return (
+      <Page title={content.title} subtitle={content.subtitle}>
+        <Alert severity="info">{content.empty}</Alert>
+      </Page>
+    )
+  const programme = data.find((p) => p.id === selected) ?? data[0]
   return (
     <Stack spacing={2}>
       {notice && (
@@ -36,37 +32,25 @@ export function ProgrammeSettingsPage() {
         <TextField
           select
           label={content.manageProgramme}
-          value={newProgramme ? '' : programme.id}
+          value={programme.id}
           sx={{ minWidth: 240 }}
           onChange={(e) => {
             setSelected(e.target.value)
-            setCreating(false)
             setNotice('')
           }}
         >
-          {newProgramme && <MenuItem value="">{content.newProgramme}</MenuItem>}
           {data.map((p) => (
             <MenuItem key={p.id} value={p.id}>
               {p.name}
             </MenuItem>
           ))}
         </TextField>
-        <Button
-          variant="outlined"
-          onClick={() => {
-            setCreating(true)
-            setNotice('')
-          }}
-        >
-          {content.newProgramme}
-        </Button>
       </Stack>
       <ProgrammeEditor
-        key={newProgramme ? 'new' : JSON.stringify(programme)}
+        key={JSON.stringify(programme)}
         programme={programme}
         onSaved={(id) => {
           setSelected(id)
-          setCreating(false)
           setNotice(content.programmeSaved)
         }}
       />
@@ -86,7 +70,15 @@ function ProgrammeEditor({
   const [command, mutation] = useCommandMutation()
   async function save() {
     try {
-      const result = await command({ op: 'programme', programme: form }).unwrap()
+      const code = normalizeModuleCode(form.code) ?? form.code.trim()
+      const result = await command({
+        op: 'programme',
+        programme: {
+          ...form,
+          name: form.name === programme.code ? code : form.name,
+          code,
+        },
+      }).unwrap()
       onSaved(result.id!)
     } catch {
       /* Mutation error remains visible. */

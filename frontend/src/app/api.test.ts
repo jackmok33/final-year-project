@@ -3,10 +3,8 @@ import { configureStore } from '@reduxjs/toolkit'
 import { admissionsApi, errorMessage } from './api'
 import { queryDemo, commandDemo } from '../services/demo'
 import type { Query, Command } from '../services/demo'
-import { getBackendHealth } from '../services/backend'
 import { application, detail, programme, rubric, tutor } from '../test/fixtures'
 vi.mock('../services/demo', () => ({ queryDemo: vi.fn(), commandDemo: vi.fn() }))
-vi.mock('../services/backend', () => ({ getBackendHealth: vi.fn() }))
 const makeStore = () =>
   configureStore({
     reducer: {
@@ -17,26 +15,16 @@ const makeStore = () =>
   })
 beforeEach(() => vi.resetAllMocks())
 describe('RTK Query demo adapter', () => {
-  it('queries FastAPI health without treating the browser service as a live backend', async () => {
-    const store = makeStore()
-    const health = {
-      status: 'ok',
-      mode: 'mock',
-      service: 'ucl-application-review-api',
-      database: 'not configured',
-      inference: 'not configured',
-    } as const
-    vi.mocked(getBackendHealth).mockResolvedValue(health)
-    expect(await store.dispatch(admissionsApi.endpoints.backendHealth.initiate()).unwrap()).toEqual(
-      health,
-    )
-    expect(getBackendHealth).toHaveBeenCalledWith(expect.any(AbortSignal))
-    expect(queryDemo).not.toHaveBeenCalled()
-    store.dispatch(admissionsApi.util.resetApiState())
-  })
   it.each([
     ['accounts', undefined, { op: 'accounts' }, [tutor]],
     ['me', undefined, { op: 'me' }, tutor],
+    [
+      'batches',
+      { programmeId: programme.id, intakeYear: programme.year },
+      { op: 'batches', programmeId: programme.id, intakeYear: programme.year },
+      [],
+    ],
+    ['batch', 'batch-1', { op: 'batch', id: 'batch-1' }, { id: 'batch-1' }],
     [
       'applications',
       programme.id,
@@ -49,7 +37,7 @@ describe('RTK Query demo adapter', () => {
       'workspaceDeletion',
       programme.id,
       { op: 'workspaceDeletion', id: programme.id },
-      { programme, applications: 0, documents: 0, criteriaVersions: 1, otherTutors: 0 },
+      { programme, applications: 0, documents: 0, criteriaVersions: 1 },
     ],
     [
       'rubrics',
@@ -81,6 +69,7 @@ describe('RTK Query demo adapter', () => {
     store.dispatch(admissionsApi.util.resetApiState())
   })
   it.each([
+    'importBatch',
     'create',
     'evaluate',
     'correct',

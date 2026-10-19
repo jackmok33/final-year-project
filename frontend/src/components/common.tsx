@@ -15,7 +15,12 @@ import {
 } from '@mui/material'
 import type { ReactNode } from 'react'
 import { errorMessage } from '../app/api'
-import type { AssessmentRun, DocumentRecord, Rubric } from '../domain/types'
+import {
+  hasUnavailableAssessment,
+  type AssessmentRun,
+  type DocumentRecord,
+  type Rubric,
+} from '../domain/types'
 import { EvidenceLink } from './evidence/EvidenceLink'
 export function Card({
   title,
@@ -27,13 +32,15 @@ export function Card({
   sx?: object
 }) {
   return (
-    <Paper variant="outlined" sx={{ p: 3, minWidth: 0, ...props.sx }}>
-      <Stack spacing={2}>
-        {title && (
-          <Typography variant="h6" component="h2">
+    <Paper variant="outlined" sx={{ minWidth: 0, overflow: 'hidden', ...props.sx }}>
+      {title && (
+        <Box sx={{ px: 2.5, py: 2, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="subtitle1" component="h2">
             {title}
           </Typography>
-        )}
+        </Box>
+      )}
+      <Stack spacing={2.5} sx={{ p: 2.5 }}>
         {children}
       </Stack>
     </Paper>
@@ -52,15 +59,28 @@ export function Page({
 }) {
   return (
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4" component="h1">
-          {title}
-        </Typography>
-        <Typography color="text.secondary" sx={{ mt: 1 }}>
-          {subtitle}
-        </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: { xs: 'stretch', md: 'center' },
+          justifyContent: 'space-between',
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 2,
+        }}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h3" component="h1">
+            {title}
+          </Typography>
+          <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+            {subtitle}
+          </Typography>
+        </Box>
         {actions && (
-          <Stack direction="row" sx={{ mt: 2, flexWrap: 'wrap', gap: 1 }}>
+          <Stack
+            direction="row"
+            sx={{ flexWrap: 'wrap', justifyContent: 'flex-end', gap: 1, flexShrink: 0 }}
+          >
             {actions}
           </Stack>
         )}
@@ -82,7 +102,18 @@ export function Status({ label }: { label: string }) {
         : /review|running|queued|Missing/i.test(label)
           ? 'warning'
           : 'default'
-  return <Chip label={displayLabel} color={color} variant="outlined" />
+  return (
+    <Chip
+      label={displayLabel}
+      color={color}
+      variant="outlined"
+      sx={(theme) => ({
+        alignSelf: 'flex-start',
+        bgcolor: color === 'default' ? 'action.hover' : theme.palette[color].light,
+        borderColor: color === 'default' ? 'divider' : `${theme.palette[color].main}40`,
+      })}
+    />
+  )
 }
 export function Loading() {
   const content = useContent('common')
@@ -173,31 +204,36 @@ export function Rationale({
   applicationId: string
 }) {
   const content = useContent('common')
+  const unavailable = hasUnavailableAssessment(run)
   return (
     <Stack spacing={1.5}>
       <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600 }}>
-        {content.whyThisRecommendation}
+        {unavailable ? content.assessmentStatus : content.whyThisRecommendation}
       </Typography>
-      <Typography>{run.justification.summary}</Typography>
+      <Typography>
+        {unavailable ? content.assessmentUnavailable : run.justification.summary}
+      </Typography>
       <Typography variant="body2" color="text.secondary">
         {content.criteriaContext(rubric?.version)}
       </Typography>
-      {run.justification.rules.map((rule) => (
-        <Typography key={rule} variant="body2">
-          {rule}
-        </Typography>
-      ))}
-      <Stack spacing={0.5}>
-        {run.justification.citations.map((citation, i) => (
-          <EvidenceLink
-            key={i}
-            applicationId={applicationId}
-            citation={citation}
-            document={documents.find((d) => d.id === citation.documentId)}
-            runId={run.id}
-            sx={{ justifyContent: 'flex-start', textAlign: 'left' }}
-          />
+      {!unavailable &&
+        run.justification.rules.map((rule) => (
+          <Typography key={rule} variant="body2">
+            {rule}
+          </Typography>
         ))}
+      <Stack spacing={0.5}>
+        {!unavailable &&
+          run.justification.citations.map((citation, i) => (
+            <EvidenceLink
+              key={i}
+              applicationId={applicationId}
+              citation={citation}
+              document={documents.find((d) => d.id === citation.documentId)}
+              runId={run.id}
+              sx={{ justifyContent: 'flex-start', textAlign: 'left' }}
+            />
+          ))}
       </Stack>
     </Stack>
   )
