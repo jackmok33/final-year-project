@@ -17,11 +17,10 @@ export function EvidencePage() {
   const content = useContent('evidencePage')
   const { id = '' } = useParams()
   const [params, setParams] = useSearchParams()
-  const { data, error, isLoading } = useApplicationQuery(id)
+  const { currentData: data, error } = useApplicationQuery(id)
   const userId = useAppSelector((s) => s.session.userId)
   const [downloadError, setDownloadError] = useState('')
-  if (isLoading) return <Loading />
-  if (!data) return <ErrorNotice error={error} />
+  if (!data) return error ? <ErrorNotice error={error} /> : <Loading />
   const doc = params.has('document')
     ? data.documents.find((d) => d.id === params.get('document'))
     : (data.documents.find((d) => d.type === 'transcript') ?? data.documents[0])

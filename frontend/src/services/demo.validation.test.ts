@@ -36,7 +36,6 @@ describe('service mutation validation and failure atomicity', () => {
         runId: 'old-run',
         outcome: 'Offer',
         reason: '',
-        confirmed: true,
       }),
       'tutor-a',
     ],

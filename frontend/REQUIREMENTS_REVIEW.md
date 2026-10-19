@@ -1,5 +1,13 @@
 # Frontend behaviour review — 14 October 2026
 
+**19 October implementation update:** course owners can now edit numeric criteria.
+Tutors can record decisions independently of the AI recommendation with an
+optional review note; the earlier override-reason requirement below is superseded.
+Recording now saves directly without a separate confirmation dialog or an evidence
+review checkbox. These updates supersede the earlier acknowledgement requirement.
+This document retains the historical requirements comparison. See the frontend
+README and AGENTS.md for current behaviour.
+
 **Subsequent MVP decision (14 October 2026):** the user deferred criteria editing,
 document updates and the other additions below. Criteria are now read-only for all
 accounts, and the demo service rejects publication. Existing data/history remain

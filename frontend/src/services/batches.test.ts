@@ -326,7 +326,6 @@ describe('persistent ZIP upload batches', () => {
           runId: offer.runs.at(-1)!.id,
           outcome,
           reason: 'Verified source evidence.',
-          confirmed: true,
         },
         'tutor-a',
       )
@@ -339,7 +338,6 @@ describe('persistent ZIP upload batches', () => {
         runId: review.runs.at(-1)!.id,
         outcome: 'Further review',
         reason: 'Evidence inspected; clarification requested.',
-        confirmed: false,
       },
       'tutor-a',
     )
@@ -352,7 +350,6 @@ describe('persistent ZIP upload batches', () => {
         runId: otherCourse.runs.at(-1)!.id,
         outcome: 'Further review',
         reason: 'Inspected missing evidence.',
-        confirmed: false,
       },
       'tutor-a',
     )

@@ -1,7 +1,15 @@
 import { useContent } from '../../hooks/useContent'
-import { Divider, Stack, Typography } from '@mui/material'
+import { ExpandMoreOutlined } from '@mui/icons-material'
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Button,
+  Stack,
+  Typography,
+} from '@mui/material'
+import { Link } from 'react-router-dom'
 import { type AssessmentRun, type DocumentRecord, type Rubric } from '../../domain/types'
-import { hasUnavailableAssessment } from '../../domain/types'
 import { Card } from '../common'
 import { EvidenceLink } from '../evidence/EvidenceLink'
 
@@ -10,44 +18,66 @@ export function SectionAssessments({
   rubric,
   documents,
   id,
+  canCorrect = false,
 }: {
   run: AssessmentRun
   rubric?: Rubric
   documents: DocumentRecord[]
   id: string
+  canCorrect?: boolean
 }) {
   const content = useContent('sectionAssessments')
   return (
     <Card title={content.sectionAssessments}>
-      {run.sections.map((section) => (
-        <Stack key={section.key} spacing={1}>
-          <Stack direction="row" sx={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-            <Typography sx={{ fontWeight: 600 }}>{content.sectionNames[section.key]}</Typography>
-            <Typography sx={{ fontWeight: 600 }}>
-              {content.scoreSummary(section.score, rubric?.weights[section.key])}
-            </Typography>
-          </Stack>
-          <Typography color="text.secondary">
-            {hasUnavailableAssessment(run) ? content.noAssessment : section.explanation}
-          </Typography>
-          <Stack direction="row" sx={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-            <Typography variant="body2">{section.uncertainty}</Typography>
-            {section.citations.map((citation, index) => (
-              <EvidenceLink
-                key={`${citation.documentId}:${citation.page}:${index}`}
-                applicationId={id}
-                citation={citation}
-                document={documents.find((d) => d.id === citation.documentId)}
-                runId={run.id}
-              />
-            ))}
-          </Stack>
-          <Divider />
-        </Stack>
-      ))}
-      <Typography variant="body2" color="text.secondary">
-        {content.uncertaintyHint}
-      </Typography>
+      <Stack>
+        {run.sections.map((section) => (
+          <Accordion
+            key={section.key}
+            disableGutters
+            elevation={0}
+            slotProps={{ transition: { unmountOnExit: true } }}
+            sx={{ '&:before': { display: 'none' }, borderBottom: 1, borderColor: 'divider' }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMoreOutlined />}
+              id={`section-${section.key}-heading`}
+              aria-controls={`section-${section.key}-details`}
+              sx={{ px: 0, '& .MuiAccordionSummary-content': { my: 1.5 } }}
+            >
+              <Stack spacing={0.5}>
+                <Typography component="span" sx={{ fontWeight: 600 }}>
+                  {content.sectionNames[section.key]}
+                </Typography>
+                <Typography component="span" variant="body2" color="text.secondary">
+                  {content.scoreSummary(section.score, rubric?.weights[section.key])}
+                </Typography>
+              </Stack>
+            </AccordionSummary>
+            <AccordionDetails sx={{ px: 0 }}>
+              <Stack spacing={1.5}>
+                <Typography>{section.explanation}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {section.uncertainty}
+                </Typography>
+                {section.citations.map((citation, index) => (
+                  <EvidenceLink
+                    key={`${citation.documentId}:${citation.page}:${index}`}
+                    applicationId={id}
+                    citation={citation}
+                    document={documents.find((d) => d.id === citation.documentId)}
+                    runId={run.id}
+                  />
+                ))}
+                {section.key === 'academic' && canCorrect && (
+                  <Button component={Link} to={`/applications/${encodeURIComponent(id)}/correct`}>
+                    {content.correctFact}
+                  </Button>
+                )}
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        ))}
+      </Stack>
     </Card>
   )
 }

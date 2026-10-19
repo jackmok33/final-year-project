@@ -25,6 +25,25 @@ vi.mock('../app/workspace', async () => ({
 }))
 beforeEach(resetPageMocks)
 describe('fact correction page', () => {
+  it.each([0, 67.5, 92])('initialises the correction from the extracted grade %s', (grade) => {
+    apiMocks.useApplicationQuery.mockReturnValue(
+      queryResult({
+        ...detail,
+        application: { ...application, runs: [{ ...run, extractedGrade: grade }] },
+      }),
+    )
+    renderPage(<CorrectionPage />)
+    expect(screen.getByLabelText(/Corrected value/)).toHaveValue(grade)
+  })
+  it('does not offer corrections for the previous application while the next record loads', () => {
+    apiMocks.useApplicationQuery.mockReturnValue({
+      ...queryResult(detail),
+      currentData: undefined,
+    })
+    renderPage(<CorrectionPage />, '/applications/APP-OTHER/correct')
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Corrected value/)).not.toBeInTheDocument()
+  })
   it.each(['queued', 'running', 'failed'] as const)(
     'prevents correction during a %s run',
     (status) => {
@@ -89,43 +108,78 @@ describe('fact correction page', () => {
   })
 })
 describe('tutor decision page', () => {
-  it('keeps recommendation separate and requires review plus final confirmation for an Offer', async () => {
-    renderPage(<DecisionPage />)
+  it('does not offer decisions for the previous application while the next record loads', () => {
+    apiMocks.useApplicationQuery.mockReturnValue({
+      ...queryResult(detail),
+      currentData: undefined,
+    })
+    renderPage(<DecisionPage />, '/applications/APP-OTHER/decision')
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+    expect(command).not.toHaveBeenCalled()
+  })
+  it('keeps the recommendation separate and records without an acknowledgement checkbox', async () => {
+    renderPage(<DecisionPage />, '/applications/APP-TEST/decision')
     expect(screen.getByText('AI recommendation: Offer')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('radio', { name: 'Offer' }))
-    expect(screen.getByRole('button', { name: 'Record offer' })).toBeDisabled()
-    await userEvent.click(screen.getByRole('checkbox'))
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Record offer' })).toBeEnabled()
     await userEvent.click(screen.getByRole('button', { name: 'Record offer' }))
-    expect(command).not.toHaveBeenCalled()
-    const dialog = screen.getByRole('dialog', { name: /final Offer/ })
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-    expect(command).not.toHaveBeenCalled()
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await userEvent.click(screen.getByRole('button', { name: 'Record offer' }))
-    await userEvent.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm' }),
-    )
-    expect(command).toHaveBeenCalledWith({
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(command).toHaveBeenCalledExactlyOnceWith({
       op: 'decide',
       id: application.id,
       runId: run.id,
       outcome: 'Offer',
       reason: '',
-      confirmed: true,
     })
+    await waitFor(() =>
+      expect(screen.getByLabelText('Current URL')).toHaveTextContent(
+        `/applications/${application.id}`,
+      ),
+    )
   })
-  it('requires a non-blank override reason and can keep the case unresolved', async () => {
-    renderPage(<DecisionPage />)
-    expect(screen.getByRole('button', { name: 'Record further review' })).toBeDisabled()
-    await userEvent.type(screen.getByLabelText(/Reason for override/), 'Need more evidence')
+  it('can keep the case unresolved without requiring a note when it differs from the recommendation', async () => {
+    renderPage(<DecisionPage />, '/applications/APP-TEST/decision')
+    expect(screen.getByLabelText('Review note (optional)')).not.toBeRequired()
+    expect(screen.queryByLabelText(/override/i)).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Record further review' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(command).toHaveBeenCalledWith(
-      expect.objectContaining({
-        outcome: 'Further review',
-        reason: 'Need more evidence',
-        confirmed: false,
-      }),
+      expect.objectContaining({ outcome: 'Further review', reason: '' }),
+    )
+  })
+  it.each(['Offer', 'Reject'] as const)(
+    'records %s with a blank note without an extra confirmation dialog',
+    async (outcome) => {
+      apiMocks.useApplicationQuery.mockReturnValue(
+        queryResult({
+          ...detail,
+          application: { ...application, runs: [{ ...run, recommendation: 'Further review' }] },
+        }),
+      )
+      renderPage(<DecisionPage />, '/applications/APP-TEST/decision')
+      await userEvent.click(screen.getByRole('radio', { name: outcome }))
+      const action = screen.getByRole('button', { name: `Record ${outcome.toLowerCase()}` })
+      expect(action).toBeEnabled()
+      await userEvent.click(action)
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(command).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ outcome, reason: '' }),
+      )
+    },
+  )
+  it('saves an optional review note with the decision in one step', async () => {
+    renderPage(<DecisionPage />, '/applications/APP-TEST/decision')
+    await userEvent.type(
+      screen.getByLabelText('Review note (optional)'),
+      'Additional evidence checked.',
+    )
+    await userEvent.click(screen.getByRole('radio', { name: 'Reject' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Record reject' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(command).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'Reject', reason: 'Additional evidence checked.' }),
     )
   })
   it('blocks final outcomes while critical evidence is unresolved', () => {
@@ -140,29 +194,39 @@ describe('tutor decision page', () => {
         },
       }),
     )
-    renderPage(<DecisionPage />)
+    renderPage(<DecisionPage />, '/applications/APP-TEST/decision')
     expect(screen.getByRole('radio', { name: 'Offer' })).toBeDisabled()
     expect(screen.getByRole('radio', { name: 'Reject' })).toBeDisabled()
     expect(screen.getByRole('radio', { name: 'Further review' })).toBeEnabled()
   })
-  it('closes the confirmation and shows mutation errors if saving fails', async () => {
+  it('preserves the decision draft and shows save errors for retry', async () => {
     unwrap.mockRejectedValue(new Error('Decision failed'))
     mutation.error = { data: 'Decision failed' }
-    renderPage(<DecisionPage />)
+    renderPage(<DecisionPage />, '/applications/APP-TEST/decision')
+    await userEvent.type(screen.getByLabelText('Review note (optional)'), 'Keep this note.')
     await userEvent.click(screen.getByRole('radio', { name: 'Offer' }))
-    await userEvent.click(screen.getByRole('checkbox'))
     await userEvent.click(screen.getByRole('button', { name: 'Record offer' }))
-    await userEvent.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm' }),
-    )
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByText('Decision failed')).toBeInTheDocument()
+    expect(screen.getByLabelText('Review note (optional)')).toHaveValue('Keep this note.')
+    expect(screen.getByRole('radio', { name: 'Offer' })).toBeChecked()
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent(
+      `/applications/${application.id}/decision`,
+    )
+  })
+  it('disables recording while a save is in progress', async () => {
+    mutation.isLoading = true
+    renderPage(<DecisionPage />, '/applications/APP-TEST/decision')
+    await userEvent.click(screen.getByRole('radio', { name: 'Reject' }))
+    expect(screen.getByRole('button', { name: 'Record reject' })).toBeDisabled()
+    expect(command).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
   it('requires a completed assessment before recording decisions', () => {
     apiMocks.useApplicationQuery.mockReturnValue(
       queryResult({ ...detail, application: { ...application, runs: [] } }),
     )
-    renderPage(<DecisionPage />)
+    renderPage(<DecisionPage />, '/applications/APP-TEST/decision')
     expect(screen.getByText(/completed assessment before/)).toBeInTheDocument()
   })
 })

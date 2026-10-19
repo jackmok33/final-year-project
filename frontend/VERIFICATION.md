@@ -10,16 +10,67 @@ It replaces the accumulated per-change notes; reproducible commands are in the
 | ------------------------------------ | ------------------------------------------------------------------ |
 | TypeScript and Vite production build | Passed                                                             |
 | ESLint and Prettier                  | Passed                                                             |
-| Unit, component and service tests    | 477 passed across 38 files                                         |
-| Coverage                             | 98.79% lines, 97.23% statements, 98.75% functions, 92.34% branches |
-| Standalone browser suite             | 14 workflows passed                                                |
-| FastAPI browser integration          | 2 workflows passed: desktop and mobile                             |
-| FastAPI mock API tests               | 34 passed                                                          |
+| Unit, component and service tests    | 496 passed across 38 files                                         |
+| Coverage                             | 98.84% lines, 97.64% statements, 98.88% functions, 92.78% branches |
+| Standalone browser suite             | All 16 workflows passed                                            |
+| FastAPI browser integration          | 2 workflows passed                                                 |
+| FastAPI mock API tests               | 34 passed; backend code unchanged                                  |
 
 The screen audit covers all 15 screens at 1440×1000 and 390×844, including the
 mobile navigation drawer, with no critical or serious axe findings. Screenshots
-of the desktop application queue and mobile criteria editor were visually checked.
+of the desktop/mobile application review, including expanded details and history,
+were visually checked. The correction action is visible in the first viewport on
+both screen sizes.
 Automated accessibility checks do not replace a full assistive-technology audit.
+
+## Direct decision recording and optional notes
+
+Tutors may select a different outcome from the AI recommendation without entering
+an explanation. Every outcome uses the same optional review note. The UI and demo
+service no longer enforce override reasons; original recommendations, decisions
+and optional notes remain separate stored records. The evidence-review checkbox,
+its state/props and the local decision command's acknowledgement field are removed.
+The Record button saves directly without a required note, tick box or extra dialog.
+Critical evidence still blocks final outcomes. The extra confirmation dialog, its
+state/props and its display copy are removed. Deletion/reset/restore
+confirmations retain the shared Confirm component. Further review remains unresolved.
+Blank-note history uses Decision recorded, without implying agreement with the AI.
+
+Browser workflows cover all 15 screens at desktop/mobile sizes,
+correction followed by a blank-note decision, independent Offer/Reject recording,
+saving without a checkbox or decision dialog, refresh persistence and duplicate-decision
+protection. Desktop/mobile decision-form screenshots were saved. FastAPI integration
+checks also pass after the review cleanup.
+
+## Application review layout
+
+The summary groups score, AI recommendation, tutor decision and the decision
+action. Concerns appear before the explanation; raw flag codes and an empty
+success panel are omitted. Sources remain visible while scoring rules, individual
+section explanations and assessment history expand on demand. Re-evaluation is
+inside history. Tests cover keyboard expansion, source navigation, old-run review,
+returning to the latest result and disabled actions for historic results.
+Processing/failed/unavailable results display no precomputed overall score.
+No stored assessment, document, correction or decision records are changed by
+this presentation update.
+
+## Review cleanup and regression fixes
+
+Recommendation cards and scoring-rule markup each have one rendering path.
+Obsolete decision props, copy and a duplicate browser assertion are removed.
+Queries and review state remain in the page files, with controlled visual sections
+in components. A private controller keyed by application clears history expansion
+and old-run selection when navigating away and back.
+
+Assessment, evidence, correction and decision pages use only the query's current
+application data. Regression tests cover loading a different record while the
+query retains the preceding result, preventing stale forms and document display.
+The correction form now starts from the actual extracted grade rather than a
+hardcoded 74%; zero and fractional values are covered, and the browser workflow
+explicitly enters the corrected value.
+Accessibility audits wait for queried controls, fonts and finite animations to
+settle before analysing contrast. The intake-switching workflow explicitly waits
+for export data to finish loading.
 
 ## Behaviour covered
 
@@ -34,8 +85,8 @@ Automated accessibility checks do not replace a full assistive-technology audit.
   Validation and storage failures leave no partial batch or PDF writes.
 - **Review and evidence:** original PDF viewing/download, document/page navigation,
   invalid citations, corrections with source/reason, preserved run history,
-  recommendation justification, decision acknowledgement/confirmation and override
-  validation. Critical evidence blocks final decisions. New uploads have no
+  recommendation justification, direct decision recording without acknowledgement controls and optional
+  review notes. Critical evidence blocks final decisions. New uploads have no
   fabricated scores, facts or recommendations.
 - **Criteria:** owner-only numeric editing, weight/threshold validation, stale and
   unchanged draft rejection, independent course versions and explicit
@@ -76,9 +127,10 @@ Responsive tables remain keyboard focusable.
 
 Authentication, document assessment, inference and service-health data remain
 simulated. Persistence is browser IndexedDB; no frontend-to-PostgreSQL switch or
-new upload API is included. The small backend change only extends the synthetic
-fixture map. Full PostgreSQL tests and backend Ruff checks were not rerun for
-this frontend change; the separate database verification is recorded in the
+new upload API is included. The existing mock API supports the synthetic fixture
+map. Backend source, contracts and PostgreSQL storage are outside this frontend PR.
+Full PostgreSQL tests and backend Ruff checks were not rerun; the separate database
+verification is recorded in the
 [backend guide](../backend/README.md) and agent context.
 
 Browser screenshots/traces are generated under ignored `test-results/frontend/`

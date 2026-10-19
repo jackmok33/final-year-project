@@ -1,5 +1,11 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
+
+async function reEvaluate(page: Page) {
+  const history = page.getByRole('button', { name: 'Assessment history', exact: true })
+  if ((await history.getAttribute('aria-expanded')) !== 'true') await history.click()
+  await page.getByRole('button', { name: 'Re-evaluate application', exact: true }).click()
+}
 
 for (const viewport of [
   { name: 'desktop', width: 1440, height: 1000 },
@@ -19,14 +25,13 @@ for (const viewport of [
         response.url().endsWith('/api/v1/mock/assessments') &&
         response.request().method() === 'POST',
     )
-    await page.getByRole('button', { name: 'Re-evaluate application' }).click()
+    await reEvaluate(page)
     const response = await responsePromise
     expect(response.status()).toBe(200)
     const run = await response.json()
     expect(run.overall).toBe(88.5)
     expect(run.recommendation).toBe('Offer')
     expect(run.evaluationSource).toBe('fastapi-mock')
-    await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
     await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
     await page.reload()
     await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
@@ -43,7 +48,7 @@ for (const viewport of [
     await expect(page).toHaveURL(/document=APP-2026-0143-transcript.*page=2/)
     await page.goBack()
     await page.route('http://127.0.0.1:8001/api/v1/mock/assessments', (route) => route.abort())
-    await page.getByRole('button', { name: 'Re-evaluate application' }).click()
+    await reEvaluate(page)
     await expect(page.getByText(/Cannot reach the FastAPI/)).toBeVisible()
     await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
     await page.reload()
@@ -57,7 +62,7 @@ for (const viewport of [
     const nextResponse = page.waitForResponse((response) =>
       response.url().endsWith('/api/v1/mock/assessments'),
     )
-    await page.getByRole('button', { name: 'Re-evaluate application', exact: true }).click()
+    await reEvaluate(page)
     const updatedResponse = await nextResponse
     expect(updatedResponse.status()).toBe(200)
     const updated = await updatedResponse.json()

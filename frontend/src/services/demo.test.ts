@@ -270,7 +270,6 @@ describe('persistent browser demo contract', () => {
         runId: run.id,
         outcome: 'Further review',
         reason: 'Verify grade',
-        confirmed: false,
       },
       'tutor-a',
     )
@@ -304,7 +303,7 @@ describe('persistent browser demo contract', () => {
       vi.useRealTimers()
     }
   })
-  it('requires source/reason, final confirmation and override reasons; deduplicates a repeated decision', async () => {
+  it('requires correction evidence and deduplicates a repeated decision', async () => {
     const data = (await readDataset())!
     const app = data.applications[0]
     const run = app.runs[0]
@@ -337,50 +336,52 @@ describe('persistent browser demo contract', () => {
       ),
     ).rejects.toThrow('page')
     await expect(
-      commandDemo(
-        { op: 'decide', id, runId: run.id, outcome: 'Offer', reason: 'override', confirmed: true },
-        'tutor-a',
-      ),
+      commandDemo({ op: 'decide', id, runId: run.id, outcome: 'Offer', reason: '' }, 'tutor-a'),
     ).rejects.toThrow('critical')
     const offer = data.applications[1]
-    await expect(
-      commandDemo(
-        {
-          op: 'decide',
-          id: offer.id,
-          runId: offer.runs[0].id,
-          outcome: 'Offer',
-          reason: '',
-          confirmed: false,
-        },
-        'tutor-a',
-      ),
-    ).rejects.toThrow('confirm')
-    await expect(
-      commandDemo(
-        {
-          op: 'decide',
-          id: offer.id,
-          runId: offer.runs[0].id,
-          outcome: 'Reject',
-          reason: '',
-          confirmed: true,
-        },
-        'tutor-a',
-      ),
-    ).rejects.toThrow('reason')
     const cmd = {
       op: 'decide',
       id: offer.id,
       runId: offer.runs[0].id,
-      outcome: 'Offer',
+      outcome: 'Reject',
       reason: '',
-      confirmed: true,
     } as const
     await commandDemo(cmd, 'tutor-a')
     await commandDemo(cmd, 'tutor-a')
     expect((await readDataset())!.applications[1].decisions).toHaveLength(1)
   })
+  it.each([
+    ['APP-2026-0143', 'Reject', ''],
+    ['APP-2026-0144', 'Offer', '   '],
+    ['APP-2026-0143', 'Further review', ''],
+    ['APP-2026-0143', 'Reject', '  Checked the original evidence.  '],
+  ] as const)(
+    'records %s as %s independently of the AI recommendation with an optional note',
+    async (applicationId, outcome, reason) => {
+      const before = (await readDataset())!.applications.find((a) => a.id === applicationId)!
+      const run = before.runs.at(-1)!
+      expect(run.recommendation).not.toBe(outcome)
+      await commandDemo(
+        {
+          op: 'decide',
+          id: applicationId,
+          runId: run.id,
+          outcome,
+          reason,
+        },
+        'tutor-a',
+      )
+      const after = (await readDataset())!.applications.find((a) => a.id === applicationId)!
+      expect(after.decisions.at(-1)).toMatchObject({
+        outcome,
+        recommendation: run.recommendation,
+        reason: reason.trim(),
+        runId: run.id,
+        actor: 'tutor-a',
+      })
+      expect(after.runs).toEqual(before.runs)
+    },
+  )
   it('rejects stale criteria drafts and preserves historic runs and decisions when a new version is saved', async () => {
     const data = (await readDataset())!
     const savedVersion = {

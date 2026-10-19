@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import '../test/domSetup'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Link } from 'react-router-dom'
 import { apiMocks, command, queryResult, resetPageMocks, workspaceMock } from '../test/pageMocks'
 import { application, detail, documents, run, programme, tutor } from '../test/fixtures'
 import { renderPage } from '../test/renderPage'
@@ -76,6 +77,140 @@ describe('application queue', () => {
   })
 })
 describe('assessment page', () => {
+  it('resets history and the selected run when leaving an application and returning', async () => {
+    apiMocks.useApplicationQuery.mockImplementation((id: string) =>
+      queryResult({
+        ...detail,
+        application: {
+          ...application,
+          id,
+          runs: [run, { ...run, id: 'newer-run', overall: 47, recommendation: 'Reject' }],
+        },
+      }),
+    )
+    renderPage(
+      <>
+        <Link to="/applications/APP-OTHER">Other application</Link>
+        <Link to="/applications/APP-TEST">First application</Link>
+        <AssessmentPage />
+      </>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Assessment history' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Assessment run' }))
+    await userEvent.click(screen.getByRole('option', { name: /Run 001/ }))
+    expect(screen.getByRole('button', { name: 'Return to latest assessment' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('link', { name: 'Other application' }))
+    expect(screen.getByRole('heading', { name: 'APP-OTHER' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('link', { name: 'First application' }))
+    expect(screen.getByRole('heading', { name: 'APP-TEST' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Assessment history' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Return to latest assessment' }),
+    ).not.toBeInTheDocument()
+    expect(
+      within(screen.getByRole('region', { name: 'Application summary' })).getByText('47'),
+    ).toBeInTheDocument()
+  })
+  it('shows loading instead of a previous application while the next record is fetching', () => {
+    apiMocks.useApplicationQuery.mockReturnValue({
+      ...queryResult(detail),
+      currentData: undefined,
+    })
+    renderPage(<AssessmentPage />, '/applications/APP-OTHER')
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Application summary' })).not.toBeInTheDocument()
+  })
+  it('requires returning to the latest assessment before taking action on an older result', async () => {
+    apiMocks.useApplicationQuery.mockReturnValue(
+      queryResult({
+        ...detail,
+        application: {
+          ...application,
+          runs: [run, { ...run, id: 'newer-run', overall: 47, recommendation: 'Reject' }],
+        },
+      }),
+    )
+    renderPage(<AssessmentPage />)
+    await userEvent.click(screen.getByRole('button', { name: 'Assessment history' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Assessment run' }))
+    await userEvent.click(screen.getByRole('option', { name: /Run 001/ }))
+    expect(
+      within(screen.getByRole('region', { name: 'Application summary' })).getByText('88'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Record decision' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: 'Re-evaluate application' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Return to latest assessment' }))
+    expect(
+      within(screen.getByRole('region', { name: 'Application summary' })).getByText('47'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Record decision' })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: 'Re-evaluate application' })).toBeEnabled()
+  })
+  it('prioritises the summary and keeps score details, rules and history expandable', async () => {
+    renderPage(<AssessmentPage />)
+    const summary = screen.getByRole('region', { name: 'Application summary' })
+    expect(within(summary).getByText('88')).toBeInTheDocument()
+    expect(within(summary).getByText('Offer')).toBeInTheDocument()
+    expect(within(summary).getByText('Not recorded')).toBeInTheDocument()
+    expect(within(summary).getByRole('link', { name: 'Record decision' })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    expect(screen.queryByText('Needs attention')).not.toBeInTheDocument()
+    expect(screen.queryByText('academic evidence supported')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Assessment run' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Re-evaluate application' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('Scoring rules').closest('details')).not.toHaveAttribute('open')
+    await userEvent.click(screen.getByRole('button', { name: /Academic performance/ }))
+    expect(screen.getByText('academic evidence supported')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Inspect & correct fact' })).toHaveAttribute(
+      'href',
+      '/applications/APP-TEST/correct',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Assessment history' }))
+    expect(screen.getByRole('combobox', { name: 'Assessment run' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Re-evaluate application' }))
+    expect(command).toHaveBeenCalledWith({ op: 'evaluate', id: application.id })
+  })
+  it('keeps evidence concerns and a correction action visible without technical flag codes', () => {
+    apiMocks.useApplicationQuery.mockReturnValue(
+      queryResult({
+        ...detail,
+        application: {
+          ...application,
+          runs: [
+            {
+              ...run,
+              flags: [
+                {
+                  code: 'GRADE_MISMATCH',
+                  message: 'Verify the transcript grade on page 2.',
+                  critical: true,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    )
+    renderPage(<AssessmentPage />)
+    expect(screen.getByRole('heading', { name: 'Needs attention' })).toBeInTheDocument()
+    expect(screen.getByText('Verify the transcript grade on page 2.')).toBeInTheDocument()
+    expect(screen.queryByText('GRADE MISMATCH')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Inspect & correct fact' })).toBeInTheDocument()
+  })
   it('shows unavailable assessments without integration notices or fabricated results', () => {
     const unavailable = {
       ...run,
@@ -121,7 +256,7 @@ describe('assessment page', () => {
     await userEvent.click(screen.getByRole('button', { name: /Request evaluation/ }))
     expect(command).toHaveBeenCalledWith({ op: 'evaluate', id: application.id })
   })
-  it('disables duplicate evaluation and decisions during processing', () => {
+  it('disables duplicate evaluation and decisions during processing', async () => {
     apiMocks.useApplicationQuery.mockReturnValue(
       queryResult({
         ...detail,
@@ -130,6 +265,9 @@ describe('assessment page', () => {
     )
     renderPage(<AssessmentPage />)
     expect(screen.getByText(/This run will finish even if you refresh/)).toBeInTheDocument()
+    expect(screen.queryByText('88')).not.toBeInTheDocument()
+    expect(screen.queryByText('Why this recommendation')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Assessment history' }))
     expect(screen.getByRole('button', { name: /Re-evaluate/ })).toBeDisabled()
     expect(screen.getByRole('link', { name: /Record decision/ })).toHaveAttribute(
       'aria-disabled',
@@ -169,14 +307,33 @@ describe('assessment page', () => {
     }
     apiMocks.useApplicationQuery.mockReturnValue(queryResult({ ...detail, application: app }))
     renderPage(<AssessmentPage />)
+    await userEvent.click(screen.getByRole('button', { name: 'Assessment history' }))
     await userEvent.click(screen.getByRole('combobox', { name: 'Assessment run' }))
     await userEvent.click(screen.getByRole('option', { name: /Run 001/ }))
-    expect(screen.getByText(/Viewing a previous run/)).toBeInTheDocument()
+    expect(screen.getByText(/Viewing a previous assessment/)).toBeInTheDocument()
     expect(screen.getByText('Verified transcript', { exact: false })).toBeInTheDocument()
     expect(screen.getByText('Tutor recorded: Offer')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Record decision' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    expect(screen.queryByRole('link', { name: 'Inspect & correct fact' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Return to latest assessment' }))
+    expect(screen.queryByText(/Viewing a previous assessment/)).not.toBeInTheDocument()
+    expect(screen.getByText('Previous assessment')).toBeInTheDocument()
   })
 })
 describe('source evidence page', () => {
+  it('does not display the previous application document while the next record loads', () => {
+    apiMocks.useApplicationQuery.mockReturnValue({
+      ...queryResult(detail),
+      currentData: undefined,
+    })
+    renderPage(<EvidencePage />, '/applications/APP-OTHER/evidence')
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Download original' })).not.toBeInTheDocument()
+  })
   it.each([
     'document=missing&page=1',
     `document=${documents[0].id}&page=0`,

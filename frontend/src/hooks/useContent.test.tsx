@@ -27,13 +27,16 @@ describe('shared content hook', () => {
 
   it('formats decisions with the original outcome, case and criteria context', () => {
     const { result } = renderHook(() => useContent('decisionForm'))
-    expect(result.current.confirmationTitle('Reject')).toBe('Record final Reject decision?')
-    expect(result.current.confirmationBody('Offer', 'APP-TEST', '1.2')).toBe(
-      'You are recording Offer for APP-TEST, based on the latest run and criteria v1.2. This action will be added to the review history.',
+    expect(result.current.aiRecommendation('Reject')).toBe('AI recommendation: Reject')
+    expect(result.current.subtitle('APP-TEST', '1.2')).toBe(
+      'APP-TEST / Latest assessment / Criteria v1.2',
     )
     expect(result.current.recordAction('Further review')).toBe('Record further review')
     expect(result.current.overallScore(0)).toBe('Overall score: 0 / 100')
     expect(result.current.overallScore(null)).toBe('Overall score: Not available / 100')
+    expect(content.runHistory.decisionDetails('', '19 Oct 2026')).toBe(
+      'Decision recorded · 19 Oct 2026',
+    )
   })
 
   it('preserves missing values and line breaks in operational messages', () => {

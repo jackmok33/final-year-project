@@ -2,11 +2,12 @@
 import '../../test/domSetup'
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { SectionAssessments } from './SectionAssessments'
 import { documents, rubric, run } from '../../test/fixtures'
 describe('section evidence references', () => {
-  it('disables invalid or missing source references just as the recommendation does', () => {
+  it('disables invalid or missing source references just as the recommendation does', async () => {
     const sections = [
       {
         ...run.sections[0],
@@ -26,6 +27,7 @@ describe('section evidence references', () => {
         />
       </MemoryRouter>,
     )
+    await userEvent.click(screen.getByRole('button', { name: /Academic performance/ }))
     expect(screen.getByText('transcript.pdf · p.0').closest('a')).toHaveAttribute(
       'aria-disabled',
       'true',
@@ -35,7 +37,7 @@ describe('section evidence references', () => {
       'true',
     )
   })
-  it('encodes document/run identities so source links cannot change the query parameters', () => {
+  it('encodes document/run identities so source links cannot change the query parameters', async () => {
     const document = { ...documents[0], id: 'source&extra=wrong' }
     const sourceRun = {
       ...run,
@@ -53,6 +55,7 @@ describe('section evidence references', () => {
         <SectionAssessments run={sourceRun} rubric={rubric} documents={[document]} id="APP-TEST" />
       </MemoryRouter>,
     )
+    await userEvent.click(screen.getByRole('button', { name: /Academic performance/ }))
     expect(screen.getByRole('link', { name: 'transcript.pdf · p.2' })).toHaveAttribute(
       'href',
       `/applications/APP-TEST/evidence?document=${encodeURIComponent(document.id)}&page=2&run=${encodeURIComponent(sourceRun.id)}`,

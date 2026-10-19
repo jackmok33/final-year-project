@@ -246,6 +246,15 @@ unfinished score is displayed. Decisions from older runs are marked **Previous
 assessment**. Evidence flags and full workflow details remain on the assessment
 page, and CSV exports retain the fuller operational fields.
 
+The assessment starts with a compact summary: overall score, AI recommendation,
+tutor decision and **Record decision**. Any **Needs attention** concerns appear
+immediately below it with a correction link when applicable. The explanation and
+source-page links stay visible; **Scoring rules**, individual **Score breakdown**
+sections and **Assessment history** expand when needed. History contains previous
+assessments, corrections, decisions and **Re-evaluate application**. When viewing
+an older result, return to the latest assessment before recording a decision or
+correcting a fact. The page header keeps **View documents** and **Back**.
+
 1. Sign in as the first tutor, choose Computational Statistics and Machine Learning MSc → 26/27 → **Batch 1**,
    then open **APP-2026-0142**.
 2. Read **Why this recommendation**, then open the transcript citation on page 2.
@@ -255,8 +264,10 @@ page, and CSV exports retain the fuller operational fields.
    preserves the previous extraction, assessment and any recorded decision.
 5. Review the new result. The illustrative score remains 78.4, within the review
    margin of the offer threshold. Further Review keeps the case open; an Offer or
-   Reject override requires a reason, evidence-review acknowledgement and a
-   separate confirmation dialog. Critical flags block final decisions.
+   Reject decision saves directly with **Record offer** or **Record reject**,
+   without an acknowledgement checkbox or an additional confirmation dialog.
+   Tutors can choose any permitted outcome independently of
+   the AI recommendation; review notes are optional. Critical flags block final decisions.
 6. On Upload batches, choose **Export course results** to download the complete course CSV.
 
 Other seeds cover Offer, Reject, missing mandatory evidence and model failure.
@@ -370,7 +381,7 @@ real FastAPI/browser integration on separate test ports. The normal browser scri
 API URL, so it tests the standalone demo without inheriting `.env.local`. See the backend guide for selecting a virtual-environment Python.
 
 The browser suite checks all 15 screens at 1440×1000 and 390×844, role redirects,
-source pages, corrections, decision overrides, independent course criteria, workspace switching, PDF uploads,
+source pages, corrections, independent tutor decisions, course criteria, workspace switching, PDF uploads,
 refresh persistence, account/programme edits and backup/delete/restore/reset.
 It checks keyboard sign-in, skip navigation and PDF selection, runs axe accessibility checks for critical/serious findings and saves screen
 images and failure traces under ignored `test-results/frontend/` and
