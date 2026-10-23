@@ -1,4 +1,17 @@
-export type Outcome = 'Offer' | 'Reject' | 'Further review'
+export const tutorOutcomes = ['Unconditional', 'Conditional', 'Reject'] as const
+export type TutorOutcome = (typeof tutorOutcomes)[number]
+export type DecisionOutcome = TutorOutcome | 'Pending'
+/** Earlier saved Offer/Further review records remain readable without reinterpreting them. */
+export type Outcome = TutorOutcome | 'Offer' | 'Further review'
+
+export function isTutorOutcome(outcome: Outcome | undefined): outcome is TutorOutcome {
+  return tutorOutcomes.some((value) => value === outcome)
+}
+
+/** Pending includes older decisions whose offer type has not been recorded. */
+export function decisionOutcome(outcome: Outcome | undefined): DecisionOutcome {
+  return isTutorOutcome(outcome) ? outcome : 'Pending'
+}
 export type Workflow = 'queued' | 'running' | 'awaiting review' | 'completed' | 'failed'
 export type DocumentType = 'transcript' | 'cv' | 'statement'
 export type SectionKey = 'academic' | 'cv' | 'statement'
@@ -21,12 +34,6 @@ export interface Programme {
   description: string
   /** Sole owner; optional only for legacy records that had no assigned tutor. */
   createdBy?: string
-}
-export interface WorkspaceDeletionImpact {
-  programme: Programme
-  applications: number
-  documents: number
-  criteriaVersions: number
 }
 export interface Rubric {
   id: string
@@ -102,6 +109,21 @@ export interface Correction {
 export function hasUnavailableAssessment(run: AssessmentRun): boolean {
   return run.flags.some((flag) => flag.code === 'BACKEND_UNAVAILABLE')
 }
+
+/** Processing, failed and unavailable runs must never appear as completed assessments. */
+export function isAssessmentReady(run: AssessmentRun | undefined): boolean {
+  return Boolean(
+    run && !['queued', 'running', 'failed'].includes(run.status) && !hasUnavailableAssessment(run),
+  )
+}
+
+/** Prototype display adapter; retain the original mock/legacy result in storage. */
+export function aiRecommendation(run: AssessmentRun | undefined): TutorOutcome | undefined {
+  if (!run || !isAssessmentReady(run)) return undefined
+  if (run.recommendation === 'Offer') return 'Unconditional'
+  if (run.recommendation === 'Further review') return 'Conditional'
+  return run.recommendation
+}
 export interface Decision {
   id: string
   runId: string
@@ -156,6 +178,9 @@ export interface BatchSummary extends UploadBatch {
   sequence: number
   applicantCount: number
   pendingReviewCount: number
+  rejectCount?: number
+  conditionalCount?: number
+  unconditionalCount?: number
 }
 export interface DemoHealth {
   modelAvailable: boolean
@@ -183,8 +208,19 @@ export function currentDecision(app: Application) {
 }
 export function applicationState(app: Application): Workflow | 'not evaluated' {
   const run = latestRun(app)
-  const decision = latestDecision(app)
-  return decision && decision.runId === run?.id && decision.outcome !== 'Further review'
-    ? 'completed'
-    : (run?.status ?? 'not evaluated')
+  return finalDecision(app) ? 'completed' : (run?.status ?? 'not evaluated')
+}
+
+export function finalDecision(app: Application) {
+  const decision = currentDecision(app)
+  return decision && isTutorOutcome(decision.outcome) ? decision : undefined
+}
+
+export function isOffer(outcome: Outcome | undefined): boolean {
+  return outcome === 'Offer' || outcome === 'Conditional' || outcome === 'Unconditional'
+}
+
+export function assessmentScore(app: Application): number | null {
+  const run = latestRun(app)
+  return run && isAssessmentReady(run) ? run.overall : null
 }

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { readDataset, readFile, sha256, writeDataset } from './storage'
-import { dataset } from '../test/fixtures'
 import type { Dataset } from '../domain/types'
+import { dataset } from '../test/fixtures'
+import { readDataset, readFile, sha256, writeDataset } from './storage'
 beforeEach(async () => {
   await writeDataset(structuredClone(dataset), {}, [], true)
 })

@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import '../../test/domSetup'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import { PdfViewer } from './PdfViewer'
-import { documents } from '../../test/fixtures'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { authorizedFile } from '../../services/demo'
 import { openPdf } from '../../services/pdf'
+import '../../test/domSetup'
+import { documents } from '../../test/fixtures'
+import { PdfViewer } from './PdfViewer'
 vi.mock('../../services/demo', () => ({ authorizedFile: vi.fn() }))
 vi.mock('../../services/pdf', () => ({ openPdf: vi.fn() }))
 const cancel = vi.fn(),

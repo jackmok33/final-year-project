@@ -1,8 +1,9 @@
 import { useContent } from '../../hooks/useContent'
-import { UploadFileOutlined } from '@mui/icons-material'
+import UploadOutlined from '@ant-design/icons/UploadOutlined'
 import { Box, Button, Stack, Typography } from '@mui/material'
 import { type DocumentType } from '../../domain/types'
 import { FilePicker } from '../FilePicker'
+import MainCard from '../../mantis/components/MainCard'
 export function DocumentUpload({
   type,
   document,
@@ -20,12 +21,12 @@ export function DocumentUpload({
 }) {
   const content = useContent('documentUpload')
   return (
-    <Box
+    <MainCard
+      content={false}
       sx={{
-        border: '1px dashed',
+        borderStyle: 'dashed',
         borderColor: 'divider',
         bgcolor: 'action.hover',
-        borderRadius: 1,
         p: 2,
       }}
     >
@@ -42,16 +43,16 @@ export function DocumentUpload({
           label={checking ? content.checking : document ? content.replace : content.choosePdf}
           inputLabel={content.uploadLabel(content.documentNames[type])}
           accept=".pdf,application/pdf"
-          icon={<UploadFileOutlined />}
+          icon={<UploadOutlined aria-hidden="true" />}
           disabled={disabled}
           onSelect={onSelect}
         />
       </Stack>
       {document && (
-        <Button size="small" onClick={onRemove}>
+        <Button size="small" onClick={onRemove} disabled={disabled}>
           {content.remove(content.documentNames[type])}
         </Button>
       )}
-    </Box>
+    </MainCard>
   )
 }

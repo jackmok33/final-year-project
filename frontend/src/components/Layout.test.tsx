@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import '../test/domSetup'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import '../test/domSetup'
+import { administrator, otherProgramme, programme, tutor } from '../test/fixtures'
 import {
   apiMocks,
   dispatch,
@@ -12,12 +13,13 @@ import {
   state,
   workspaceMock,
 } from '../test/pageMocks'
-import { administrator, otherProgramme, programme, tutor } from '../test/fixtures'
 import { renderPage } from '../test/renderPage'
-import { Layout, Protected } from './Layout'
+import { Layout } from './Layout'
+import { ProtectedRoute } from './auth/ProtectedRoute'
 vi.mock('../app/api', async () => (await import('../test/pageMocks')).apiMocks)
 vi.mock('../app/store', async () => (await import('../test/pageMocks')).storeMocks)
-vi.mock('../app/workspace', async () => ({
+vi.mock('../hooks/redux', async () => (await import('../test/pageMocks')).reduxMocks)
+vi.mock('../hooks/useWorkspace', async () => ({
   useWorkspace: (await import('../test/pageMocks')).workspaceMock,
 }))
 beforeEach(resetPageMocks)
@@ -25,7 +27,7 @@ function guard(admin = false) {
   return render(
     <MemoryRouter initialEntries={['/secure']}>
       <Routes>
-        <Route element={<Protected admin={admin} />}>
+        <Route element={<ProtectedRoute admin={admin} />}>
           <Route path="/secure" element={<p>Protected content</p>} />
         </Route>
         <Route path="/login" element={<p>Sign-in destination</p>} />
@@ -81,24 +83,26 @@ describe('module sidebar', () => {
     expect(screen.getByRole('img', { name: 'UCL' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'UCL' })).toHaveAttribute('href', '/modules')
     expect(screen.queryByText('Application Review Workspace')).not.toBeInTheDocument()
-    expect(screen.getByText('Courses', { exact: true })).toBeInTheDocument()
+    expect(screen.getByText('Programme', { exact: true })).toBeInTheDocument()
     expect(screen.queryByText('Demo environment')).not.toBeInTheDocument()
     expect(screen.queryByText('Modules', { exact: true })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: `Open course ${programme.name}` })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open course CSML 26/27' })).toHaveAttribute(
       'href',
-      '/modules/programme-1',
+      '/batches?programme=programme-1&intake=2026+%2F+27',
     )
     expect(
       screen.getByRole('link', {
-        name: `Open course ${otherProgramme.name}`,
+        name: 'Open course ML 26/27',
       }),
     ).toBeInTheDocument()
+    expect(screen.queryByText('Admissions tutor')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Account menu' }))
     expect(screen.getByText('Admissions tutor')).toBeInTheDocument()
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add course' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Admission criteria' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /\d{2}\/\d{2} intake/ })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }))
     expect(dispatch).toHaveBeenCalledWith({ type: 'session/signOut' })
     expect(dispatch).toHaveBeenCalledWith({ type: 'api/reset' })
   })
@@ -106,10 +110,12 @@ describe('module sidebar', () => {
     renderPage(<Layout />, '/applications', '*')
     await userEvent.click(
       screen.getByRole('link', {
-        name: `Open course ${otherProgramme.name}`,
+        name: 'Open course ML 26/27',
       }),
     )
-    expect(screen.getByLabelText('Current URL')).toHaveTextContent('/modules/programme-2')
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent(
+      '/batches?programme=programme-2&intake=2026+%2F+27',
+    )
     expect(dispatch).toHaveBeenCalledWith({ type: 'ui/setNavigationOpen', payload: false })
     expect(screen.getByRole('link', { name: 'Skip to main content' })).toHaveAttribute(
       'href',
@@ -144,7 +150,7 @@ describe('module sidebar', () => {
     renderPage(<Layout />, '/modules', '*')
     expect(dispatch).not.toHaveBeenCalled()
   })
-  it('keeps administration navigation and the dual-role switch separate', () => {
+  it('keeps administration navigation and the dual-role switch separate', async () => {
     workspaceMock.mockReturnValue({
       user: { ...tutor, roles: ['tutor', 'admin'] },
       programmes: [programme, otherProgramme],
@@ -152,12 +158,11 @@ describe('module sidebar', () => {
     })
     renderPage(<Layout />, '/admin/health', '*')
     expect(screen.getByRole('link', { name: 'Users & access' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Switch to tutor workspace' })).toHaveAttribute(
+    await userEvent.click(screen.getByRole('button', { name: 'Account menu' }))
+    expect(screen.getByRole('menuitem', { name: 'Switch to tutor workspace' })).toHaveAttribute(
       'href',
       '/modules',
     )
-    expect(
-      screen.queryByRole('link', { name: `Open course ${programme.name}` }),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open course CSML 26/27' })).not.toBeInTheDocument()
   })
 })

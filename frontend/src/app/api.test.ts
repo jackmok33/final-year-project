@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { configureStore } from '@reduxjs/toolkit'
-import { admissionsApi, errorMessage } from './api'
-import { queryDemo, commandDemo } from '../services/demo'
-import type { Query, Command } from '../services/demo'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Command, Query } from '../services/demo'
+import { commandDemo, queryDemo } from '../services/demo'
 import { application, detail, programme, rubric, tutor } from '../test/fixtures'
+import { admissionsApi, errorMessage } from './api'
 vi.mock('../services/demo', () => ({ queryDemo: vi.fn(), commandDemo: vi.fn() }))
 const makeStore = () =>
   configureStore({
@@ -34,10 +34,10 @@ describe('RTK Query demo adapter', () => {
     ['application', application.id, { op: 'application', id: application.id }, detail],
     ['programmes', undefined, { op: 'programmes' }, [programme]],
     [
-      'workspaceDeletion',
-      programme.id,
-      { op: 'workspaceDeletion', id: programme.id },
-      { programme, applications: 0, documents: 0, criteriaVersions: 1 },
+      'programmeIntakes',
+      undefined,
+      { op: 'programmeIntakes' },
+      [{ programmeId: programme.id, years: [programme.year] }],
     ],
     [
       'rubrics',
@@ -78,9 +78,9 @@ describe('RTK Query demo adapter', () => {
     'user',
     'programme',
     'workspace',
-    'deleteWorkspace',
     'model',
     'delete',
+    'deleteApplicant',
     'backup',
     'restore',
     'reset',

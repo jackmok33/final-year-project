@@ -1,76 +1,58 @@
+import { Box, Stack, Typography } from '@mui/material'
+import {
+  aiRecommendation,
+  isAssessmentReady,
+  decisionOutcome,
+  type AssessmentRun,
+  type Decision,
+} from '../../domain/types'
 import { useContent } from '../../hooks/useContent'
-import { Box, Button, Stack, Typography } from '@mui/material'
-import { Link } from 'react-router-dom'
-import { hasUnavailableAssessment, type AssessmentRun, type Decision } from '../../domain/types'
-import { Card, Status } from '../common'
-import { displayTime } from '../files'
+import MainCard from '../../mantis/components/MainCard'
+import { Status } from '../common'
 
 export function RecommendationSummary({
   run,
-  id,
   decision,
-  canDecide,
 }: {
   run: AssessmentRun
-  id: string
   decision?: Decision
-  canDecide: boolean
 }) {
   const content = useContent('recommendationSummary')
-  const hasResult = !['queued', 'running', 'failed'].includes(run.status)
-  const unavailable = hasUnavailableAssessment(run)
-  const recommendationLabel = unavailable
-    ? content.notAssessed
-    : hasResult
-      ? run.recommendation
-      : run.status
+  const ready = isAssessmentReady(run)
+  const recommendation = aiRecommendation(run)
   return (
-    <Card>
+    <MainCard>
       <Box
         component="section"
-        aria-label={content.reviewOverview}
+        aria-label={content.reviewTabs}
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr 1fr', md: '1fr 1fr 1.3fr auto' },
-          alignItems: 'center',
+          gridTemplateColumns: 'repeat(3,minmax(0,1fr))',
           gap: 3,
+          alignItems: 'start',
         }}
       >
         <Stack spacing={1}>
-          <Typography color="text.secondary">{content.overallScore100}</Typography>
-          <Typography component="p" sx={{ fontSize: 32, fontWeight: 600, lineHeight: 1.2 }}>
-            {hasResult && !unavailable
-              ? (run.overall ?? content.unavailableScore)
-              : content.unavailableScore}
+          <Typography>{content.overall}</Typography>
+          <Typography variant="h2" component="p">
+            {ready ? content.scoreValue(run.overall) : content.notAvailable}
           </Typography>
         </Stack>
         <Stack spacing={1}>
-          <Typography color="text.secondary">{content.recommendation}</Typography>
-          <Status label={recommendationLabel} />
-        </Stack>
-        <Stack spacing={1} role="group" aria-label={content.tutorDecision}>
-          <Typography color="text.secondary">{content.tutorDecision}</Typography>
-          {decision ? (
-            <Status label={decision.outcome} />
+          <Typography>{content.ai}</Typography>
+          {recommendation ? (
+            <Status label={recommendation} />
           ) : (
-            <Typography>{content.notRecorded}</Typography>
-          )}
-          {decision && (
-            <Typography variant="body2" color="text.secondary">
-              {decision.runId === run.id ? displayTime(decision.at) : content.historicDecisionHint}
-            </Typography>
+            <Typography>{content.notAvailable}</Typography>
           )}
         </Stack>
-        <Button
-          variant="contained"
-          component={Link}
-          to={`/applications/${encodeURIComponent(id)}/decision`}
-          disabled={!canDecide}
-          sx={{ justifySelf: { xs: 'stretch', md: 'end' } }}
-        >
-          {content.recordDecision}
-        </Button>
+        <Stack spacing={1}>
+          <Typography>{content.decision}</Typography>
+          <Status
+            label={decisionOutcome(decision?.runId === run.id ? decision.outcome : undefined)}
+          />
+        </Stack>
       </Box>
-    </Card>
+    </MainCard>
   )
 }

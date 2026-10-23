@@ -1,10 +1,10 @@
 export const createWorkspaceDialogContent = {
-  title: 'Add course',
+  title: 'Add Programme',
   description: 'Enter the course name.',
-  name: 'Course name',
+  name: 'Programme name',
   nameHint: 'For example, Artificial Intelligence MSc.',
   invalidName: 'Use a course name of up to 100 characters.',
   cancel: 'Cancel',
-  addCourse: 'Add course',
+  addCourse: 'Add Programme',
   adding: 'Adding…',
 } as const

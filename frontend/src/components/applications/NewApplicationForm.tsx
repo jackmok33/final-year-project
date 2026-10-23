@@ -1,5 +1,7 @@
+import FormActions from '../../mantis/components/FormActions'
+import { useId } from 'react'
 import { useContent } from '../../hooks/useContent'
-import { Alert, Box, Button, Stack, TextField, Typography } from '@mui/material'
+import { InputLabel, Alert, Box, Button, Stack, TextField, Typography } from '@mui/material'
 import { Link } from 'react-router-dom'
 import type { DocumentType, Programme } from '../../domain/types'
 import { Card, ErrorNotice, Page, TwoColumns } from '../common'
@@ -37,6 +39,7 @@ export function NewApplicationForm({
   disabled: boolean
 }) {
   const content = useContent('newApplicationForm')
+  const fieldId = useId()
   return (
     <Page title={content.newApplication} subtitle={content.subtitle}>
       <Box
@@ -48,23 +51,45 @@ export function NewApplicationForm({
       >
         <TwoColumns>
           <Card title={content.applicationDetails}>
-            <TextField
-              label={content.candidateReference}
-              required
-              value={candidate}
-              onChange={(e) => setCandidate(e.target.value)}
-              helperText={content.candidateHint}
-            />
-            <TextField
-              label={content.assignedProgramme}
-              value={programme?.name ?? ''}
-              slotProps={{ input: { readOnly: true } }}
-            />
-            <TextField
-              label={content.intakeYear}
-              value={programme.year}
-              slotProps={{ input: { readOnly: true } }}
-            />
+            <Stack sx={{ gap: 1, minWidth: 0, flex: 1 }}>
+              <InputLabel
+                id={`${fieldId}-candidateReference-label`}
+                htmlFor={`${fieldId}-candidateReference`}
+                required
+              >
+                {content.candidateReference}
+              </InputLabel>
+              <TextField
+                id={`${fieldId}-candidateReference`}
+                required
+                value={candidate}
+                onChange={(e) => setCandidate(e.target.value)}
+                helperText={content.candidateHint}
+              />
+            </Stack>
+            <Stack sx={{ gap: 1, minWidth: 0, flex: 1 }}>
+              <InputLabel
+                id={`${fieldId}-assignedProgramme-label`}
+                htmlFor={`${fieldId}-assignedProgramme`}
+              >
+                {content.assignedProgramme}
+              </InputLabel>
+              <TextField
+                id={`${fieldId}-assignedProgramme`}
+                value={programme?.name ?? ''}
+                slotProps={{ input: { readOnly: true } }}
+              />
+            </Stack>
+            <Stack sx={{ gap: 1, minWidth: 0, flex: 1 }}>
+              <InputLabel id={`${fieldId}-intakeYear-label`} htmlFor={`${fieldId}-intakeYear`}>
+                {content.intakeYear}
+              </InputLabel>
+              <TextField
+                id={`${fieldId}-intakeYear`}
+                value={programme.year}
+                slotProps={{ input: { readOnly: true } }}
+              />
+            </Stack>
             <Typography variant="h6" component="h2">
               {content.applicationDocuments}
             </Typography>
@@ -84,14 +109,14 @@ export function NewApplicationForm({
               <Alert severity="error">{validationError || content.pageLimitError}</Alert>
             )}
             <ErrorNotice error={error} />
-            <Stack direction="row" spacing={1}>
+            <FormActions>
               <Button variant="contained" type="submit" disabled={disabled}>
                 {isLoading ? content.saving : content.createApplication}
               </Button>
               <Button component={Link} to="/batches">
                 {content.cancel}
               </Button>
-            </Stack>
+            </FormActions>
           </Card>
           <UploadGuidance />
         </TwoColumns>

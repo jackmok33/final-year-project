@@ -1,4 +1,7 @@
+import { workspaceLabels } from '../../domain/workspace.content'
 export const reviewFlagsContent = {
-  reviewFlags: 'Needs attention',
-  inspectCorrectFact: 'Inspect & correct fact',
+  noFlags: workspaceLabels.noFlags,
+  updateDetail: 'Update detail',
+  academicMismatch: 'Academic detail mismatch',
+  reviewConcern: 'Evidence needs review',
 } as const

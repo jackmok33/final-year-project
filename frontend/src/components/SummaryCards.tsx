@@ -1,5 +1,5 @@
-import { Box, Stack, Typography } from '@mui/material'
-import { Card } from './common'
+import { Box } from '@mui/material'
+import AnalyticEcommerce from '../mantis/components/AnalyticEcommerce'
 
 export interface SummaryItem {
   label: string
@@ -12,6 +12,7 @@ export function SummaryCards({ items }: { items: SummaryItem[] }) {
     <Box
       sx={{
         display: 'grid',
+        maxWidth: items.length === 3 ? 840 : undefined,
         gridTemplateColumns: {
           xs: 'repeat(2, minmax(0, 1fr))',
           lg: `repeat(${Math.max(1, Math.min(items.length, 4))}, minmax(0, 1fr))`,
@@ -20,30 +21,7 @@ export function SummaryCards({ items }: { items: SummaryItem[] }) {
       }}
     >
       {items.map(({ label, value, hint }) => (
-        <Card key={label}>
-          <Stack spacing={1}>
-            <Typography component="h2" variant="body1" color="text.secondary">
-              {label}
-            </Typography>
-            <Typography
-              variant="h3"
-              component="p"
-              sx={{
-                fontSize: { xs: 26, sm: 32 },
-                fontWeight: 600,
-                overflowWrap: 'anywhere',
-                lineHeight: 1.2,
-              }}
-            >
-              {value}
-            </Typography>
-            {hint && (
-              <Typography variant="body2" color="text.secondary">
-                {hint}
-              </Typography>
-            )}
-          </Stack>
-        </Card>
+        <AnalyticEcommerce key={label} title={label} count={value} extra={hint} />
       ))}
     </Box>
   )

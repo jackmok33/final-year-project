@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-import '../test/domSetup'
-import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { Confirm, ErrorNotice, Rationale, Status } from './common'
+import { describe, expect, it, vi } from 'vitest'
+import '../test/domSetup'
+import { documents, run } from '../test/fixtures'
+import { Confirm, ErrorNotice, Status } from './common'
+import { EvidenceLink } from './evidence/EvidenceLink'
 import { FilePicker } from './FilePicker'
-import { documents, rubric, run } from '../test/fixtures'
 
 describe('shared accessible controls', () => {
   it('uses a labelled dialog and only calls the explicitly confirmed action', async () => {
@@ -44,6 +45,9 @@ describe('shared accessible controls', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
   it.each([
+    ['Unconditional', 'Success'],
+    ['Conditional', 'Info'],
+    ['Pending', 'Default'],
     ['Offer', 'Success'],
     ['completed', 'Success'],
     ['Active', 'Success'],
@@ -83,19 +87,18 @@ describe('recommendation evidence links', () => {
   const show = (sourceRun = run, sourceDocuments = documents) =>
     render(
       <MemoryRouter>
-        <Rationale
-          run={sourceRun}
-          rubric={rubric}
-          documents={sourceDocuments}
+        <EvidenceLink
           applicationId="APP-TEST"
+          citation={sourceRun.justification.citations[0]}
+          document={sourceDocuments.find(
+            (document) => document.id === sourceRun.justification.citations[0].documentId,
+          )}
+          runId={sourceRun.id}
         />
       </MemoryRouter>,
     )
-  it('links an exact source page and run while displaying criteria and decisive rules', () => {
+  it('links an exact source page and run', () => {
     show()
-    expect(screen.getByText('Why this recommendation')).toBeInTheDocument()
-    expect(screen.getByText(/Criteria v1.0/)).toBeInTheDocument()
-    expect(screen.getByText('Above offer threshold.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'transcript.pdf · p.2' })).toHaveAttribute(
       'href',
       `/applications/APP-TEST/evidence?document=${documents[0].id}&page=2&run=${run.id}`,

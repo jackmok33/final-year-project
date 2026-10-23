@@ -1,5 +1,7 @@
+import FormActions from '../../mantis/components/FormActions'
+import { useId } from 'react'
 import { useContent } from '../../hooks/useContent'
-import { Alert, Box, Button, Stack, TextField } from '@mui/material'
+import { InputLabel, Alert, Box, Button, Stack, TextField } from '@mui/material'
 import type { Programme } from '../../domain/types'
 import { Card, ErrorNotice, Page, TwoColumns } from '../common'
 import { ProgrammeAccess } from './ProgrammeAccess'
@@ -18,6 +20,7 @@ export function ProgrammeForm({
   cancel: () => void
 }) {
   const content = useContent('programmeForm')
+  const fieldId = useId()
   return (
     <Page title={content.programmeSettings} subtitle={content.subtitle}>
       <TwoColumns>
@@ -38,23 +41,31 @@ export function ProgrammeForm({
                   ['description', content.description],
                 ] as const
               ).map(([key, label]) => (
-                <TextField
-                  key={key}
-                  label={label}
-                  required={['code', 'year'].includes(key)}
-                  value={form[key]}
-                  multiline={key === 'description'}
-                  minRows={key === 'description' ? 3 : undefined}
-                  onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                />
+                <Stack key={key} sx={{ gap: 1, minWidth: 0, flex: 1 }}>
+                  <InputLabel
+                    id={`${fieldId}-0-${key}-label`}
+                    htmlFor={`${fieldId}-0-${key}`}
+                    required={['code', 'year'].includes(key)}
+                  >
+                    {label}
+                  </InputLabel>
+                  <TextField
+                    id={`${fieldId}-0-${key}`}
+                    required={['code', 'year'].includes(key)}
+                    value={form[key]}
+                    multiline={key === 'description'}
+                    minRows={key === 'description' ? 3 : undefined}
+                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                  />
+                </Stack>
               ))}
               <ErrorNotice error={mutation.error} />
-              <Stack direction="row" spacing={1}>
+              <FormActions>
                 <Button variant="contained" type="submit" disabled={mutation.isLoading}>
                   {content.saveProgramme}
                 </Button>
                 <Button onClick={cancel}>{content.cancelChanges}</Button>
-              </Stack>
+              </FormActions>
               <Alert severity="info">{content.metadataNotice}</Alert>
             </Stack>
           </Box>

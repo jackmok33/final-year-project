@@ -1,9 +1,164 @@
 # Project context for agents
 
-Last reviewed: 19 October 2026. Applies to this project and its subdirectories.
+Last reviewed: 23 October 2026. Applies to this project and its subdirectories.
 Read this file when starting a session, then inspect the code relevant to the
 user's request. Follow newer user instructions when they change a convention
 recorded here. Keep this context current after material architectural changes.
+
+## Latest UI revision — 23 October 2026
+
+This section supersedes earlier UI-layout, login and decision-choice descriptions.
+The user recreated the desktop design using the Mantis Figma library and supplied
+`/Users/jack_1/Downloads/UCL Application Review Workspace — Frontend Review.png`.
+Figma MCP found final page `50:27395` in `T0kdTyHiQDCy4NCIge7ssx` but subsequent
+context reads reached the account quota. Use the PNG plus supplied Mantis source;
+do not claim final-frame node/token mapping was retrieved.
+
+- Use the actual supplied Mantis source/layouts under `frontend/src/mantis/`.
+  The manifest now records 61 source/asset mappings and five feature-layout
+  references with source hashes. Added adaptations: TabsCard, TablePagination,
+  SingleFileUpload, upload SVG, and four tab/pagination theme factories. Mantis
+  uses MUI internally; do not wrap every MUI primitive merely to rename imports.
+- The Programme landing page has direct programme/intake cards. Example labels
+  are CSML/ML/CS plus compact intake year; full stored names and IDs are preserved.
+  The sidebar lists programme/intake links; account/role/sign-out are in the header
+  avatar menu. Add Programme asks for a name. Cards have no settings buttons or
+  management/deletion page. Old `/modules/:id` URLs fall back to the Programme
+  list. The unused page/dialog/content and RTK deletion-preview hook were removed;
+  existing courses and data remain intact.
+- `/batches` is the intake workspace with metrics, Mantis ZIP dropzone and Batches /
+  Admission criteria / Analytics tabs. URL selection survives refresh. `/criteria`
+  aliases the same workspace with the criteria tab selected. CriteriaPage retains
+  draft/query/save logic and receives explicit programme context from the parent.
+  Show only active criteria; no criteria history list, version picker or restore
+  controls. Saving still retains immutable versions internally for existing results.
+- Metrics are Total applications, Offers given and Total pending review. New final
+  tutor outcomes are **Conditional, Unconditional and Reject only**, per the user's
+  clarification. Offer totals include the two classified offer types. Legacy generic
+  Offer/Further review tutor records remain stored and display/count as Pending until
+  an explicit current typed decision is saved. Do not guess a tutor's offer type.
+  Batch tables include final-outcome counts, date/time and pending.
+  Keep batch rows to the designed columns/counts; do not add legacy-offer captions.
+  Preserve older generic offers internally without relabelling them Unconditional.
+- Applicant tables have Id, Name, Student ID, State, University, Score, AI, Decision
+  and Actions. All eight data headers toggle ascending/descending sorting using
+  typed page-owned state; Actions is unsorted. Sort before pagination, reset the
+  page on a sort change, preserve equal-value order and keep missing scores/
+  universities last in either direction. The quick-sort menu reflects the active
+  header selection. Search/filter/sort/pagination are real. Owner-only applicant deletion
+  requires confirmation. Add applicant retains the selected batch; service validates
+  programme/intake consistency before any write.
+- AssessmentPage provides five Mantis tabs: AI recommendation, Review flag, Score
+  breakdown, View documents and Record decision. Original citation/deep-link URLs
+  remain supported. There is no assessment history panel or run picker. Show the
+  latest result by default and keep Re-evaluate application in the header before
+  Back. Old run/citation bookmarks remain read-only with a return to latest.
+  Incomplete results expose no score.
+- AI fields use only **Unconditional, Conditional, Reject**, or a neutral dash while
+  no completed assessment is available. The user approved the prototype mapping
+  legacy AI Offer → Unconditional and Further review → Conditional. Use the shared
+  `aiRecommendation()` projection in tables, applicant summaries, sorting and CSV;
+  retain the original run/HTTP response and justification. Decision fields use
+  **Unconditional, Conditional, Reject, Pending** via `decisionOutcome()`. Pending
+  is a derived display state, not a saved radio choice. Batch counts/analytics agree
+  with current classified decisions. State keeps processing/failure information.
+  This follow-up passes 541 tests across 42 files, 97.54% line/91.00% branch
+  coverage, TypeScript/build, lint/format and all 18 standalone/FastAPI browser
+  workflows. Historical results remain unchanged; no database/API change is included.
+- New decision commands reject old Offer/Further review choices. Notes are optional;
+  there is no acknowledgement checkbox, override requirement or extra save dialog.
+  All three final choices are blocked by unresolved critical evidence. Existing
+  decisions and the AI recommendation remain separate and untouched. The mock
+  evaluator still returns Offer/Further review/Reject; its HTTP contract is unchanged.
+- Known synthetic IDs have presentation-only names/student IDs and grouped evidence
+  fixtures. Uploaded records never receive these identities/evidence. This is not
+  extraction or a provenance guarantee; originals and selected-run grade remain intact.
+- The login uses the Mantis email/password form layout. It matches active existing
+  accounts by email and accepts any nonempty prototype password, which is neither
+  authenticated nor persisted. Available accounts/help dialogs are explicit about
+  that boundary. No registration/reset service or real UCL login is implemented.
+- Keep logic in Page files, controlled sections in components, and display copy in
+  matching content files through the single useContent hook. Desktop remains the
+  presentation priority; retain basic small-screen access without new mobile designs.
+
+Obsolete visual components were removed (QueueSummary, AssessmentActions,
+DecisionRecord, IntakeCards, EvidenceClaim, RunHistory and CriteriaHistory, plus
+the unused common Rationale component). Keep PDF validation/cleanup,
+permissions, criteria versioning, IndexedDB migrations, backups and history.
+No backend HTTP or PostgreSQL schema changes belong to this redesign. Never reset
+saved browser data merely to make the new interface match screenshot examples.
+
+Pre-commit cleanup (23 October) removes unused content, section-panel props,
+standalone padding options for embedded pages, the deletion-preview service query
+and the unused frontend HTTP health probe. The FastAPI health route is unchanged.
+`isAssessmentReady()` centralises readiness for scores, summaries, decisions and
+synthetic evidence. A rejected replacement ZIP clears the earlier selected archive;
+it must not leave that earlier archive ready to upload. All remaining production
+modules are reachable, including dynamic imports and Mantis theme declarations.
+Keep actual dependencies, Mantis provenance and saved-data compatibility code.
+Verification: 520 tests across 42 files; coverage 97.13% lines, 96.03% statements,
+94.97% functions and 90.59% branches. TypeScript/build, lint/format, all 16 standalone
+browser workflows and both FastAPI browser workflows pass. See the frontend
+verification record for scope and limitations; backend Ruff/PostgreSQL were not rerun.
+
+Structural follow-up (23 October): `services/demo.ts` is now the public transaction
+entry point, with focused `services/demo/` modules for contracts, runtime/recovery,
+access checks, queries, application changes, settings and backups. Backup validation
+has named record/history/integrity stages. The obsolete course-deletion command
+is removed along with its unused feature tests; empty-backup and ownership checks
+remain in active suites. RTK Query explicitly tags reads versus commands instead
+of guessing from operation names. `Layout` owns navigation state and deep links;
+controlled `components/layout/WorkspaceHeader` / `WorkspaceNavigation` render the
+shell, and `auth/ProtectedRoute` handles route permissions. Pages retain queries,
+drafts and handlers; `RecommendationPanel` and `BatchList` own their visual sections.
+Keep the single content hook and alphabetised registry. See the component/service
+guides for responsibilities. Saved records, migrations, PDFs and HTTP contracts
+are unchanged.
+Verification for the structural follow-up: 514 tests across 41 files; 97.28% lines,
+96.09% statements, 95.30% functions and 90.58% branches. TypeScript/build,
+lint/format, all 16 standalone browser workflows and both FastAPI workflows pass.
+No unreachable production modules or runtime import cycles remain. Mantis's 61
+source mappings and five layout references still verify against supplied hashes.
+
+Test-layout follow-up (23 October): tests are colocated with the same basename as
+their implementation. Mixed page/feature suites were split by owning module;
+106 companions cover all pages, application runtime modules and adapted Mantis
+components/navigation/utilities. Static content, type-only contracts, bootstrap
+and template styling use consumer checks rather than placeholder tests. The new
+`test:structure` command enforces missing/orphan checks before unit/coverage runs.
+FilePicker now disables its hidden input along with the button. Verification:
+653 tests across 106 files; 98.00% lines, 96.83% statements, 97.16% functions and
+91.77% branches. TypeScript/build, ESLint/Prettier and the three relevant production
+upload/PDF/backup workflows pass. The full 16 standalone and two FastAPI workflows
+were last run before this follow-up. See the test guide and verification record.
+
+Final pre-PR review (23 October) fixes stale PDF selection after an invalid
+replacement and disables document removal while validating/submitting. Unit tests
+reproduce both issues; the browser individual-upload flow rejects a real malformed
+PDF before retrying. The test-layout checker normalises path separators. Current
+checks: 654 tests across 106 files; 98.00% line coverage; TypeScript/build,
+lint/format, all 16 standalone browser workflows and both FastAPI workflows pass.
+Individual upload was checked again after the last disabled-control fix. All 217
+production modules are reachable and all 66 original Mantis source/layout hashes
+verify. No blocking frontend findings remain. Other existing backend/planning
+working-tree changes were left intact and are outside this frontend review.
+
+Shared-hooks follow-up (23 October): `src/hooks/useWorkspace.ts` replaces the old
+`app/workspace.ts`; typed Redux bindings are in `src/hooks/redux.ts`. All consumers
+and mocks import them directly. `usePagination` shares page/page-size state,
+bounded offsets and resets between applicant and batch tables. Page-specific
+queries, filtering, sorting, forms and mutations remain in Page files. Companion
+tests cover the hooks and both table integrations. All 219 production modules are
+reachable. Four focused production-browser workflows pass for navigation, routes,
+workspace selection and applicant-table controls. The verification record contains
+current unit/coverage results; the backend and earlier full browser suites were
+not rerun for this structural follow-up.
+
+Hook-refactor verification: 661 tests across 108 matching companion files pass;
+coverage is 98.21% lines, 97.01% statements, 97.45% functions and 91.70% branches.
+The full coverage run used `--maxWorkers=1` after two worker-start timeouts in the
+concurrent run; every test completed without errors. TypeScript/build,
+lint/format, the naming check and four focused browser workflows pass.
 
 ## Project and current milestone
 
@@ -14,8 +169,8 @@ personal statements, with deterministic scoring and recommendations. Tutors
 inspect evidence and record decisions.
 
 The implemented milestone is the frontend under `frontend/`: React, TypeScript,
-Vite, MUI, React Router, Redux Toolkit and RTK Query. All 15 screens, including
-course, intake and ZIP batch selection, and browser-persistent demo workflows exist.
+Vite, MUI, React Router, Redux Toolkit and RTK Query. Course/intake selection,
+ZIP batches and browser-persistent tutor/administrator workflows exist.
 A small stateless FastAPI scaffold now
 exists under `backend/`, serving health and mocked assessments for seeded cases.
 An independent five-table PostgreSQL foundation exists; HTTP routes are not yet
@@ -28,6 +183,7 @@ Read these maintained guides before changing the corresponding area:
 - [Frontend README](frontend/README.md): startup, accounts, workflows and boundaries.
 - [Component guide](frontend/src/components/README.md): page/component responsibilities.
 - [Content guide](frontend/src/content/README.md): display copy and the shared hook.
+- [Service guide](frontend/src/services/README.md): demo modules and transaction boundaries.
 - [Verification record](frontend/VERIFICATION.md): last completed checks and limitations.
 - [Backend guide](backend/README.md): mock API, database startup/migrations/seed and tests.
 
@@ -131,6 +287,14 @@ or documents. This snapshot does not replace validation after future changes.
 
 ## User's coding and interface preferences
 
+- Tests sit beside their implementation with the same basename, for example
+  `AssessmentPage.tsx` / `AssessmentPage.test.tsx`. Every application runtime
+  module/page/component has a companion; split grouped suites by the module they
+  exercise rather than using names such as `ReviewPages`, `redesign` or `ownership`.
+  E2E specs remain workflow-oriented. Static content/type-only contracts,
+  bootstrapping and supplied Mantis style factories are tested through consumers;
+  do not add empty companion tests. `npm run test:structure` enforces missing/orphan
+  checks and runs before the unit/coverage commands. See `frontend/src/test/README.md`.
 - Page files and their exported components use the `Page` suffix, for example
   `LoginPage.tsx` and `LoginPage`.
 - **Pages own screen logic:** queries, mutations, temporary form state, derived
@@ -139,6 +303,13 @@ or documents. This snapshot does not replace validation after future changes.
   empty wrapper around another component containing all its logic.
 - A private draft controller in a page file is acceptable. Existing controllers
   are keyed to a record/run/version so switching records resets unsaved drafts.
+- Reusable hooks belong in `frontend/src/hooks/`, with matching companion tests.
+  `useWorkspace` and typed Redux bindings (`redux.ts`) have moved here from `app/`;
+  use their direct new imports. Applicant and batch pages share `usePagination`
+  for page size, bounded offsets and resets. Feature queries, filter/sort rules,
+  validation, drafts and handlers remain in Page files. Generated RTK Query hooks
+  stay in `app/api.ts`; reducers/actions/store creation stay in `app/store.ts`.
+  See `frontend/src/hooks/README.md`.
 - Reuse meaningful UI patterns. Check existing components before adding a
   duplicate. Avoid wrappers for every MUI control or generic tables that obscure
   different feature behaviour. PDF rendering/cleanup and other reusable UI
@@ -159,21 +330,21 @@ or documents. This snapshot does not replace validation after future changes.
 
 All paths below are relative to `frontend/`.
 
-| Path                      | Responsibility                                                              |
-| ------------------------- | --------------------------------------------------------------------------- |
-| `src/App.tsx`             | Lazy screen imports, routes and tutor/admin guards                          |
-| `src/pages/`              | Screen composition and screen-owned logic                                   |
-| `src/components/`         | Controlled visual sections, shared layout and UI mechanics                  |
-| `src/content/`            | Display text, typed message formatters and content registry                 |
-| `src/hooks/useContent.ts` | Shared typed content selector                                               |
-| `src/app/`                | Redux session/interface state, RTK Query API, workspace selection and theme |
-| `src/domain/`             | TypeScript models, deterministic scoring/routing and validation             |
-| `src/services/`           | Demo service, IndexedDB, synthetic fixtures, PDFs and migration             |
-| `src/test/`               | Shared test fixtures, mocks and rendering helpers                           |
-| `e2e/workspace.spec.ts`   | Production-browser workflows, responsive and accessibility checks           |
+| Path                    | Responsibility                                                    |
+| ----------------------- | ----------------------------------------------------------------- |
+| `src/App.tsx`           | Lazy screen imports, routes and tutor/admin guards                |
+| `src/pages/`            | Screen composition and screen-owned logic                         |
+| `src/components/`       | Controlled visual sections, shared layout and UI mechanics        |
+| `src/content/`          | Display text, typed message formatters and content registry       |
+| `src/hooks/`            | Shared content, workspace, typed Redux and pagination hooks       |
+| `src/app/`              | Redux session/interface state, RTK Query API and theme            |
+| `src/domain/`           | TypeScript models, deterministic scoring/routing and validation   |
+| `src/services/`         | Demo service, IndexedDB, synthetic fixtures, PDFs and migration   |
+| `src/test/`             | Shared test fixtures, mocks and rendering helpers                 |
+| `e2e/workspace.spec.ts` | Production-browser workflows, responsive and accessibility checks |
 
 Shared UI includes `common.tsx` (`Card`, `Page`, `Status`, `Loading`, `TwoColumns`,
-`Confirm`, `Rationale`), `SummaryCards`, `FilePicker` and `evidence/EvidenceLink`.
+`Confirm`), `SummaryCards`, `FilePicker` and `evidence/EvidenceLink`.
 EvidenceLink centralises citation navigation and document/page validation;
 summary cards share queue/health presentation while each feature supplies values.
 
@@ -184,27 +355,25 @@ failed runs show their processing status instead of a recommendation/score, and
 decisions from older runs are labelled Previous assessment. CSV exports retain
 the fuller operational fields.
 
-Application detail layout (19 October): start with the compact overall score,
-AI recommendation, tutor decision and Record decision action. Show Needs attention
-concerns immediately below, without raw flag codes or an empty success card.
-The recommendation explanation and source-page links remain visible; scoring
-rules, individual score-section details and Assessment history expand on demand.
-History contains the run picker, corrections, decisions and Re-evaluate application;
-the header keeps View documents and Back. AssessmentPage owns history/selection
-state and mutations. Viewing an older result disables decision/correction and
-re-evaluation actions until returning to the latest assessment. Unavailable,
-processing and failed runs must not display precomputed scores as ready results.
-The private review controller is keyed by application, resetting history and run
-selection on navigation. Assessment, evidence, correction and decision queries
-use `currentData` to avoid displaying a preceding application's records while
-the next one loads. Correction drafts start from the selected run's extracted
-grade, including zero; never prefill a hardcoded example correction.
+Application detail layout (23 October): a compact score, AI recommendation and
+tutor decision above five tabs. Why this recommendation and source-page links
+remain in the recommendation tab; flags, score details, original PDFs and decision
+recording have their own tabs. No assessment history, run selector, correction log
+or decision log is rendered. Re-evaluate application sits in the page header before
+Back. Historical data remains stored, and existing old-run/citation links stay
+read-only until returning to the latest assessment. Re-evaluation clears a current
+run bookmark so a new result cannot strand the user on the previous result.
+
+Assessment, evidence, correction and decision queries use currentData to avoid
+showing another application's records while the next loads. Unavailable, processing
+and failed results never show precomputed scores. Correction drafts start from the
+selected run's extracted grade, including zero; never use a hardcoded correction.
 
 The content registry is `src/content/index.ts`. For example:
 
 ```tsx
-const content = useContent("decisionForm");
-const label = content.recordAction(outcome);
+const content = useContent("recommendationSummary");
+const label = content.scoreValue(score);
 ```
 
 Register new content files there. Use named formatter functions for dynamic
@@ -216,7 +385,7 @@ only render supplied values do not need empty content files or unused hook calls
 
 ## Screens and permissions
 
-Tutor screens: `/login`, `/modules`, `/modules/:id`, `/batches`, `/batches/:batchId`,
+Tutor screens: `/login`, `/modules`, `/batches`, `/batches/:batchId`,
 `/applications` (legacy full intake queue), `/applications/new`,
 `/applications/:id`, `/applications/:id/evidence`, `/applications/:id/correct`,
 `/applications/:id/decision` and `/criteria`.
@@ -301,14 +470,11 @@ creates and activates a new version, retaining all previous versions, assessment
 results and tutor decisions.
 Only a subsequent explicit evaluation/correction uses the new active criteria.
 Draft state lives in `CriteriaPage` and resets on course/active-version changes.
-Version history rows are accessible buttons: clicking or keyboard activation
-loads that version's numeric settings into the form, highlights the selected row,
-announces the loaded version and returns focus/scroll to the form. Selection makes
-no storage change. Save keeps the current active ID/version/internal rule as its
-base and creates a new version through the existing command; never submit the
-historic ID or reactivate/mutate an old record. Discard or selecting the active
-row restores active settings. History selection is disabled during saving and
-for accounts without editing access.
+The 23 October MVP simplification removes CriteriaHistory and all version-loading
+state/copy/controls. CriteriaPage shows only active settings, with validation,
+save and discard. Saving still creates an immutable active version internally;
+existing runs, criteria records and decisions are preserved. Do not restore a
+history picker or erase history from browser storage/backups.
 The demo `rubric` command checks ownership, rejects stale/unchanged/invalid drafts,
 generates version metadata and saves the version/active pointer/audit atomically.
 Admin permission and legacy `canPublishCriteria` flags grant no editing rights.
@@ -342,15 +508,14 @@ metadata creation. Metadata edits preserve the stored owner. Deactivation or
 removing the tutor role retains ownership and attribution while blocking tutor
 access; restoring the role restores the owner's access.
 
-`workspaceDeletion` previews application, document and criteria counts.
-`deleteWorkspace` requires owner tutor access and explicit confirmation, including
-for seeded examples. Deletion atomically removes the course, its applications,
-original PDFs, batches, review history, criteria and related audit entries, then
-records the deletion event. There is no other-tutor count or shared-access warning.
-The owner opens **Delete course** from the intake page. The UI returns to Courses,
-preserves other courses and offers Add course when none remain. Empty datasets
-remain valid for backup/restore. This changes browser demo behaviour; PostgreSQL
-models, tables and HTTP routes are unchanged in this milestone.
+Course deletion is no longer exposed after the 23 October management-page removal.
+The obsolete preview query/type and lower-level `deleteWorkspace` command are now
+removed. Retain historical deletion audit entries and migration tombstones so old
+datasets/backups remain compatible; do not recreate previously deleted samples.
+Applicant deletion and administrator maintenance remain supported. No saved
+courses are deleted by this code cleanup.
+Empty datasets remain valid for backup/restore. PostgreSQL models, tables and HTTP
+routes are unchanged.
 
 ## ZIP upload batches (15 October 2026)
 
@@ -491,7 +656,7 @@ confirmation dialogs and storage-replacement/deletion consequences.
 
 The unused BackendConnection component, its content and tests are deleted;
 AssessmentPage no longer polls backend health solely for a banner. HTTP evaluation
-and API health support remain intact, as do `evaluationSource` / `simulated`
+and the backend health route remain intact, as do `evaluationSource` / `simulated`
 metadata. `hasUnavailableAssessment` detects the existing backend-unavailable flag
 for presentation: display neutral status text and suppress unavailable-score
 recommendations, stale justification rules and integration-specific messages.
@@ -504,8 +669,26 @@ change.
 
 ## Design reference
 
-Latest visual direction (15 October 2026): the user and supervisor prefer a plain
-**Mantis-style interface**. This supersedes the earlier UCL purple theme and Figma
+Latest implementation direction (21 October 2026): the supervisor requires use of
+the supplied **Mantis source components**, beyond matching their appearance.
+The applicable interface now uses source under `frontend/src/mantis/`: the
+dashboard header/drawer and controlled navigation, SimpleBar, extended avatar
+and icon button, statistics card, loading components, `MainCard`, `AuthCard`,
+typography, palette, shadows and 34 control overrides. Its README documents local
+changes and `source-manifest.json` records 52 original paths and hashes. Shared
+`Card` delegates to `MainCard`; course/intake cards, upload panels, outcome choices
+and log cards use it too. Summaries use the adapted Mantis statistics card, and
+sign-in uses `AuthCard`. Keep imported
+UI source separate from admissions logic. MUI controls still come from
+`@mui/material` and receive Mantis theme overrides. Preserve the accessibility
+colour adjustments and semantic card headings. The template's MUI 7 input and
+button/chip/alert styles are adapted to the existing MUI 9 APIs. Icons use the
+template's Ant Design family; the unused Material Icons package is removed.
+Keep typed per-icon imports and the Vite/Vitest ESM alias: this package version's
+root wrappers otherwise produce a production React element-type error. Mantis
+accordions provide scoring rules, section details, history and accessible PDF
+text; criteria-weight bars use Mantis-styled LinearProgress. This supersedes the earlier
+styling-only adaptation, UCL purple theme and Figma
 shell dimensions. The supplied reference is Mantis React Next TypeScript 4.0.1,
 locally at `/Users/jack_1/Downloads/mantis-react-next-ts-4.0.1`. Adapt its visual
 patterns within the existing React/Vite/MUI application; do not migrate to Next.js
@@ -517,7 +700,9 @@ controls and labelled green/amber/red statuses. Public Sans is self-hosted throu
 is required. The action blue is darkened for accessible white labels. Preserve
 the 260 px sidebar, 64 px white header, bordered card headers, compact typography,
 responsive stacking, mobile drawer and centred concise sign-in card. Keep theme
-tokens in components instead of restoring hard-coded purple colours. Product
+tokens in components instead of restoring hard-coded purple colours. Compose
+Mantis theme factories through `app/theme.ts`; avoid duplicating their defaults
+in application components. Product
 name remains. The sidebar shows only the UCL logo; sign-in shows it alongside
 Application Review Workspace (stacked on mobile). `components/UclLogo.tsx` reuses
 the locally bundled white portico/lettering PNG on black, requested by the user
@@ -525,7 +710,18 @@ on 19 October. `src/assets/README.md` records its UCL Indigo source and CleanPNG
 visual reference. Do not use the watermarked preview or hotlink images at runtime.
 UCL fonts are not bundled.
 
-The Figma file is `JUJzxkc6pTAUdqLOhBMhPu`. When doing Figma work, prefer Figma MCP
+Presentation scope (21 October 2026): prioritise desktop workflows. The supervisor
+does not require mobile mockups, and the user has deleted them from Figma. Do not
+recreate mobile frames or include them in pending presentation work unless asked.
+Existing responsive frontend support remains in place.
+
+The current frontend review file is `T0kdTyHiQDCy4NCIge7ssx`, in the **final year
+project** team. Its editable tutor frames and remaining desktop work are recorded
+in `design/figma/frontend-review/README.md` and `state.json`. Final organisation,
+prototype navigation and visual checks were blocked by the team's MCP quota;
+inspect live state before resuming, including the user's deletions.
+
+The earlier mockup file is `JUJzxkc6pTAUdqLOhBMhPu`. When doing Figma work, prefer Figma MCP
 as requested by the user and follow the applicable Figma skills. Local saved
 design references are in `design/figma/`, including its README and construction
 scripts. Those scripts are snapshots, not safe to replay over the completed file.
@@ -590,10 +786,22 @@ outside this frontend PR; full database tests and Ruff were not rerun. See
 
 The cleanup removes unused domain-label and dataset aliases, plus the RTK health
 query left behind by the deleted connection banner. Layout and upload pages reuse
-workspace results. The HTTP health helper/contract and saved-data compatibility
-code remain. These results are a snapshot, not a substitute for validating future
+workspace results. The unused frontend HTTP health helper was removed in the
+23 October cleanup; the backend health contract and saved-data compatibility code
+remain. These results are a snapshot, not a substitute for validating future
 changes. Enforced coverage minimums are 95% lines, 90% statements/functions and
 85% branches.
+
+Latest verification after importing the supplied Mantis source (21 October 2026):
+**510 tests across 40 files**, **98.85% line / 92.63% branch coverage**. TypeScript,
+production build, ESLint, Prettier and all 16 frontend browser workflows pass.
+The expanded Mantis integration passes all 16 workflows against its final production
+build, including the all-screen audit, corrections, decisions, keyboard navigation,
+criteria editing, uploads, backup/restore and ownership guards. Desktop courses,
+upload batches, assessment and account-management screenshots were visually checked.
+Imported template files are outside application coverage totals and have 14 integration
+tests. Vitest uses two workers to avoid CPU-contention timeouts without weakening
+assertions or increasing timeouts. Backend/PostgreSQL checks were not rerun.
 
 ## Repository and handover
 
@@ -616,3 +824,23 @@ snapshots and `FYProjectGuidelines.pdf` remain local-only. Keep maintained Markd
 rendering/design scripts, `AGENTS.md`, package lockfiles and canonical Figma
 `state.json` / `final-state.json` eligible for version control. Do not hide source
 changes simply to shorten Git status.
+
+### Mantis layout patterns (21 October 2026)
+
+In addition to the imported dashboard shell, navigation and metric cards, forms
+now adapt the supplied Mantis multi-column examples with static labels above
+fields. Use React IDs and explicit label associations, including select controls;
+each mapped criteria field needs its own ID. Keep form logic in pages and copy in
+content files. The imported `mantis/components/FormActions` adapts the template's
+separated action bar for application, correction, decision, criteria and admin forms.
+Application, batch and account lists follow the supplied MUI-table layout with
+`MainCard content={false}`, full-width rows and padded toolbar/notice zones.
+Mantis uses MUI for these compositions; do not add meaningless aliases to disguise
+MUI imports. `src/mantis/source-manifest.json` lists 53 imported sources plus the
+original layout-pattern references and their SHA-256 hashes.
+
+The Mantis layout follow-up passes all 510 tests, coverage thresholds (98.85% lines,
+92.63% branches), TypeScript/build, lint/format and all 16 standalone browser
+workflows. The all-15-screen axe audit passes, including label associations and
+keyboard access. Application-list, criteria and account-management desktop
+screenshots were visually inspected. Backend checks were not rerun.

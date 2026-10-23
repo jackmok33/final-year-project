@@ -382,7 +382,7 @@ export async function createSeed(): Promise<{ dataset: Dataset; files: Record<st
         id: `sample-decision-${id}`,
         runId: run.id,
         recommendation: run.recommendation,
-        outcome: index === 6 ? 'Offer' : 'Reject',
+        outcome: index === 6 ? 'Unconditional' : 'Reject',
         reason: 'Synthetic example: source evidence reviewed by the tutor.',
         actor: 'tutor-a',
         at: new Date(Date.parse(run.finishAt) + 3600000).toISOString(),

@@ -12,6 +12,8 @@ export const domainLabelsContent = {
     statement: 'Personal statement',
   } satisfies Record<DocumentType, string>,
   outcomeLabels: {
+    Conditional: 'Conditional',
+    Unconditional: 'Unconditional',
     Offer: 'Offer',
     Reject: 'Reject',
     'Further review': 'Further review',

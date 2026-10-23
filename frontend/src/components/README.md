@@ -1,163 +1,133 @@
 # Page and component structure
 
-Start in `src/pages/` to understand a screen. Each page owns its data queries,
-mutations, temporary form state, derived values, validation and event handlers.
-Page files and their exported components use the `Page` suffix, such as
-`LoginPage.tsx` and `LoginPage`. `App.tsx` loads the pages lazily.
+Start in `src/pages/`. Pages own screen queries, mutations, temporary form state,
+derived values, validation and handlers. File/component names have the `Page`
+suffix. A keyed private controller may reset a draft when the selected record,
+intake or active criteria version changes. Do not move all logic into a visual
+component and leave an empty page wrapper.
 
-`src/components/` contains the visual sections that pages compose. Forms and
-panels receive typed values and callbacks from the page; they do not fetch screen
-data or perform admissions or administration commands.
+`src/components/` contains controlled visual sections with typed values/callbacks.
+Reusable UI mechanics such as PDF rendering, cancellation and cleanup can stay
+in components. Copy belongs in matching `src/content/` files, selected through the
+same typed `useContent()` hook; dynamic messages use named formatters.
 
-Display text belongs in the matching file under `src/content/`. Pages and
-components read it using the shared `useContent()` hook; for example,
-`useContent('decisionForm')` selects
-`content/components/assessment/DecisionForm.content.ts`. Dynamic copy uses typed
-formatter functions. See the [content guide](../content/README.md) for conventions.
+Each page/component has a matching colocated test, for example
+`pages/AssessmentPage.test.tsx` and `components/assessment/DecisionForm.test.tsx`.
+Keep screen orchestration checks in page tests and controlled UI behaviour in
+component tests. See the [test guide](../test/README.md) for the enforced convention.
 
-| Folder          | Visual sections                                                       |
-| --------------- | --------------------------------------------------------------------- |
-| `auth/`         | Sign-in introduction and demo account form                            |
-| `applications/` | Filters, application table, summaries and document upload form        |
-| `assessment/`   | Recommendation, scores, flags, history, correction and decision forms |
-| `evidence/`     | Document/page navigation, PDF rendering and cited claims              |
-| `criteria/`     | Controlled criteria editor and preserved version history              |
-| `admin/`        | Service health panels, accounts, programme forms, backup and deletion |
-| `workspace/`    | Course/intake cards and workspace creation/deletion dialogs           |
-| `batches/`      | ZIP selection and numbered batch history with review counts           |
+Shared workspace selection, typed Redux bindings and table pagination belong in
+`src/hooks/`. Both table pages use `usePagination`; each page still owns filtering,
+sorting and its queries. See the [hooks guide](../hooks/README.md) before creating
+another shared state helper.
 
-For example, `pages/ApplicationsPage.tsx` fetches and filters applications.
-It renders `QueueSummary`, `ApplicationFilters` and `ApplicationTable`.
-The table shows Application, Score, AI recommendation and Decision; its application-reference
-link opens the assessment. It distinguishes AI recommendations from recorded
-tutor decisions and labels historical decisions and unfinished assessments.
-`pages/NewApplicationPage.tsx` owns file selection, PDF validation, upload staging and
-submission; `NewApplicationForm` renders the controlled fields and upload cards.
+| Area            | Responsibilities                                                                 |
+| --------------- | -------------------------------------------------------------------------------- |
+| `auth/`         | Mantis email/password layout, existing-account/help dialogs and UCL branding     |
+| `layout/`       | Controlled Mantis header/account menu and programme/admin navigation             |
+| `workspace/`    | Programme/intake cards and name-entry dialog                                     |
+| `batches/`      | ZIP drop area, numbered batch table and outcome analytics                        |
+| `applications/` | Search/filter/sort toolbar, applicant table and PDF submission form              |
+| `assessment/`   | Summary, evidence groups, flags, score accordions, correction and decision forms |
+| `evidence/`     | Original PDF navigation, rendering and validated source links                    |
+| `criteria/`     | Controlled active criteria fields and save actions                               |
+| `admin/`        | Existing account/programme controls, health and browser-data maintenance         |
 
-`AssessmentPage.tsx` owns the selected assessment, history expansion, queries and
-re-evaluation command. Its private review controller is keyed by application so
-navigation resets history and selection. Assessment, decision, correction and
-evidence pages use the
-query's current application data, showing loading while a different record is
-fetched rather than displaying the previous record. `RecommendationSummary` renders the compact score,
-AI recommendation, tutor decision and primary decision action. `ReviewFlags`
-shows actionable concerns near the top, without raw flag codes or an empty
-success panel. The shared `Rationale` has a compact presentation with inline
-citations and expandable rules. `SectionAssessments` keeps scores visible and
-expands each section's explanation, uncertainty and evidence on demand.
-`RunHistory` is a controlled, initially collapsed panel containing the run picker,
-corrections, decisions and re-evaluation action. Historical results cannot expose
-actions that change the latest result; the page provides an explicit return to
-the latest assessment. The header retains document viewing and Back.
-The correction draft starts from the selected run's extracted grade, including
-zero and fractional values; it does not prefill an example correction.
+`ModulesPage` queries owned programmes and available intakes and controls creation.
+`ModuleCards` renders only direct intake links. The obsolete management page, its
+settings shortcuts, deletion dialog, content and RTK deletion-preview query have
+been removed. Old management URLs return to the Programme list through the route
+fallback; no stored courses are deleted.
+`Layout` owns workspace queries, deep-link selection, drawer/account-menu state
+and sign-out handlers. `layout/WorkspaceHeader` and `WorkspaceNavigation` render
+the controlled Mantis shell. `auth/ProtectedRoute` owns route permission/session
+checks separately from the layout. Authorised deep links update programme/intake
+selection; the visual sections do not fetch or mutate application data.
 
-`DecisionPage` accepts a tutor outcome independently of the AI recommendation.
-`DecisionForm` uses the same optional review note for every outcome; there is no
-override-specific field or required explanation. The evidence-review checkbox and
-its state/props are removed. The record action calls the page's save handler
-directly; there is no extra decision confirmation dialog or modal state. The demo
-`decide` command has no acknowledgement flag. It retains permission, current-run,
-valid-outcome and critical-evidence checks, and stores the recommendation separately from the decision. Blank
-notes display as Decision recorded in history, without implying AI agreement.
+`UploadBatchesPage` owns the selected URL tab, upload draft, archive staging,
+queries, pagination and whole-course CSV export. Its private controller is keyed
+by programme/intake. It composes the metrics, `ZipUploadPanel`, `BatchList`,
+`CriteriaPage` and `CourseAnalytics`. `BatchList` owns the visual loading/error/empty
+states and Mantis pagination controls; its values and callbacks come from the page.
+Criteria is also available via `/criteria`,
+which selects this workspace's criteria tab. Passing the explicit programme ID
+to the criteria editor prevents a preceding selection from appearing during a
+route transition.
 
-Some pages include a private draft controller in the same file, keyed to an
-application run, criteria version, account or programme. This resets the draft
-when the selected record changes while keeping all of its state and actions in
-the page. The visual form remains in `components/`.
+`ApplicationsPage` owns scoped filtering/sorting/pagination and confirmed applicant
+deletion. The table has nine design columns and labelled view/delete actions. The page owns
+typed column/direction sort state and compares displayed data across all eight data
+columns. The controlled table renders Mantis-styled sort toggles and aria-sort;
+Actions stays unsorted. Quick-sort choices stay synchronised with header sorting.
+Status/score/decision helpers prevent incomplete assessments and old decisions
+from appearing current. `NewApplicationPage` validates PDF drafts and the optional
+batch context before staging files. Import parsing and atomic persistence stay
+in services, outside UI components.
 
-`Layout.tsx`, `common.tsx` and `FilePicker.tsx` provide shared navigation, cards,
-dialogs, status indicators and accessible file selection. `files.ts` contains
-download and display helpers. Reusable UI mechanics, such as the PDF viewer's
-canvas rendering and cleanup, remain inside their components.
+AI fields use `aiRecommendation()` for Unconditional/Conditional/Reject, or `—`
+while unavailable. It projects legacy Offer/Further review to Unconditional/
+Conditional for the prototype without changing source runs. `decisionOutcome()`
+provides the three tutor outcomes plus Pending; unclassified legacy decisions and
+old-run decisions remain pending. Table sorting, summaries, intake counts/analytics
+and CSV exports use these same current values. Pending is not a saved radio option.
 
-`ModulesPage.tsx` owns course creation drafts, mutations and errors and renders
-the controlled `ModuleCards` and `CreateWorkspaceDialog`. The dialog asks for a
-course name through **Add course**. The page and service share name validation;
-the service generates a unique internal code. Cards show the saved name. Existing
-technical component names and `/modules` routes are retained. It opens the new course's
-intake picker after creation. `ModuleIntakesPage.tsx` owns application counts,
-intake selection and workspace deletion. Intake selection now opens upload batches. `IntakeCards` receives year/count values
-and a selection callback. Pages retain the logic; the cards do not fetch data.
+`AssessmentPage` owns queries, tab navigation and direct header re-evaluation. It
+shows the latest run by default without history controls; existing run/citation
+bookmarks remain supported as read-only views. It composes the summary and five tabs: recommendation/evidence,
+flags, scores, original documents and decision recording. Legacy evidence/decision
+URLs enter the matching tab. `EvidencePage` and `DecisionPage` retain their own
+screen logic while rendering within that shell. Current query data avoids showing
+the previous applicant's PDF or form. Historic runs disable mutation actions.
 
-`workspace/DeleteWorkspaceDialog.tsx` reuses `Confirm` and renders the deletion
-impact. The intake page owns the impact query, errors, deletion mutation and
-return to the course cards. Every owned course, including examples, offers deletion.
-The service enforces single ownership and atomically removes the course's records
-and blobs. The dialog has no shared-tutor warning. Metadata editing does not
-transfer ownership.
+`RecommendationSummary` renders only score, AI and tutor decision. `RecommendationPanel`
+renders the explanation, source links and supplied evidence groups. `EvidenceSummary`
+renders supplied evidence groups without extraction. `ReviewFlags` renders Mantis
+alerts and supported correction links. `SectionAssessments` renders section
+accordions and validated `EvidenceLink` sources. The unused `RunHistory` panel and
+its old `Rationale` rendering path were removed. The recommendation still displays
+its justification and source-page links.
 
-`admin/UserPermissions` now displays owned courses as read-only information; it
-does not render assignment checkboxes. `ProgrammeSettingsPage` only edits existing
-course metadata and has an empty state when no courses exist. Tutors create their
-own courses through Add course. `useWorkspace` and the demo service require tutor
-role and `Programme.createdBy` ownership; legacy `User.programmeIds` cannot grant
-access.
+`DecisionPage` owns the Conditional/Unconditional/Reject draft and optional note.
+`DecisionForm` and `OutcomeOptions` are controlled, using Mantis card/radio patterns.
+No override reason, acknowledgement checkbox or extra save dialog exists. The
+service still enforces active ownership, current run and critical-evidence rules.
+Original recommendations and legacy decisions remain separate stored records.
 
-`Layout.tsx` provides the tutor's course sidebar and role/sign-out footer,
-with the existing administrative navigation for administrators. Authorised
-application deep links select both the module and intake. The selected intake
-also keys the upload draft so unsaved inputs cannot move between years.
+`CriteriaPage` owns draft validation, save/reset and mutations;
+its private editor is keyed by course/active version. Only active settings are
+shown, without a history list or version-loading state. Saving retains immutable
+versions internally; old results remain linked to their original settings.
+Displaying this page inside the workspace does not transfer its logic into a
+component.
 
-`UploadBatchesPage.tsx` owns file selection, staged archive references, import
-mutations, errors and batch queries. The private controller is keyed by module
-and intake to clear unsaved selections when context changes. `batches/ZipUploadPanel`
-renders controlled upload/progress controls;
-`batches/BatchList` shows numbered batch links with local date/time cells and applicant
-and pending-review counts. Numbering is computed per module/intake by the demo service for consistent
-list and detail headings. The importer validates and
-prepares PDFs outside UI code. `ApplicationsPage` reuses the queue for an explicit
-batch, using its authorised module/intake and filtering rows and summaries
-by batch ID. The batch query never falls back to the full queue on an access error.
-`UploadBatchesPage` owns whole-course CSV export (all intake years and batches),
-with shared CSV escaping and the original criteria version for each assessment.
+The supplied Mantis source lives in `src/mantis/` with a provenance manifest.
+`MainCard`, `AuthCard`, `AnalyticEcommerce`, `FormActions`, header/drawer/NavItem,
+SimpleBar, avatar, icon buttons and loaders are shared imports. New controlled
+adaptations include `TabsCard`, `TablePagination` and `SingleFileUpload`, plus the
+actual template upload SVG. Theme factories style underlying MUI controls; Mantis
+itself imports MUI, so a MUI import is not evidence of a separate design system.
+Avoid aliases/wrappers that merely rename every MUI primitive.
 
-`SummaryCards.tsx` shares the responsive metric-card layout used by the application
-queue and service health screens. Each feature supplies its own labels, values
-and hints. `evidence/EvidenceLink.tsx` shares document/page validation and citation
-navigation across recommendation rationales, section assessments and correction
-guidance. New application uploads reuse `TwoColumns` for their form/guidance layout.
-Keep feature-specific tables and fields in their own components; MUI already
-provides the underlying controls.
+`common.tsx` supplies Page, Card, status/error/loading and confirmation
+patterns. `SummaryCards` supplies values to Mantis statistics cards. `files.ts`
+contains download/display helpers. `EvidenceLink` centralises citation identity,
+page validation and encoded navigation. Confirmations remain for delete/reset/
+restore. Keyboard focus, explicit labels and table overflow stay accessible.
 
-The Mantis-style presentation is shared across screens: `Card` supplies a bordered
-heading and padded content, `Page` aligns titles and actions before stacking them
-on mobile, and metric cards keep their own compact typography. Palette, Public
-Sans typography and control/table defaults live in `app/theme.ts`. Table containers
-are keyboard focusable so horizontal overflow remains usable on smaller screens.
-Use semantic palette tokens in panels; keep presentation changes separate from
-the existing page logic and admissions rules.
+Domain rules, persistence, permissions, extraction boundaries, validation and audit
+records belong in `src/domain/` and `src/services/`; shared Redux and RTK Query in
+`src/app/`. Reuse meaningful patterns without introducing a generic table engine
+that hides different feature behaviour.
 
-Storage, permissions, assessment rules, PDF parsing and persistence remain in
-`src/services/` and `src/domain/`. Shared Redux state and RTK Query definitions
-remain in `src/app/`.
+The pre-commit cleanup removes obsolete content entries, the unused deletion-preview
+service query and the frontend HTTP health probe. The backend health route remains
+available; no screen monitors it. Assessment readiness is shared in `domain/types.ts`
+so queues, summaries, evidence fixtures and decision forms agree about unfinished
+results. Section panels accept only the values they render. Domain-specific
+components still compose Mantis controls and should not be removed just because
+Mantis now supplies their visual foundation.
 
-`CriteriaPage.tsx` owns criteria drafts, validation, ownership checks, save/reset
-handlers and mutations, with a private editor keyed by course and active version.
-`CriteriaForm` and `CriteriaFields` render the controlled numeric fields and save
-actions. The course owner can edit weights, thresholds and margin. The UI omits
-the unimplemented academic-rule field; legacy stored values remain compatible.
-Saving creates a new active version in the demo service without
-changing earlier assessments or decisions. Legacy publication flags do not grant
-access. Drafts cannot move between courses or overwrite a newer active version.
-The editor uses a single column with a short versioning note by its save actions;
-the static recommendation-routing card is intentionally removed.
-`CriteriaHistory` renders accessible version-row buttons with a selected state.
-The page handles selection and copies only numeric settings into a draft based
-on the current active version. It returns focus/scroll to the form and provides
-the loaded-version feedback. Selection performs no mutation; saving creates a
-new version through the existing command. Resetting returns to active settings.
-
-Recurring demo/environment badges and integration notices are intentionally absent.
-The old `BackendConnection` component/content/tests were removed, and AssessmentPage
-no longer polls health for a connection banner. HTTP evaluation and response
-validation remain in `services/backend.ts`. `hasUnavailableAssessment` supplies
-consistent neutral assessment text for legacy unavailable runs, preserving stored
-run data. Missing results show no fabricated score or recommendation; critical
-evidence warnings and destructive-action confirmations remain. Summary-card hints
-are optional so health cards do not render repeated environment labels.
-
-When adding a screen, put its logic and composition in its page. Extract a form
-or panel when it has a distinct visual purpose, passing its values and actions as
-props. Use shared primitives without creating wrappers for every element or a
-second screen container that merely duplicates the page.
+The structural follow-up removes the unexposed course-deletion service command
+and its obsolete tests. Backup/ownership invariants stay covered in the active
+service suites. See [service structure](../services/README.md) for the demo adapter's
+internal responsibilities and transaction boundaries.

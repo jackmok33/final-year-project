@@ -34,6 +34,7 @@ export function FilePicker({
         hidden
         aria-label={inputLabel}
         accept={accept}
+        disabled={disabled}
         onChange={(event) => {
           onSelect(event.currentTarget.files?.[0])
           event.currentTarget.value = ''

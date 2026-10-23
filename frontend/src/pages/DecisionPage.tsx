@@ -1,18 +1,17 @@
-import { useContent } from '../hooks/useContent'
-import { Alert, Button } from '@mui/material'
+import { Alert, Box } from '@mui/material'
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useApplicationQuery, useCommandMutation, useMeQuery } from '../app/api'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useApplicationQuery, useCommandMutation } from '../app/api'
 import { DecisionForm } from '../components/assessment/DecisionForm'
-import { ErrorNotice, Loading, Page } from '../components/common'
+import { ErrorNotice, Loading } from '../components/common'
 import {
+  isAssessmentReady,
   latestRun,
   type Application,
   type AssessmentRun,
-  type DocumentRecord,
-  type Outcome,
-  type Rubric,
+  type TutorOutcome,
 } from '../domain/types'
+import { useContent } from '../hooks/useContent'
 
 export function DecisionPage() {
   const content = useContent('decisionPage')
@@ -20,75 +19,41 @@ export function DecisionPage() {
   const { currentData: data, error } = useApplicationQuery(id, { pollingInterval: 1000 })
   if (!data) return error ? <ErrorNotice error={error} /> : <Loading />
   const run = latestRun(data.application)
-  if (!run || ['queued', 'running', 'failed'].includes(run.status))
+  if (!run || !isAssessmentReady(run))
     return (
-      <Page title={content.recordTutorDecision} subtitle={id}>
-        <Alert severity="info">{content.assessmentRequired}</Alert>
-        <Button component={Link} to={`/applications/${id}`}>
-          {content.backToAssessment}
-        </Button>
-      </Page>
+      <Alert severity="info" sx={{ m: 3 }}>
+        {content.assessmentRequired}
+      </Alert>
     )
   return (
-    <DecisionEditor
-      key={`${data.application.id}:${run.id}`}
-      app={data.application}
-      run={run}
-      rubric={data.rubrics.find((r) => r.id === run.rubricId)}
-      documents={data.documents}
-    />
+    <Box sx={{ p: 4 }}>
+      <DecisionEditor key={`${data.application.id}:${run.id}`} app={data.application} run={run} />
+    </Box>
   )
 }
-
-// Keep the draft tied to the selected record/version without moving page logic into UI components.
-function DecisionEditor({
-  app,
-  run,
-  rubric,
-  documents,
-}: {
-  app: Application
-  run: AssessmentRun
-  rubric?: Rubric
-  documents: DocumentRecord[]
-}) {
-  const { data: user } = useMeQuery()
-  const [outcome, setOutcome] = useState<Outcome>('Further review')
+function DecisionEditor({ app, run }: { app: Application; run: AssessmentRun }) {
+  const [outcome, setOutcome] = useState<TutorOutcome>('Conditional')
   const [reason, setReason] = useState('')
   const [command, mutation] = useCommandMutation()
   const navigate = useNavigate()
-  const critical = run.flags.some((f) => f.critical)
+  const critical = run.flags.some((flag) => flag.critical)
   async function save() {
     try {
-      await command({
-        op: 'decide',
-        id: app.id,
-        runId: run.id,
-        outcome,
-        reason,
-      }).unwrap()
-      navigate(`/applications/${app.id}`)
+      await command({ op: 'decide', id: app.id, runId: run.id, outcome, reason }).unwrap()
+      navigate(`/applications/${encodeURIComponent(app.id)}`)
     } catch {
-      /* Keep the draft and show the mutation error for retry. */
+      /* Keep the draft for retry. */
     }
   }
-  const disabled = mutation.isLoading || (outcome !== 'Further review' && critical)
-  const userName = user?.name
-
   return (
     <DecisionForm
-      app={app}
-      run={run}
-      rubric={rubric}
-      documents={documents}
-      userName={userName}
       outcome={outcome}
       setOutcome={setOutcome}
       reason={reason}
       setReason={setReason}
-      mutation={mutation}
+      error={mutation.error}
       critical={critical}
-      disabled={disabled}
+      disabled={mutation.isLoading || critical}
       record={() => void save()}
     />
   )

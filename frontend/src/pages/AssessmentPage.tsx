@@ -1,23 +1,27 @@
-import { useContent } from '../hooks/useContent'
-import { Alert, Button, Typography } from '@mui/material'
-import { useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { useApplicationQuery, useCommandMutation } from '../app/api'
-import { AssessmentActions } from '../components/assessment/AssessmentActions'
+import { Alert, Box, Button, Typography } from '@mui/material'
+import ArrowLeftOutlined from '@ant-design/icons/ArrowLeftOutlined'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useApplicationQuery, useApplicationsQuery, useCommandMutation } from '../app/api'
+import { useWorkspace } from '../hooks/useWorkspace'
 import { RecommendationSummary } from '../components/assessment/RecommendationSummary'
 import { ReviewFlags } from '../components/assessment/ReviewFlags'
-import { RunHistory } from '../components/assessment/RunHistory'
 import { SectionAssessments } from '../components/assessment/SectionAssessments'
-import { Card, ErrorNotice, Loading, Page, Rationale, TwoColumns } from '../components/common'
-import { displayTime } from '../components/files'
+import { RecommendationPanel } from '../components/assessment/RecommendationPanel'
+import { ErrorNotice, Loading, Page } from '../components/common'
+import TabsCard from '../mantis/components/TabsCard'
+import MainCard from '../mantis/components/MainCard'
+import { applicantEvidence, applicantProfile } from '../services/applicantPresentation'
+import { programmeIntakeLabel } from '../domain/programmeDisplay'
 import {
-  hasUnavailableAssessment,
+  isAssessmentReady,
   latestDecision,
   latestRun,
   type Application,
   type DocumentRecord,
-  type Rubric,
 } from '../domain/types'
+import { useContent } from '../hooks/useContent'
+import { EvidencePage } from './EvidencePage'
+import { DecisionPage } from './DecisionPage'
 
 export function AssessmentPage() {
   const { id = '' } = useParams()
@@ -28,56 +32,100 @@ export function AssessmentPage() {
       key={data.application.id}
       app={data.application}
       documents={data.documents}
-      rubrics={data.rubrics}
       queryError={error}
     />
   )
 }
 
-// Keep review state in the page and reset it when navigating to another application.
 function AssessmentReview({
   app,
   documents,
-  rubrics,
   queryError,
 }: {
   app: Application
   documents: DocumentRecord[]
-  rubrics: Rubric[]
   queryError?: unknown
 }) {
   const content = useContent('assessmentPage')
-  const id = app.id
+  const { programmes } = useWorkspace()
+  const programme = programmes.find((p) => p.id === app.programmeId)
+  const applications = useApplicationsQuery(app.programmeId)
   const [command, mutation] = useCommandMutation()
-  const [selectedRunId, setSelectedRunId] = useState('')
-  const [historyOpen, setHistoryOpen] = useState(false)
+  const [params] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
   const latest = latestRun(app)
-  const run = app.runs.find((r) => r.id === selectedRunId) ?? latest
-  const rubric = rubrics.find((r) => r.id === run?.rubricId)
-  const inProgress = ['queued', 'running'].includes(latest?.status ?? '')
+  const run = app.runs.find((r) => r.id === params.get('run')) ?? latest
   const historic = run !== latest
-  const assessed = Boolean(
-    run && !['queued', 'running', 'failed'].includes(run.status) && !hasUnavailableAssessment(run),
+  const busy = ['queued', 'running'].includes(latest?.status ?? '')
+  const assessed = isAssessmentReady(run)
+  const canCorrect = Boolean(assessed && !historic && !busy && run?.extractedGrade !== null)
+  const tab = location.pathname.endsWith('/evidence')
+    ? 'documents'
+    : location.pathname.endsWith('/decision')
+      ? 'decision'
+      : (params.get('tab') ?? 'recommendation')
+  const validTab = ['recommendation', 'flags', 'scores', 'documents', 'decision'].includes(tab)
+    ? tab
+    : 'recommendation'
+  const profile = applicantProfile(app)
+  const ordinal = Math.max(
+    1,
+    (applications.currentData
+      ?.filter((a) => a.batchId === app.batchId)
+      .findIndex((a) => a.id === app.id) ?? 0) + 1,
   )
-  const canCorrect = Boolean(assessed && !historic && !inProgress && run?.extractedGrade !== null)
-  const hasConcerns = run?.flags.some((flag) => flag.code !== 'BACKEND_UNAVAILABLE') ?? false
-  const rationale = run && (
-    <Card>
-      <Rationale run={run} rubric={rubric} documents={documents} applicationId={id} compact />
-    </Card>
-  )
-  function evaluate() {
-    setSelectedRunId('')
-    void command({ op: 'evaluate', id })
+  function selectTab(next: string) {
+    const query = new URLSearchParams()
+    if (historic && run) query.set('run', run.id)
+    if (next === 'documents' || next === 'decision')
+      navigate(
+        `/applications/${encodeURIComponent(app.id)}/${next === 'documents' ? 'evidence' : 'decision'}${query.size ? `?${query}` : ''}`,
+      )
+    else {
+      query.set('tab', next)
+      navigate(`/applications/${encodeURIComponent(app.id)}?${query}`)
+    }
   }
+  function evaluate() {
+    if (mutation.isLoading || busy || historic) return
+    if (params.has('run')) {
+      const query = new URLSearchParams(params)
+      query.delete('run')
+      navigate(`${location.pathname}${query.size ? `?${query}` : ''}`, { replace: true })
+    }
+    void command({ op: 'evaluate', id: app.id })
+  }
+  const back = app.batchId ? `/batches/${encodeURIComponent(app.batchId)}` : '/applications'
   return (
     <Page
-      title={app.id}
-      subtitle={content.subtitle(app.candidate, displayTime(app.submittedAt))}
-      actions={<AssessmentActions app={app} id={id} />}
+      title={
+        programme
+          ? programmeIntakeLabel(programme, app.intakeYear ?? programme.year)
+          : content.programme
+      }
+      actions={
+        <>
+          {run && (
+            <Button
+              variant="outlined"
+              onClick={evaluate}
+              disabled={mutation.isLoading || busy || historic}
+            >
+              {content.reEvaluate}
+            </Button>
+          )}
+          <Button component={Link} to={back} startIcon={<ArrowLeftOutlined aria-hidden="true" />}>
+            {content.back}
+          </Button>
+        </>
+      }
     >
-      <ErrorNotice error={queryError || mutation.error} />
-      {inProgress && (
+      <ErrorNotice error={queryError ?? mutation.error} />
+      <Typography variant="h2" component="h2" color="text.secondary">
+        {content.applicantHeading(ordinal, profile.name, profile.studentId)}
+      </Typography>
+      {busy && (
         <Alert severity="info" role="status">
           {content.processingMessage(latest?.status)}
         </Alert>
@@ -85,60 +133,88 @@ function AssessmentReview({
       {historic && (
         <Alert
           severity="info"
-          action={<Button onClick={() => setSelectedRunId('')}>{content.showLatest}</Button>}
+          action={
+            <Button
+              onClick={() => {
+                navigate(`/applications/${encodeURIComponent(app.id)}`)
+              }}
+            >
+              {content.showLatest}
+            </Button>
+          }
         >
           {content.historicRunNotice}
         </Alert>
       )}
-      {!run ? (
-        <Card title={content.readyForReview}>
-          <Typography>{content.uploadDescription}</Typography>
-          <Button
-            variant="contained"
-            onClick={evaluate}
-            disabled={mutation.isLoading}
-            sx={{ alignSelf: 'flex-start' }}
-          >
+      {run ? (
+        <RecommendationSummary
+          run={run}
+          decision={
+            historic ? app.decisions.findLast((d) => d.runId === run.id) : latestDecision(app)
+          }
+        />
+      ) : (
+        <MainCard>
+          <Typography>{content.readyForReview}</Typography>
+          <Button onClick={evaluate} disabled={mutation.isLoading}>
             {content.requestEvaluation}
           </Button>
-        </Card>
-      ) : (
-        <>
-          <RecommendationSummary
-            run={run}
-            id={id}
-            decision={
-              historic ? app.decisions.findLast((d) => d.runId === run.id) : latestDecision(app)
-            }
-            canDecide={assessed && !historic && !inProgress}
-          />
-          <ReviewFlags run={run} id={id} canCorrect={canCorrect} />
-          {assessed ? (
-            <TwoColumns>
-              {rationale}
-              <SectionAssessments
-                run={run}
-                rubric={rubric}
-                documents={documents}
-                id={id}
-                canCorrect={canCorrect && !hasConcerns}
-              />
-            </TwoColumns>
-          ) : !inProgress ? (
-            rationale
-          ) : null}
-          <RunHistory
-            app={app}
-            run={run}
-            rubrics={rubrics}
-            setSelectedRunId={setSelectedRunId}
-            expanded={historyOpen}
-            onExpandedChange={setHistoryOpen}
-            onEvaluate={evaluate}
-            evaluationDisabled={mutation.isLoading || inProgress || historic}
-          />
-        </>
+        </MainCard>
       )}
+      <TabsCard
+        value={validTab}
+        onChange={selectTab}
+        label={content.reviewTabs}
+        minHeight={560}
+        tabs={[
+          {
+            value: 'recommendation',
+            label: content.aiRecommendation,
+            content: (
+              <RecommendationPanel
+                applicationId={app.id}
+                run={assessed ? run : undefined}
+                documents={documents}
+                groups={run ? applicantEvidence(app, run) : []}
+              />
+            ),
+          },
+          {
+            value: 'flags',
+            label: content.reviewFlags,
+            content: run ? (
+              <Box sx={{ p: 2.5 }}>
+                <ReviewFlags run={run} id={app.id} canCorrect={canCorrect} />
+              </Box>
+            ) : (
+              <Box sx={{ p: 4 }}>{content.noFlags}</Box>
+            ),
+          },
+          {
+            value: 'scores',
+            label: content.scoreBreakdown,
+            content:
+              assessed && run ? (
+                <Box sx={{ p: 3 }}>
+                  <SectionAssessments run={run} documents={documents} id={app.id} />
+                </Box>
+              ) : (
+                <Box sx={{ p: 4 }}>{content.noEvidence}</Box>
+              ),
+          },
+          { value: 'documents', label: content.documents, content: <EvidencePage /> },
+          {
+            value: 'decision',
+            disabled: !assessed || busy || historic,
+            label: content.recordDecision,
+            content: historic ? (
+              <Box sx={{ p: 4 }}>{content.historicRunNotice}</Box>
+            ) : (
+              <DecisionPage />
+            ),
+          },
+        ]}
+      />
     </Page>
   )
 }

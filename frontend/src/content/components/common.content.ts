@@ -1,4 +1,5 @@
 import { domainLabelsContent } from '../domain/types.content'
+import { workspaceLabels } from '../domain/workspace.content'
 
 export const commonContent = {
   loadingLabel: 'Loading workspace',
@@ -6,10 +7,9 @@ export const commonContent = {
   cancel: 'Cancel',
   saving: 'Saving…',
   confirm: 'Confirm',
-  whyThisRecommendation: 'Why this recommendation',
-  scoringRules: 'Scoring rules',
-  assessmentStatus: 'Assessment status',
-  assessmentUnavailable: 'No assessment available for these documents.',
-  criteriaContext: (version?: string) => `Criteria v${version ?? 'unknown'}`,
-  statusLabels: { ...domainLabelsContent.outcomeLabels, ...domainLabelsContent.workflowLabels },
+  statusLabels: {
+    ...domainLabelsContent.outcomeLabels,
+    ...domainLabelsContent.workflowLabels,
+    Pending: workspaceLabels.pendingDecision,
+  },
 } as const

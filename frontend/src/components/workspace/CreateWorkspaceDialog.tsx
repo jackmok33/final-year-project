@@ -1,4 +1,7 @@
+import { useId } from 'react'
 import {
+  Stack,
+  InputLabel,
   Button,
   Dialog,
   DialogActions,
@@ -30,6 +33,7 @@ export function CreateWorkspaceDialog({
   onSubmit: () => void
 }) {
   const content = useContent('createWorkspaceDialog')
+  const fieldId = useId()
   return (
     <Dialog
       open={open}
@@ -51,18 +55,23 @@ export function CreateWorkspaceDialog({
             {content.description}
           </DialogContentText>
           <ErrorNotice error={error} />
-          <TextField
-            autoFocus
-            fullWidth
-            required
-            label={content.name}
-            value={name}
-            disabled={saving}
-            onChange={(event) => onNameChange(event.target.value)}
-            helperText={name.trim() && !valid ? content.invalidName : content.nameHint}
-            error={!!name.trim() && !valid}
-            sx={{ mt: 1 }}
-          />
+          <Stack sx={{ gap: 1, minWidth: 0, flex: 1 }}>
+            <InputLabel id={`${fieldId}-name-label`} htmlFor={`${fieldId}-name`} required>
+              {content.name}
+            </InputLabel>
+            <TextField
+              autoFocus
+              fullWidth
+              required
+              id={`${fieldId}-name`}
+              value={name}
+              disabled={saving}
+              onChange={(event) => onNameChange(event.target.value)}
+              helperText={name.trim() && !valid ? content.invalidName : content.nameHint}
+              error={!!name.trim() && !valid}
+              sx={{ mt: 1 }}
+            />
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose} disabled={saving}>
