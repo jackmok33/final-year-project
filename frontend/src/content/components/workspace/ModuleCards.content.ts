@@ -1,4 +1,4 @@
 export const moduleCardsContent = {
-  openModule: (name: string) => `Open course ${name}`,
-  selectIntake: 'Select intake year',
+  openProgramme: (name: string) => `Open ${name}`,
+  uploadApplications: 'View and upload applications',
 } as const

@@ -1,9 +1,14 @@
 export const zipUploadPanelContent = {
-  title: 'Upload applications',
-  description: 'Upload a ZIP file to add a batch of applications.',
-  choose: 'Choose ZIP',
-  inputLabel: 'Upload applicant ZIP',
-  upload: 'Upload batch',
+  upload: {
+    title: 'Upload ZIP file containing multiple applicants',
+    description: 'Drop files here or click',
+    browse: 'browse',
+    ending: 'to choose a file',
+    input: 'Choose application ZIP',
+    fileInput: 'Application ZIP file',
+  },
   uploading: 'Uploading…',
-  progress: 'Reading applicant folders and validating PDFs. This may take a moment.',
+  uploadTitle: 'Upload application',
+  invalidZip: 'Choose one ZIP file.',
+  uploadBatch: 'Upload batch',
 } as const

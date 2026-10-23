@@ -1,16 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { application, documents, rubric, run } from '../test/fixtures'
-import { backendUrl, evaluateBackend, getBackendHealth } from './backend'
+import { backendUrl, evaluateBackend } from './backend'
 import { evaluateApplication } from './evaluation'
 
 const fetchMock = vi.fn<typeof fetch>()
-const health = {
-  status: 'ok',
-  mode: 'mock',
-  service: 'ucl-application-review-api',
-  database: 'not configured',
-  inference: 'not configured',
-}
 const result = () => ({
   ...structuredClone(run),
   id: 'http-run',
@@ -29,12 +22,6 @@ afterEach(() => {
 })
 
 describe('FastAPI adapter', () => {
-  it('checks the real service health contract', async () => {
-    fetchMock.mockResolvedValue(Response.json(health))
-    expect(await getBackendHealth()).toEqual(health)
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:8000/api/v1/health')
-    expect(fetchMock.mock.calls[0][1]?.method).toBe('GET')
-  })
   it('sends only synthetic assessment context and preserves run identities and citations', async () => {
     fetchMock.mockResolvedValue(Response.json(result()))
     const response = await evaluateApplication(application, documents, rubric, 74, true)
@@ -104,13 +91,14 @@ describe('FastAPI adapter', () => {
     )
     expect(application.runs).toHaveLength(1)
   })
-  it('handles cancellation and missing configuration', async () => {
-    const controller = new AbortController()
-    fetchMock.mockResolvedValue(Response.json(health))
-    await getBackendHealth(controller.signal)
+  it('bounds requests with a timeout and rejects missing configuration', async () => {
+    fetchMock.mockResolvedValue(Response.json(result()))
+    await evaluateBackend(application, documents, rubric, 74, true)
     expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal)
     vi.stubEnv('VITE_API_BASE_URL', undefined)
-    await expect(getBackendHealth()).rejects.toThrow('not configured')
+    await expect(evaluateBackend(application, documents, rubric, 74, true)).rejects.toThrow(
+      'not configured',
+    )
   })
   it.each([
     [
@@ -120,10 +108,9 @@ describe('FastAPI adapter', () => {
     [Response.json({ detail: [] }, { status: 422 }), 'HTTP 422'],
     [new Response('Server error', { status: 500 }), 'HTTP 500'],
     [new Response('broken JSON'), 'invalid JSON'],
-    [Response.json({ status: 'ok', mode: 'real' }), 'expected mock'],
   ])('surfaces backend and contract errors', async (response, message) => {
     fetchMock.mockResolvedValue(response)
-    await expect(getBackendHealth()).rejects.toThrow(message)
+    await expect(evaluateBackend(application, documents, rubric, 74, true)).rejects.toThrow(message)
   })
   it.each([
     null,

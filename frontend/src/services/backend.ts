@@ -1,29 +1,19 @@
 import type { Application, AssessmentRun, DocumentRecord, Rubric } from '../domain/types'
 
-export interface BackendHealth {
-  status: 'ok'
-  mode: 'mock'
-  service: 'ucl-application-review-api'
-  database: 'not configured'
-  inference: 'not configured'
-}
-
 export function backendUrl() {
   return (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '')
 }
 
-async function request(path: string, body?: unknown, signal?: AbortSignal): Promise<unknown> {
+async function requestAssessment(body: unknown): Promise<unknown> {
   const base = backendUrl()
   if (!base) throw new Error('The mock backend URL is not configured.')
   let response: Response
   try {
-    response = await fetch(`${base}${path}`, {
-      method: body === undefined ? 'GET' : 'POST',
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(10000)])
-        : AbortSignal.timeout(10000),
+    response = await fetch(`${base}/mock/assessments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000),
     })
   } catch {
     throw new Error('Cannot reach the FastAPI mock backend. Check that it is running and retry.')
@@ -39,19 +29,6 @@ async function request(path: string, body?: unknown, signal?: AbortSignal): Prom
   return response.json().catch(() => {
     throw new Error('The mock backend returned invalid JSON.')
   })
-}
-
-export async function getBackendHealth(signal?: AbortSignal): Promise<BackendHealth> {
-  const result = (await request('/health', undefined, signal)) as Partial<BackendHealth> | null
-  if (
-    result?.status !== 'ok' ||
-    result.mode !== 'mock' ||
-    result.service !== 'ucl-application-review-api' ||
-    result.database !== 'not configured' ||
-    result.inference !== 'not configured'
-  )
-    throw new Error('The backend did not return the expected mock service status.')
-  return result as BackendHealth
 }
 
 /** Reject malformed or mismatched results before they enter persistent review history. */
@@ -134,7 +111,7 @@ export async function evaluateBackend(
   modelAvailable: boolean,
 ): Promise<AssessmentRun> {
   const { id, version, weights, rejectBelow, offerFrom, margin, mandatoryRule } = rubric
-  const response = await request('/mock/assessments', {
+  const response = await requestAssessment({
     applicationId: app.id,
     criteria: { id, version, weights, rejectBelow, offerFrom, margin, mandatoryRule },
     documents: docs.map(({ id, type, pages }) => ({ id, type, pages })),

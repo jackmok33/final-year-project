@@ -1,17 +1,17 @@
-import { useContent } from '../hooks/useContent'
-import { ArrowBackOutlined } from '@mui/icons-material'
-import { Alert, Button, Stack, Typography } from '@mui/material'
+import { Button, Box, Stack, Typography } from '@mui/material'
+import DownloadOutlined from '@ant-design/icons/DownloadOutlined'
 import { useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { errorMessage, useApplicationQuery } from '../app/api'
-import { useAppSelector } from '../app/store'
-import { Card, ErrorNotice, Loading, Page, Status, TwoColumns } from '../components/common'
+import { useAppSelector } from '../hooks/redux'
+import { ErrorNotice, Loading } from '../components/common'
 import { DocumentNavigation } from '../components/evidence/DocumentNavigation'
-import { EvidenceClaim } from '../components/evidence/EvidenceClaim'
 import { PdfViewer } from '../components/evidence/PdfViewer'
 import { downloadBlob } from '../components/files'
 import { latestRun } from '../domain/types'
 import { authorizedFile } from '../services/demo'
+import { useContent } from '../hooks/useContent'
+import MainCard from '../mantis/components/MainCard'
 
 export function EvidencePage() {
   const content = useContent('evidencePage')
@@ -32,9 +32,9 @@ export function EvidencePage() {
     : latestRun(data.application)
   const valid =
     doc && Number.isInteger(page) && page >= 1 && page <= doc.pages && (!params.has('run') || !!run)
-  const citation = run?.justification.citations.find(
-    (c) => c.documentId === doc?.id && c.page === page,
-  )
+  const changePage = (next: number) => {
+    if (doc) setParams({ document: doc.id, page: String(next), ...(run ? { run: run.id } : {}) })
+  }
   async function download() {
     if (!doc) return
     setDownloadError('')
@@ -44,41 +44,32 @@ export function EvidencePage() {
       setDownloadError(errorMessage(error))
     }
   }
-  const changePage = (n: number) => {
-    if (doc) setParams({ document: doc.id, page: String(n), ...(run ? { run: run.id } : {}) })
-  }
   return (
-    <Page
-      title={content.sourceEvidence}
-      subtitle={content.subtitle(id)}
-      actions={
-        <>
-          <Status label={content.originalDocument} />
-          <Button onClick={() => void download()} disabled={!valid}>
-            {content.downloadOriginal}
-          </Button>
-          <Button
-            component={Link}
-            to={`/applications/${id}`}
-            variant="outlined"
-            startIcon={<ArrowBackOutlined />}
-          >
-            {content.back}
-          </Button>
-        </>
-      }
-    >
+    <Box sx={{ p: 3, maxWidth: 820, mx: 'auto' }}>
       <ErrorNotice error={downloadError} />
       {!valid ? (
-        <Alert severity="error">{content.invalidCitationMessage}</Alert>
+        <ErrorNotice error={content.invalidCitationMessage} />
       ) : (
-        <TwoColumns>
-          <Card title={doc.name}>
+        <MainCard
+          title={doc.name}
+          secondary={
+            <Button
+              onClick={() => void download()}
+              aria-label={content.downloadOriginal}
+              startIcon={<DownloadOutlined aria-hidden="true" />}
+            >
+              {content.downloadOriginal}
+            </Button>
+          }
+        >
+          <Stack spacing={3}>
             <DocumentNavigation
               documents={data.documents}
               doc={doc}
               page={page}
-              onDocumentChange={(document) => setParams({ document, page: '1' })}
+              onDocumentChange={(document) =>
+                setParams({ document, page: '1', ...(run ? { run: run.id } : {}) })
+              }
               changePage={changePage}
             />
             <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
@@ -91,10 +82,9 @@ export function EvidencePage() {
               </Button>
             </Stack>
             <PdfViewer key={doc.id} document={doc} page={page} userId={userId} />
-          </Card>
-          <EvidenceClaim citation={citation} run={run} doc={doc} page={page} id={id} />
-        </TwoColumns>
+          </Stack>
+        </MainCard>
       )}
-    </Page>
+    </Box>
   )
 }

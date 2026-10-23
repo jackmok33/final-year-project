@@ -1,8 +1,10 @@
-import { UploadFileOutlined } from '@mui/icons-material'
-import { Button, CircularProgress, Stack, Typography } from '@mui/material'
+import { Button, Stack, Typography } from '@mui/material'
+import { useState } from 'react'
 import { useContent } from '../../hooks/useContent'
-import { FilePicker } from '../FilePicker'
-import { Card, ErrorNotice } from '../common'
+import { ErrorNotice } from '../common'
+import MainCard from '../../mantis/components/MainCard'
+import SingleFileUpload from '../../mantis/components/SingleFileUpload'
+import CircularWithPath from '../../mantis/components/CircularWithPath'
 
 export function ZipUploadPanel({
   file,
@@ -18,40 +20,34 @@ export function ZipUploadPanel({
   onImport: () => void
 }) {
   const content = useContent('zipUploadPanel')
+  const [rejected, setRejected] = useState(false)
   return (
-    <Card title={content.title}>
-      <Stack spacing={2}>
-        <Typography>{content.description}</Typography>
+    <MainCard title={content.uploadTitle}>
+      <SingleFileUpload
+        disabled={busy}
+        labels={content.upload}
+        onSelect={(next) => {
+          setRejected(false)
+          onSelect(next)
+        }}
+        onReject={() => {
+          setRejected(true)
+          onSelect(undefined)
+        }}
+      />
+      <ErrorNotice error={rejected ? content.invalidZip : error} />
+      {file && (
         <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={1.5}
-          sx={{ alignItems: { sm: 'center' } }}
+          direction="row"
+          sx={{ alignItems: 'center', justifyContent: 'flex-end', gap: 2, mt: 2 }}
         >
-          <FilePicker
-            label={content.choose}
-            inputLabel={content.inputLabel}
-            accept=".zip,application/zip,application/x-zip-compressed"
-            disabled={busy}
-            icon={<UploadFileOutlined />}
-            onSelect={onSelect}
-          />
-          {file && (
-            <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-              {file.name}
-            </Typography>
-          )}
-          <Button variant="contained" disabled={!file || busy} onClick={onImport}>
-            {busy ? content.uploading : content.upload}
+          <Typography variant="body2">{file.name}</Typography>
+          {busy && <CircularWithPath size={20} aria-label={content.uploading} />}
+          <Button variant="contained" onClick={onImport} disabled={busy}>
+            {busy ? content.uploading : content.uploadBatch}
           </Button>
         </Stack>
-        {busy && (
-          <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }} role="status">
-            <CircularProgress size={20} />
-            <Typography variant="body2">{content.progress}</Typography>
-          </Stack>
-        )}
-        <ErrorNotice error={error} />
-      </Stack>
-    </Card>
+      )}
+    </MainCard>
   )
 }

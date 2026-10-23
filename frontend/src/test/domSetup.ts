@@ -27,6 +27,12 @@ class TestResizeObserver {
   disconnect() {}
 }
 vi.stubGlobal('ResizeObserver', TestResizeObserver)
+
+// SimpleBar probes pseudo-element widths. jsdom has no pseudo-element layout;
+// retain ordinary computed styles here and verify real scrolling in the browser.
+const computedStyle = window.getComputedStyle.bind(window)
+window.getComputedStyle = (element) => computedStyle(element)
+
 // jsdom's file implementation uses FileReader rather than Blob's newer methods.
 if (!Blob.prototype.text) {
   Blob.prototype.text = function () {

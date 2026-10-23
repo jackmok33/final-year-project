@@ -1,10 +1,19 @@
-import { ArrowForwardOutlined, FolderOutlined } from '@mui/icons-material'
-import { Box, CardActionArea, Paper, Stack, Typography } from '@mui/material'
+import ArrowRightOutlined from '@ant-design/icons/ArrowRightOutlined'
+import { Box, CardActionArea, Stack, Typography } from '@mui/material'
 import { Link } from 'react-router-dom'
 import type { Programme } from '../../domain/types'
+import { intakeYears } from '../../domain/intakes'
+import { programmeIntakeLabel } from '../../domain/programmeDisplay'
 import { useContent } from '../../hooks/useContent'
+import MainCard from '../../mantis/components/MainCard'
 
-export function ModuleCards({ modules }: { modules: Programme[] }) {
+export function ModuleCards({
+  modules,
+  intakes = [],
+}: {
+  modules: Programme[]
+  intakes?: { programmeId: string; years: string[] }[]
+}) {
   const content = useContent('moduleCards')
   return (
     <Box
@@ -12,39 +21,45 @@ export function ModuleCards({ modules }: { modules: Programme[] }) {
         display: 'grid',
         gridTemplateColumns: {
           xs: '1fr',
-          sm: 'repeat(2, minmax(0, 1fr))',
-          xl: 'repeat(3, minmax(0, 1fr))',
+          sm: 'repeat(2,minmax(0,1fr))',
+          lg: 'repeat(3,minmax(0,1fr))',
         },
-        gap: 3,
+        gap: { xs: 3, lg: 6 },
+        maxWidth: 900,
+        py: 1,
       }}
     >
-      {modules.map((module) => (
-        <Paper key={module.id} variant="outlined" sx={{ overflow: 'hidden' }}>
-          <CardActionArea
-            component={Link}
-            to={`/modules/${encodeURIComponent(module.id)}`}
-            aria-label={content.openModule(module.name)}
-            sx={{ p: 3, height: '100%' }}
-          >
-            <Stack spacing={2}>
-              <FolderOutlined sx={{ color: 'primary.main', fontSize: 30 }} />
-              <Box>
-                <Typography variant="h4" component="h2" sx={{ overflowWrap: 'anywhere' }}>
-                  {module.name}
-                </Typography>
-              </Box>
-              <Stack
-                direction="row"
-                spacing={1}
-                sx={{ alignItems: 'center', color: 'primary.main' }}
+      {modules.flatMap((module) =>
+        (
+          intakes.find((item) => item.programmeId === module.id)?.years ?? intakeYears(module, [])
+        ).map((year) => {
+          const label = programmeIntakeLabel(module, year)
+          return (
+            <MainCard key={`${module.id}:${year}`} content={false}>
+              <CardActionArea
+                component={Link}
+                to={`/batches?${new URLSearchParams({ programme: module.id, intake: year })}`}
+                aria-label={content.openProgramme(label)}
+                sx={{ p: 3, minHeight: 126 }}
               >
-                <Typography variant="body2">{content.selectIntake}</Typography>
-                <ArrowForwardOutlined fontSize="small" />
-              </Stack>
-            </Stack>
-          </CardActionArea>
-        </Paper>
-      ))}
+                <Stack spacing={1.5}>
+                  <Typography variant="h2" component="h2" sx={{ overflowWrap: 'anywhere' }}>
+                    {label}
+                  </Typography>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ color: 'primary.main', alignItems: 'center' }}
+                  >
+                    <Typography variant="body2">{content.uploadApplications}</Typography>
+                    <ArrowRightOutlined aria-hidden="true" />
+                  </Stack>
+                </Stack>
+              </CardActionArea>
+            </MainCard>
+          )
+        }),
+      )}
     </Box>
   )
 }

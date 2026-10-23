@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
-import './test/domSetup'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
-import { apiMocks, queryResult, resetPageMocks } from './test/pageMocks'
+import './test/domSetup'
 import { administrator } from './test/fixtures'
+import { apiMocks, queryResult, resetPageMocks } from './test/pageMocks'
 vi.mock('./app/api', async () => (await import('./test/pageMocks')).apiMocks)
 vi.mock('./app/store', async () => (await import('./test/pageMocks')).storeMocks)
-vi.mock('./app/workspace', async () => ({
+vi.mock('./hooks/redux', async () => (await import('./test/pageMocks')).reduxMocks)
+vi.mock('./hooks/useWorkspace', async () => ({
   useWorkspace: (await import('./test/pageMocks')).workspaceMock,
 }))
 vi.mock('./components/evidence/PdfViewer', () => ({ PdfViewer: () => <p>Original PDF viewer</p> }))
@@ -16,16 +17,15 @@ beforeEach(resetPageMocks)
 describe('routed screens and lazy imports', () => {
   it.each([
     ['/login', 'Sign in'],
-    ['/modules', 'Courses'],
-    ['/modules/programme-1', 'Computational Statistics and Machine Learning MSc'],
-    ['/applications', 'Applications'],
-    ['/batches', 'Upload batches'],
+    ['/modules', 'Programme'],
+    ['/applications', 'CSML 26/27'],
+    ['/batches', 'CSML 26/27'],
     ['/applications/new', 'New application'],
-    ['/applications/APP-TEST', 'APP-TEST'],
-    ['/applications/APP-TEST/evidence', 'Source evidence'],
+    ['/applications/APP-TEST', 'CSML 26/27'],
+    ['/applications/APP-TEST/evidence', 'CSML 26/27'],
     ['/applications/APP-TEST/correct', 'Correct extracted fact'],
-    ['/applications/APP-TEST/decision', 'Record tutor decision'],
-    ['/criteria', 'Admission criteria'],
+    ['/applications/APP-TEST/decision', 'CSML 26/27'],
+    ['/criteria', 'CSML 26/27'],
     ['/admin/health', 'Service health'],
     ['/admin/users', 'Users & access'],
     ['/admin/programme', 'Programme settings'],
@@ -41,14 +41,19 @@ describe('routed screens and lazy imports', () => {
       await screen.findByRole('heading', { name: title, level: url === '/login' ? 2 : 1 }),
     ).toBeInTheDocument()
   })
-  it.each(['/', '/unknown-path'])('returns %s to the module landing page', async (url) => {
-    render(
-      <MemoryRouter initialEntries={[url]}>
-        <App />
-      </MemoryRouter>,
-    )
-    expect(await screen.findByRole('heading', { name: 'Courses', level: 1 })).toBeInTheDocument()
-  })
+  it.each(['/', '/unknown-path', '/modules/programme-1'])(
+    'returns %s to the module landing page',
+    async (url) => {
+      render(
+        <MemoryRouter initialEntries={[url]}>
+          <App />
+        </MemoryRouter>,
+      )
+      expect(
+        await screen.findByRole('heading', { name: 'Programme', level: 1 }),
+      ).toBeInTheDocument()
+    },
+  )
   it.each(['/applications/APP-TEST', '/batches', '/batches/secret'])(
     'does not let an admin-only session open %s',
     async (url) => {

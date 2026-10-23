@@ -7,7 +7,6 @@ import type {
   Programme,
   Rubric,
   User,
-  WorkspaceDeletionImpact,
   BatchSummary,
 } from '../domain/types'
 import {
@@ -22,31 +21,16 @@ export interface ApiError {
   status: string
   data: string
 }
-const demoBaseQuery: BaseQueryFn<Query | Command, unknown, ApiError> = async (args, api) => {
+type DemoRequest = { kind: 'query'; query: Query } | { kind: 'command'; command: Command }
+
+const demoBaseQuery: BaseQueryFn<DemoRequest, unknown, ApiError> = async (request, api) => {
   const userId = (api.getState() as { session: { userId: string | null } }).session.userId
   try {
-    const mutationOps = [
-      'importBatch',
-      'create',
-      'evaluate',
-      'correct',
-      'decide',
-      'rubric',
-      'user',
-      'workspace',
-      'deleteWorkspace',
-      'model',
-      'delete',
-      'backup',
-      'restore',
-      'reset',
-    ]
-    const isMutation =
-      mutationOps.includes(args.op) || (args.op === 'programme' && 'programme' in args)
     return {
-      data: isMutation
-        ? await commandDemo(args as Command, userId)
-        : await queryDemo(args as Query, userId),
+      data:
+        request.kind === 'command'
+          ? await commandDemo(request.command, userId)
+          : await queryDemo(request.query, userId),
     }
   } catch (error) {
     return {
@@ -63,52 +47,58 @@ export const admissionsApi = createApi({
   tagTypes: ['Dataset'],
   endpoints: (builder) => ({
     accounts: builder.query<Pick<User, 'id' | 'name' | 'email' | 'active' | 'roles'>[], void>({
-      query: () => ({ op: 'accounts' }),
+      query: () => ({ kind: 'query', query: { op: 'accounts' } }),
       providesTags: ['Dataset'],
     }),
-    me: builder.query<User, void>({ query: () => ({ op: 'me' }), providesTags: ['Dataset'] }),
+    me: builder.query<User, void>({
+      query: () => ({ kind: 'query', query: { op: 'me' } }),
+      providesTags: ['Dataset'],
+    }),
     applications: builder.query<Application[], string>({
-      query: (programmeId) => ({ op: 'applications', programmeId }),
+      query: (programmeId) => ({ kind: 'query', query: { op: 'applications', programmeId } }),
       providesTags: ['Dataset'],
     }),
     batches: builder.query<BatchSummary[], { programmeId: string; intakeYear: string }>({
-      query: (scope) => ({ op: 'batches', ...scope }),
+      query: (scope) => ({ kind: 'query', query: { op: 'batches', ...scope } }),
       providesTags: ['Dataset'],
     }),
     batch: builder.query<BatchSummary, string>({
-      query: (id) => ({ op: 'batch', id }),
+      query: (id) => ({ kind: 'query', query: { op: 'batch', id } }),
       providesTags: ['Dataset'],
     }),
     application: builder.query<
       { application: Application; documents: DocumentRecord[]; rubrics: Rubric[] },
       string
-    >({ query: (id) => ({ op: 'application', id }), providesTags: ['Dataset'] }),
-    programmes: builder.query<Programme[], void>({
-      query: () => ({ op: 'programmes' }),
+    >({
+      query: (id) => ({ kind: 'query', query: { op: 'application', id } }),
       providesTags: ['Dataset'],
     }),
-    workspaceDeletion: builder.query<WorkspaceDeletionImpact, string>({
-      query: (id) => ({ op: 'workspaceDeletion', id }),
+    programmeIntakes: builder.query<{ programmeId: string; years: string[] }[], void>({
+      query: () => ({ kind: 'query', query: { op: 'programmeIntakes' } }),
+      providesTags: ['Dataset'],
+    }),
+    programmes: builder.query<Programme[], void>({
+      query: () => ({ kind: 'query', query: { op: 'programmes' } }),
       providesTags: ['Dataset'],
     }),
     rubrics: builder.query<{ rubrics: Rubric[]; activeId: string }, string>({
-      query: (programmeId) => ({ op: 'rubrics', programmeId }),
+      query: (programmeId) => ({ kind: 'query', query: { op: 'rubrics', programmeId } }),
       providesTags: ['Dataset'],
     }),
     users: builder.query<User[], void>({
-      query: () => ({ op: 'users' }),
+      query: () => ({ kind: 'query', query: { op: 'users' } }),
       providesTags: ['Dataset'],
     }),
     health: builder.query<DemoHealth, void>({
-      query: () => ({ op: 'health' }),
+      query: () => ({ kind: 'query', query: { op: 'health' } }),
       providesTags: ['Dataset'],
     }),
     audit: builder.query<AuditEvent[], void>({
-      query: () => ({ op: 'audit' }),
+      query: () => ({ kind: 'query', query: { op: 'audit' } }),
       providesTags: ['Dataset'],
     }),
     command: builder.mutation<CommandResult, Command>({
-      query: (args) => args,
+      query: (args) => ({ kind: 'command', command: args }),
       invalidatesTags: ['Dataset'],
     }),
   }),
@@ -121,7 +111,7 @@ export const {
   useBatchQuery,
   useApplicationQuery,
   useProgrammesQuery,
-  useWorkspaceDeletionQuery,
+  useProgrammeIntakesQuery,
   useRubricsQuery,
   useUsersQuery,
   useHealthQuery,

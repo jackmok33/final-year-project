@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { inspectPdf, MAX_FILE_SIZE, openPdf } from './pdf'
 vi.mock('pdfjs-dist', () => ({ getDocument: vi.fn(), GlobalWorkerOptions: { workerSrc: '' } }))
 const destroy = vi.fn()

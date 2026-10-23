@@ -34,7 +34,7 @@ export const apiMocks = {
   useBatchQuery: vi.fn(),
   useApplicationQuery: vi.fn(),
   useProgrammesQuery: vi.fn(),
-  useWorkspaceDeletionQuery: vi.fn(),
+  useProgrammeIntakesQuery: vi.fn(),
   useRubricsQuery: vi.fn(),
   useUsersQuery: vi.fn(),
   useHealthQuery: vi.fn(),
@@ -51,9 +51,11 @@ export const state = {
     intakeByUser: {} as Record<string, Record<string, string>>,
   },
 }
-export const storeMocks = {
+export const reduxMocks = {
   useAppDispatch: () => dispatch,
   useAppSelector: (select: (s: RootState) => unknown) => select(state as RootState),
+}
+export const storeMocks = {
   signIn: (id: string) => ({ type: 'session/signIn', payload: id }),
   signOut: () => ({ type: 'session/signOut' }),
   selectProgramme: (payload: unknown) => ({ type: 'ui/selectProgramme', payload }),
@@ -70,16 +72,8 @@ export function resetPageMocks() {
   apiMocks.useBatchesQuery.mockReturnValue(queryResult([]))
   apiMocks.useBatchQuery.mockReturnValue(queryResult())
   apiMocks.useApplicationQuery.mockReturnValue(queryResult(structuredClone(detail)))
+  apiMocks.useProgrammeIntakesQuery.mockReturnValue(queryResult([]))
   apiMocks.useProgrammesQuery.mockReturnValue(queryResult([programme, otherProgramme]))
-  apiMocks.useWorkspaceDeletionQuery.mockReturnValue({
-    ...queryResult({
-      programme: { ...programme, createdBy: tutor.id },
-      applications: 1,
-      documents: 3,
-      criteriaVersions: 2,
-    }),
-    isFetching: false,
-  })
   apiMocks.useRubricsQuery.mockReturnValue(queryResult({ rubrics: [rubric], activeId: rubric.id }))
   apiMocks.useUsersQuery.mockReturnValue(queryResult([tutor, administrator]))
   apiMocks.useHealthQuery.mockReturnValue(

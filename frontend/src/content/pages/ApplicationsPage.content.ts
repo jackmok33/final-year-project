@@ -1,17 +1,22 @@
-import type { ContentValue } from '../formatText'
-import { intakeContent } from '../domain/intakes.content'
+import { workspaceLabels } from '../domain/workspace.content'
 import { batchListContent } from '../components/batches/BatchList.content'
+import { applicationTableContent } from '../components/applications/ApplicationTable.content'
 
 export const applicationsPageContent = {
+  workflowLabels: applicationTableContent.workflowLabels,
   batchName: batchListContent.batchName,
   batchUnavailable: 'This upload batch is unavailable or you do not have access.',
-  back: 'Back',
+  back: workspaceLabels.back,
   noWorkspaceMessage: 'Choose a course from All courses to review applications.',
-  applications: 'Applications',
-  subtitle: (moduleCode: ContentValue, year: string) =>
-    `${String(moduleCode)} · ${intakeContent.yearLabel(year)} intake`,
-  newApplication: 'New application',
-  applicationQueue: 'Application queue',
-  noApplicationsMatchTheseFilters: 'No applications match these filters.',
-  recommendationHint: 'Decision is the tutor’s recorded choice.',
+  total: workspaceLabels.total,
+  batchHint: 'Applications within this batch',
+  offers: workspaceLabels.offers,
+  offersHint: workspaceLabels.offersHint,
+  pending: workspaceLabels.pending,
+  pendingHint: workspaceLabels.pendingHint,
+  noMatches: 'No applicants match your filters.',
+  pagination: workspaceLabels.pagination,
+  deleteTitle: 'Delete applicant?',
+  deleteDescription:
+    'This removes the application, original documents and assessment history from this browser.',
 } as const

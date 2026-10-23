@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import '../test/domSetup'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import '../test/domSetup'
 beforeEach(() => {
   sessionStorage.clear()
   vi.resetModules()

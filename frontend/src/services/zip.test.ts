@@ -1,5 +1,5 @@
+import { strToU8, zipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
-import { zipSync, strToU8 } from 'fflate'
 import { MAX_ZIP_SIZE, readApplicantArchive } from './zip'
 const archive = (files: Record<string, string>, name = 'November.zip') =>
   new File(

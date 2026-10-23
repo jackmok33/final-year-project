@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
-import '../../test/domSetup'
-import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { renderPage } from '../../test/renderPage'
+import { describe, expect, it } from 'vitest'
+import '../../test/domSetup'
 import { documents } from '../../test/fixtures'
-import { EvidenceLink } from './EvidenceLink'
+import { renderPage } from '../../test/renderPage'
 import { CorrectionGuidance } from '../assessment/CorrectionGuidance'
+import { EvidenceLink } from './EvidenceLink'
 
 describe('shared evidence links', () => {
   it('navigates to the original document, page and run with encoded identities', async () => {

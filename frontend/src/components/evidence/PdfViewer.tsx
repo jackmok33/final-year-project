@@ -1,7 +1,7 @@
 import { useContent } from '../../hooks/useContent'
-import { Box, Typography } from '@mui/material'
+import { Accordion, AccordionSummary, AccordionDetails, Box, Typography } from '@mui/material'
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { errorMessage } from '../../app/api'
 import { type DocumentRecord } from '../../domain/types'
 import { authorizedFile } from '../../services/demo'
@@ -17,6 +17,7 @@ export function PdfViewer({
   userId: string | null
 }) {
   const content = useContent('pdfViewer')
+  const textId = useId()
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
   const [error, setError] = useState('')
   const [text, setText] = useState('')
@@ -118,25 +119,26 @@ export function PdfViewer({
           style={{ maxWidth: '100%' }}
         />
       </Box>
-      <Box component="details" sx={{ mt: 2 }}>
-        <Typography component="summary" sx={{ cursor: 'pointer', fontWeight: 600 }}>
-          {content.accessiblePageText}
-        </Typography>
-        <Typography
-          component="pre"
-          sx={{
-            fontFamily: 'inherit',
-            whiteSpace: 'pre-wrap',
-            overflowWrap: 'anywhere',
-            fontSize: 13,
-          }}
-        >
-          {text || content.noTextMessage}
-        </Typography>
-      </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 2, overflowWrap: 'anywhere' }}>
-        {content.documentHash(document.hash)}
-      </Typography>
+      <Accordion sx={{ mt: 2 }}>
+        <AccordionSummary id={textId} aria-controls={`${textId}-details`}>
+          <Typography component="span" sx={{ fontWeight: 600 }}>
+            {content.accessiblePageText}
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Typography
+            component="pre"
+            variant="body1"
+            sx={{
+              fontFamily: 'inherit',
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {text || content.noTextMessage}
+          </Typography>
+        </AccordionDetails>
+      </Accordion>
     </Box>
   )
 }

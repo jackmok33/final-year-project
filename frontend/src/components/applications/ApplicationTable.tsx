@@ -1,75 +1,150 @@
-import { useContent } from '../../hooks/useContent'
+import EyeOutlined from '@ant-design/icons/EyeOutlined'
+import DeleteOutlined from '@ant-design/icons/DeleteOutlined'
 import {
   Link as MuiLink,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Typography,
+  TableSortLabel,
+  Tooltip,
 } from '@mui/material'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { Application } from '../../domain/types'
-import { latestDecision, latestRun } from '../../domain/types'
+import {
+  applicationState,
+  aiRecommendation,
+  currentDecision,
+  decisionOutcome,
+  isAssessmentReady,
+  latestRun,
+} from '../../domain/types'
+import type { applicantProfile } from '../../services/applicantPresentation'
+import { useContent } from '../../hooks/useContent'
+import IconButton from '../../mantis/components/IconButton'
 import { Status } from '../common'
-export function ApplicationTable({ filtered }: { filtered: Application[] }) {
+
+export interface ApplicantRow {
+  application: Application
+  profile: ReturnType<typeof applicantProfile>
+  index: number
+}
+
+export type ApplicantSortColumn =
+  'id' | 'name' | 'studentId' | 'state' | 'university' | 'score' | 'recommendation' | 'decision'
+
+export interface ApplicantSort {
+  column: ApplicantSortColumn | 'submittedAt'
+  direction: 'asc' | 'desc'
+}
+
+export function ApplicationTable({
+  rows,
+  sort,
+  onSort,
+  onDelete,
+}: {
+  rows: ApplicantRow[]
+  sort: ApplicantSort
+  onSort: (column: ApplicantSortColumn) => void
+  onDelete: (application: Application) => void
+}) {
+  const navigate = useNavigate()
   const content = useContent('applicationTable')
+  const columns: { column: ApplicantSortColumn; label: string }[] = [
+    { column: 'id', label: content.id },
+    { column: 'name', label: content.name },
+    { column: 'studentId', label: content.studentId },
+    { column: 'state', label: content.state },
+    { column: 'university', label: content.university },
+    { column: 'score', label: content.score },
+    { column: 'recommendation', label: content.ai },
+    { column: 'decision', label: content.decision },
+  ]
   return (
     <TableContainer>
       <Table
-        aria-label={content.applicationQueue}
-        sx={{ minWidth: 620, '& .MuiTableCell-root': { px: { xs: 1.5, sm: 2 } } }}
+        aria-label={content.applicants}
+        sx={{
+          minWidth: 1000,
+          '& .MuiTableCell-head': { textTransform: 'none', fontSize: '0.875rem', fontWeight: 500 },
+        }}
       >
         <TableHead>
           <TableRow>
-            {content.headers.map((h, i) => (
-              <TableCell key={i} align={i === 1 ? 'right' : 'left'}>
-                {h}
+            {columns.map(({ column, label }) => (
+              <TableCell
+                key={column}
+                sortDirection={sort.column === column ? sort.direction : false}
+              >
+                <TableSortLabel
+                  active={sort.column === column}
+                  direction={sort.column === column ? sort.direction : 'asc'}
+                  onClick={() => onSort(column)}
+                >
+                  {label}
+                </TableSortLabel>
               </TableCell>
             ))}
+            <TableCell align="center">{content.actions}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {filtered.map((a) => {
-            const run = latestRun(a)
-            const assessed = run?.status === 'awaiting review' || run?.status === 'completed'
-            const decision = latestDecision(a)
+          {rows.map(({ application: app, profile, index }) => {
+            const run = latestRun(app)
+            const ready = run && isAssessmentReady(run)
+            const decision = currentDecision(app)
+            const recommendation = aiRecommendation(run)
+            const state = applicationState(app)
+            const path = `/applications/${encodeURIComponent(app.id)}`
             return (
-              <TableRow key={a.id} hover>
+              <TableRow key={app.id} hover>
+                <TableCell>{index + 1}</TableCell>
                 <TableCell>
                   <MuiLink
                     component={Link}
-                    to={`/applications/${encodeURIComponent(a.id)}`}
-                    aria-label={content.openLabel(a.id)}
-                    sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}
+                    to={path}
+                    aria-label={content.openApplicant(profile.name)}
                   >
-                    {a.id}
+                    {profile.name}
                   </MuiLink>
-                  <Typography variant="body2" color="text.secondary">
-                    {a.candidate}
-                  </Typography>
                 </TableCell>
-                <TableCell
-                  align="right"
-                  sx={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
-                >
-                  {assessed ? (run?.overall ?? content.unavailableScore) : content.unavailableScore}
+                <TableCell>{profile.studentId}</TableCell>
+                <TableCell>{content.workflowLabels[state]}</TableCell>
+                <TableCell>{profile.university || content.notAvailable}</TableCell>
+                <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {ready ? (run.overall ?? content.notAvailable) : content.notAvailable}
                 </TableCell>
                 <TableCell>
-                  {run ? (
-                    <Status label={assessed ? run.recommendation : run.status} />
-                  ) : (
-                    content.notEvaluated
-                  )}
+                  {recommendation ? <Status label={recommendation} /> : content.notAvailable}
                 </TableCell>
                 <TableCell>
-                  {decision ? <Status label={decision.outcome} /> : content.notRecorded}
-                  {decision && decision.runId !== run?.id && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      {content.previousAssessment}
-                    </Typography>
-                  )}
+                  <Status label={decisionOutcome(decision?.outcome)} />
+                </TableCell>
+                <TableCell>
+                  <Stack direction="row" sx={{ justifyContent: 'center', gap: 1 }}>
+                    <Tooltip title={content.openApplicant(profile.name)}>
+                      <IconButton
+                        aria-label={content.openApplicant(profile.name)}
+                        onClick={() => navigate(path)}
+                        color="secondary"
+                      >
+                        <EyeOutlined aria-hidden="true" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={content.deleteApplicant(profile.name)}>
+                      <IconButton
+                        aria-label={content.deleteApplicant(profile.name)}
+                        onClick={() => onDelete(app)}
+                        color="error"
+                      >
+                        <DeleteOutlined aria-hidden="true" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
                 </TableCell>
               </TableRow>
             )

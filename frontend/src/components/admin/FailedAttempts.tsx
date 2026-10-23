@@ -1,7 +1,8 @@
 import { useContent } from '../../hooks/useContent'
-import { Box, Button, Stack, Typography } from '@mui/material'
+import { Button, Stack, Typography } from '@mui/material'
 import type { DemoHealth } from '../../domain/types'
 import { Card, Status } from '../common'
+import MainCard from '../../mantis/components/MainCard'
 export function FailedAttempts({
   data,
   setLog,
@@ -14,7 +15,7 @@ export function FailedAttempts({
     <Card title={content.failedEvaluationAttempts}>
       {data?.logs.length ? (
         data.logs.map((row) => (
-          <Box key={row.jobId} sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 2 }}>
+          <MainCard key={row.jobId} sx={{ bgcolor: 'action.hover' }} contentSX={{ p: 2 }}>
             <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1 }}>
               <Typography sx={{ fontWeight: 600 }}>{row.jobId}</Typography>
               <Status label={content.failed} />
@@ -23,7 +24,7 @@ export function FailedAttempts({
               {row.category}
             </Typography>
             <Button onClick={() => setLog(row)}>{content.viewRedactedLog}</Button>
-          </Box>
+          </MainCard>
         ))
       ) : (
         <Typography>{content.noFailedAttemptsRecorded}</Typography>

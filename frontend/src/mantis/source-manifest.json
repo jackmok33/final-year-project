@@ -1,0 +1,356 @@
+{
+  "template": "mantis-react-next-ts",
+  "version": "4.0.1",
+  "files": [
+    {
+      "source": "seed/src/components/MainCard.tsx",
+      "local": "components/MainCard.tsx",
+      "sourceSha256": "fdaf64948ea896051cbac198db29428b85383d422a7bdce0b94c74ea345aad14"
+    },
+    {
+      "source": "seed/src/sections/auth/AuthCard.tsx",
+      "local": "components/AuthCard.tsx",
+      "sourceSha256": "c4725759abe195150be5e594715cfd3fd09efc1afbbe990bf65b334fd8cfffe2"
+    },
+    {
+      "source": "seed/src/themes/typography.ts",
+      "local": "theme/typography.ts",
+      "sourceSha256": "56849187873622c0c042329d0166e41df4aede12912e160e82a35eae75844608"
+    },
+    {
+      "source": "seed/src/themes/theme/default.ts",
+      "local": "theme/defaultPalette.ts",
+      "sourceSha256": "119c48d490219b70eea8b9617753ba98fa7f86812078e08c7af3eaee2572e78b"
+    },
+    {
+      "source": "seed/src/themes/custom-shadows.tsx",
+      "local": "theme/customShadows.ts",
+      "sourceSha256": "f73330428bdcb512115adb17f487e21cf6f8da3097aad1d9f221b4d2d34f3cc8"
+    },
+    {
+      "source": "seed/src/utils/getColors.ts",
+      "local": "utils/getColors.ts",
+      "sourceSha256": "9597bc107b357bd52a115e4636a48f46ba0e5604eeef479c14cd730b094a3224"
+    },
+    {
+      "source": "seed/src/utils/getShadow.ts",
+      "local": "utils/getShadow.ts",
+      "sourceSha256": "0094dc449a17a496130d259ab138ca3986e7cff6c054c30522ca23c81b2104b3"
+    },
+    {
+      "source": "seed/src/themes/overrides/Button.ts",
+      "local": "theme/overrides/Button.ts",
+      "sourceSha256": "e61b469902af112a8bf0987956ec8e00003b91355bd024e61811a1e82906efa2"
+    },
+    {
+      "source": "seed/src/themes/overrides/CardContent.ts",
+      "local": "theme/overrides/CardContent.ts",
+      "sourceSha256": "ee00f38a55f888c3432418116466c1b5c0a5db324dc2a47a3761c113eeaa5384"
+    },
+    {
+      "source": "seed/src/themes/overrides/OutlinedInput.ts",
+      "local": "theme/overrides/OutlinedInput.ts",
+      "sourceSha256": "9261357b43ea1e6bd421c3161cb92ffc72fd1a08b4cb23af3adad5f5ab5730eb"
+    },
+    {
+      "source": "seed/src/themes/overrides/TableCell.ts",
+      "local": "theme/overrides/TableCell.ts",
+      "sourceSha256": "79338f37de0db7a954b81819931ea6405ef5f12073a14b6511bf84f3e51c7362"
+    },
+    {
+      "source": "seed/src/themes/overrides/TableHead.ts",
+      "local": "theme/overrides/TableHead.ts",
+      "sourceSha256": "e74c69075e3e3cc44cb68715353ee781876a9295f2f6c3d1ce33baa35e43b3cf"
+    },
+    {
+      "source": "seed/src/themes/overrides/ButtonBase.ts",
+      "local": "theme/overrides/ButtonBase.ts",
+      "sourceSha256": "b56ab9ffbc2d06cb349df88bbd7795543219da6fd977a785953f59a26093ca14"
+    },
+    {
+      "source": "seed/src/themes/overrides/InputLabel.ts",
+      "local": "theme/overrides/InputLabel.ts",
+      "sourceSha256": "49641981e61df44aea788b8ac0c9f66ef9efda4f0535d6c405c8c5c461fc7a0e"
+    },
+    {
+      "source": "seed/src/themes/overrides/InputBase.ts",
+      "local": "theme/overrides/InputBase.ts",
+      "sourceSha256": "d1ee63534d85c0523d92ba18e037d2e7b00e6e97b31748379ef5661a85df75ba"
+    },
+    {
+      "source": "seed/src/themes/overrides/TableContainer.ts",
+      "local": "theme/overrides/TableContainer.ts",
+      "sourceSha256": "1ebebe2b877f32ae424ed5d26748509b2df400ecfe4ec56ab83b5aa3d551e9b8"
+    },
+    {
+      "source": "seed/src/themes/palette.ts",
+      "local": "theme/palette.ts",
+      "sourceSha256": "c112c9c47e4451c450ff7b74e970517bffc1412cf218a065bfe14da73b82abc9",
+      "scope": "Default light palette builder only"
+    },
+    {
+      "source": "seed/src/themes/overrides/Alert.ts",
+      "local": "theme/overrides/Alert.ts",
+      "sourceSha256": "94bc95b143e5fb9e2e8b1ac29877be466748d59e6d2bc3491eb6c8aa393e5a32"
+    },
+    {
+      "source": "seed/src/themes/overrides/AlertTitle.ts",
+      "local": "theme/overrides/AlertTitle.ts",
+      "sourceSha256": "924a935ec20867334c9a62240c2f16df5f17282c78aa4ce46112709c90cfcd66"
+    },
+    {
+      "source": "seed/src/themes/overrides/Chip.ts",
+      "local": "theme/overrides/Chip.ts",
+      "sourceSha256": "1893cb1dcf5bc97e91d999cf306e08afe27b6d37203d9cc37f9ddf0d51ffa069"
+    },
+    {
+      "source": "seed/src/themes/overrides/Dialog.ts",
+      "local": "theme/overrides/Dialog.ts",
+      "sourceSha256": "5635c273b79b6eed3f4ae8dca1d88d53fe39088218b2abb2d8343310570603a9"
+    },
+    {
+      "source": "seed/src/themes/overrides/DialogTitle.ts",
+      "local": "theme/overrides/DialogTitle.ts",
+      "sourceSha256": "657cab9747741a43b97183798064c9bcdd6512c0bfbca69c68df8823d2445361"
+    },
+    {
+      "source": "seed/src/themes/overrides/DialogContentText.ts",
+      "local": "theme/overrides/DialogContentText.ts",
+      "sourceSha256": "c2a025d28947805ac0f1c2f7304f0017c5f5a3c2760c0960d727dcccf02b0b73"
+    },
+    {
+      "source": "seed/src/themes/overrides/Drawer.ts",
+      "local": "theme/overrides/Drawer.ts",
+      "sourceSha256": "9b0d6630929795dbf8f50813501a2ea37f942373c71f5652889075b7eb397384"
+    },
+    {
+      "source": "seed/src/themes/overrides/IconButton.ts",
+      "local": "theme/overrides/IconButton.ts",
+      "sourceSha256": "9e2ec8b95bb8db03131dca4b32b7993f98f91c3237f4e98850b6f70d977329dd"
+    },
+    {
+      "source": "seed/src/themes/overrides/Typography.ts",
+      "local": "theme/overrides/Typography.ts",
+      "sourceSha256": "dee9d21c74c96f7f13f3b852ae0eb2a5b9145d0123cfed5a28b14e086607798f"
+    },
+    {
+      "source": "seed/src/themes/overrides/Link.ts",
+      "local": "theme/overrides/Link.ts",
+      "sourceSha256": "d8a0e9d30b87a3057488219c3e5f808718c567047b61a740ed8e2ff5f37056a1"
+    },
+    {
+      "source": "seed/src/themes/overrides/FormHelperText.ts",
+      "local": "theme/overrides/FormHelperText.ts",
+      "sourceSha256": "8eaec9ce99b1bf98ab4f364457f75ca0e4d17a46b8971fd35fe13966f630e176"
+    },
+    {
+      "source": "seed/src/themes/overrides/ListItemButton.tsx",
+      "local": "theme/overrides/ListItemButton.tsx",
+      "sourceSha256": "9daaac1b5923eb687c83956f514a1fbeb8adecf2f45ea69381eb1ce13413790b"
+    },
+    {
+      "source": "seed/src/themes/overrides/ListItemIcon.tsx",
+      "local": "theme/overrides/ListItemIcon.tsx",
+      "sourceSha256": "d754bfacc7f3805cbffd93f2e9d8fd7aca1a06df4114c434b848c4ad0d88b535"
+    },
+    {
+      "source": "seed/src/themes/overrides/Popover.ts",
+      "local": "theme/overrides/Popover.ts",
+      "sourceSha256": "da78852d99fdafd1c4bb6ec8225f02fbff6a71f492aed5a1737c2528ec7bf540"
+    },
+    {
+      "source": "seed/src/themes/overrides/Radio.tsx",
+      "local": "theme/overrides/Radio.tsx",
+      "sourceSha256": "e1874eae302c2f1fe0391cb77ea92c95ecaa1ce858ba0c02357a136ce3bc30c7"
+    },
+    {
+      "source": "seed/src/themes/overrides/Checkbox.tsx",
+      "local": "theme/overrides/Checkbox.tsx",
+      "sourceSha256": "3e3df5cb2f77f741f7143df4b34b82aa7eac1080c1e12fef2e8edf1e0a51f2f1"
+    },
+    {
+      "source": "seed/src/themes/overrides/Switch.ts",
+      "local": "theme/overrides/Switch.ts",
+      "sourceSha256": "babea080c2c0c98b349894adc5ebfec8f3640b3363d65907f806f2ebf5fb01f8"
+    },
+    {
+      "source": "seed/src/themes/overrides/Accordion.ts",
+      "local": "theme/overrides/Accordion.ts",
+      "sourceSha256": "08e1c9ceb2652ad9614ac057a0d3bf5aea8d6caa07ce1a5dba843bc21c270db5"
+    },
+    {
+      "source": "seed/src/themes/overrides/AccordionSummary.tsx",
+      "local": "theme/overrides/AccordionSummary.tsx",
+      "sourceSha256": "4757afaabd7bbdd17c0b146d93d69699adad893aca840c6b53e2acadd1bde99a"
+    },
+    {
+      "source": "seed/src/themes/overrides/AccordionDetails.ts",
+      "local": "theme/overrides/AccordionDetails.ts",
+      "sourceSha256": "27a5db5f590381491146ffc8fb10c0564d289ee93cbfe8d9d38cbf89b5b17c7d"
+    },
+    {
+      "source": "seed/src/themes/overrides/LinearProgress.ts",
+      "local": "theme/overrides/LinearProgress.ts",
+      "sourceSha256": "054616dd06420fcee785fa923c10f7a8a820d888488ce6bcc7c58a02c64d4ef2"
+    },
+    {
+      "source": "seed/src/themes/overrides/TableBody.ts",
+      "local": "theme/overrides/TableBody.ts",
+      "sourceSha256": "6b703eed770b3462902cfc3f05616638c1f2bd286f541cddd3f210fa999fd437"
+    },
+    {
+      "source": "seed/src/themes/overrides/TableRow.ts",
+      "local": "theme/overrides/TableRow.ts",
+      "sourceSha256": "e5a06b4cc8e55ba201f2160591f8c74a52b70410b55b8f579ebea241ce146da2"
+    },
+    {
+      "source": "seed/src/themes/overrides/TableFooter.ts",
+      "local": "theme/overrides/TableFooter.ts",
+      "sourceSha256": "249f6387875ba461b4e54fa4dcce847e19b00fbd272332edf8262bebf3cc9303"
+    },
+    {
+      "source": "seed/src/themes/overrides/Tooltip.ts",
+      "local": "theme/overrides/Tooltip.ts",
+      "sourceSha256": "653d66a71fe4c6cd5ca73ae8e79d84a96e33b194cec6111a27e549631da24f1e"
+    },
+    {
+      "source": "seed/src/components/@extended/IconButton.tsx",
+      "local": "components/IconButton.tsx",
+      "sourceSha256": "815f1a7ad8d0cc237961978aec074ac16b121de1ce81d0c524aaa6372f98977e"
+    },
+    {
+      "source": "seed/src/components/@extended/Avatar.tsx",
+      "local": "components/Avatar.tsx",
+      "sourceSha256": "4ee245dfcde57e0fef4adb895377d1ca28ed71deada404e13be054e7cdc5310d"
+    },
+    {
+      "source": "seed/src/layout/DashboardLayout/Header/AppBarStyled.tsx",
+      "local": "layout/AppBarStyled.tsx",
+      "sourceSha256": "0d00bd121da1712bf27def49d67b8090893f1fcbae70d45ec0a3e3c261336107"
+    },
+    {
+      "source": "seed/src/layout/DashboardLayout/Drawer/MiniDrawerStyled.ts",
+      "local": "layout/MiniDrawerStyled.ts",
+      "sourceSha256": "80f9628887b0dd5fe55149be917454874e63aa4034c49678b7e01e668ac4a5eb"
+    },
+    {
+      "source": "seed/src/layout/DashboardLayout/Drawer/DrawerHeader/DrawerHeaderStyled.ts",
+      "local": "layout/DrawerHeaderStyled.ts",
+      "sourceSha256": "e08b5a909f3c529ac4b89e9daf760b1cb0ee38c1529c882a5bcb006717c6957c"
+    },
+    {
+      "source": "seed/src/components/Loader.tsx",
+      "local": "components/Loader.tsx",
+      "sourceSha256": "1d33925da39364c5a2d39d864cb5f0767a71bf59d2869ad6513fe653cc66c240"
+    },
+    {
+      "source": "seed/src/components/@extended/progress/CircularWithPath.tsx",
+      "local": "components/CircularWithPath.tsx",
+      "sourceSha256": "a4d8efc82851be803e3722e269643d2984126a6f51fc7e09948e0cfb9127a153"
+    },
+    {
+      "source": "seed/src/components/third-party/SimpleBar.tsx",
+      "local": "components/SimpleBarScroll.tsx",
+      "sourceSha256": "635d32a8a8d3af6d62d7cf19135c19c95be024187042dcf119533c85b63e66dd"
+    },
+    {
+      "source": "seed/src/layout/DashboardLayout/Drawer/DrawerContent/Navigation/NavItem.tsx",
+      "local": "layout/NavItem.tsx",
+      "sourceSha256": "826263fdee5ee09f1e968abf1b55e7fd317c5e5041b0af8a20c63956c1e162cc"
+    },
+    {
+      "source": "full-version/src/components/cards/statistics/AnalyticEcommerce.tsx",
+      "local": "components/AnalyticEcommerce.tsx",
+      "sourceSha256": "bbabe2b6f5a24e87805f5f712451c1951114ef30f121aa978867a87617f3bd64"
+    },
+    {
+      "source": "full-version/src/views/forms/layouts/action-bar.tsx",
+      "local": "components/FormActions.tsx",
+      "sourceSha256": "a67ee48362f032681c302593edc5e072c8bcc8526719937a102168ce2f617b59"
+    },
+    {
+      "source": "full-version/src/themes/overrides/Tabs.ts",
+      "local": "theme/overrides/Tabs.ts",
+      "sourceSha256": "3eb77fdd059b1032bb1b583a37f428608dc103df096947a6fc0bfe9bd83f2697"
+    },
+    {
+      "source": "full-version/src/themes/overrides/Tab.ts",
+      "local": "theme/overrides/Tab.ts",
+      "sourceSha256": "3b3737208e5da21178eaa4f289490fc37cf1fcc728b9fa3178030bb5254751d7"
+    },
+    {
+      "source": "full-version/src/themes/overrides/Pagination.ts",
+      "local": "theme/overrides/Pagination.ts",
+      "sourceSha256": "2805f564c00b42be07ee54bd02f8b6b858c0290a7bfd58ef561e38e799f41305"
+    },
+    {
+      "source": "full-version/public/assets/images/upload/upload.svg",
+      "local": "assets/upload.svg",
+      "sourceSha256": "8a2626f4aeaaa5ac675ac2134748572cabaa1f1c495cebb6baffc58ca8c2f96d"
+    },
+    {
+      "source": "full-version/src/sections/components-overview/tabs/BasicTabs.tsx",
+      "local": "components/TabsCard.tsx",
+      "sourceSha256": "6175a2d7463585eb4cc64e4c544ff0a3f0ade0d29a6f480d33f95e6504cb3db1"
+    },
+    {
+      "source": "full-version/src/components/third-party/react-table/TablePagination.tsx",
+      "local": "components/TablePagination.tsx",
+      "sourceSha256": "60adaf5900525d5037bafecca0a343345942088529d230090d8919eef4219260"
+    },
+    {
+      "source": "full-version/src/components/third-party/dropzone/SingleFile.tsx",
+      "local": "components/SingleFileUpload.tsx",
+      "sourceSha256": "16014d2f85b7f25fab628d585bfc1225e4b20cc82b8d83ad6da2984cbf8aaf13"
+    },
+    {
+      "source": "full-version/src/themes/overrides/PaginationItem.ts",
+      "local": "theme/overrides/PaginationItem.ts",
+      "sourceSha256": "7da121fa73896e4d4fba8bfd3f38d1d6378378f2ed70461b4e55c20a5a209897"
+    }
+  ],
+  "layoutPatterns": [
+    {
+      "source": "full-version/src/views/forms/layouts/multi-column.tsx",
+      "sourceSha256": "713af7200486734d701111a1be27619bf5cd713a572e3d7d559a72af7c4bb660",
+      "localFiles": [
+        "components/evidence/DocumentNavigation.tsx",
+        "components/workspace/CreateWorkspaceDialog.tsx",
+        "components/admin/RetentionDeletion.tsx",
+        "components/admin/ProgrammeForm.tsx",
+        "components/admin/UserForm.tsx",
+        "components/assessment/CorrectionForm.tsx",
+        "components/assessment/DecisionForm.tsx",
+        "components/applications/NewApplicationForm.tsx",
+        "components/applications/ApplicationFilters.tsx",
+        "components/criteria/CriteriaFields.tsx"
+      ]
+    },
+    {
+      "source": "full-version/src/views/tables/mui-table/basic.tsx",
+      "sourceSha256": "7dcefd7e2176b9d5d90b3da5eff17bce613a83c13314da50a45a6a92a2bc161f",
+      "localFiles": [
+        "pages/ApplicationsPage.tsx",
+        "pages/UploadBatchesPage.tsx",
+        "components/admin/AccountsTable.tsx",
+        "components/applications/ApplicationTable.tsx",
+        "components/batches/BatchList.tsx"
+      ]
+    },
+    {
+      "source": "full-version/src/components/third-party/dropzone/PlaceholderContent.tsx",
+      "sourceSha256": "c040978d936119ca32fb828a530fab1efda9f6a452dcccc44a299ef0dd6b96c7",
+      "localFiles": ["mantis/components/SingleFileUpload.tsx"]
+    },
+    {
+      "source": "full-version/src/sections/auth/auth-forms/AuthLogin.tsx",
+      "sourceSha256": "18703183b2c0ef320fd551b2f2638cb66899565e5ba7ecf75e09121541f78a22",
+      "localFiles": ["components/auth/DemoSignIn.tsx"]
+    },
+    {
+      "source": "full-version/src/sections/components-overview/lists/BasicList.tsx",
+      "sourceSha256": "293bea69332fd380eb35dafd342fa9cca0d25e8ea951cfc55c7a50d6d15b41c4",
+      "localFiles": ["components/batches/CourseAnalytics.tsx"]
+    }
+  ]
+}

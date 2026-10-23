@@ -1,9 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
+import { dataset } from './helpers/dataset'
 
 async function reEvaluate(page: Page) {
-  const history = page.getByRole('button', { name: 'Assessment history', exact: true })
-  if ((await history.getAttribute('aria-expanded')) !== 'true') await history.click()
   await page.getByRole('button', { name: 'Re-evaluate application', exact: true }).click()
 }
 
@@ -16,9 +15,13 @@ for (const viewport of [
   }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height })
     await page.goto('/login')
-    await page.getByRole('button', { name: 'Continue' }).click()
+    await page.getByRole('textbox', { name: 'Email', exact: true }).fill('tutor@demo.ucl.local')
+    await page.getByLabel('Password', { exact: true }).fill('demo')
+    await page.getByRole('button', { name: 'Sign In', exact: true }).click()
     await page.goto('/applications/APP-2026-0143')
-    await expect(page.getByRole('heading', { name: 'APP-2026-0143', exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'CSML 26/27', exact: true, level: 1 }),
+    ).toBeVisible()
     await expect(page.getByText(/FastAPI connected/)).toHaveCount(0)
     const responsePromise = page.waitForResponse(
       (response) =>
@@ -32,6 +35,11 @@ for (const viewport of [
     expect(run.overall).toBe(88.5)
     expect(run.recommendation).toBe('Offer')
     expect(run.evaluationSource).toBe('fastapi-mock')
+    await expect(
+      page
+        .getByRole('region', { name: 'Application review' })
+        .getByText('Unconditional', { exact: true }),
+    ).toBeVisible()
     await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
     await page.reload()
     await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
@@ -55,9 +63,13 @@ for (const viewport of [
     await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
     await page.unroute('http://127.0.0.1:8001/api/v1/mock/assessments')
     await page.goto('/criteria')
+    await page.getByRole('button', { name: 'Recommendation thresholds' }).click()
     await page.getByLabel('Offer from', { exact: true }).fill('95')
+    const previousCriteriaId = (await dataset(page)).activeRubricIds['programme-1']
     await page.getByRole('button', { name: 'Save criteria', exact: true }).click()
-    await expect(page.getByText('Active: v1.1', { exact: true })).toBeVisible()
+    await expect
+      .poll(async () => (await dataset(page)).activeRubricIds['programme-1'])
+      .not.toBe(previousCriteriaId)
     await page.goto('/applications/APP-2026-0143')
     const nextResponse = page.waitForResponse((response) =>
       response.url().endsWith('/api/v1/mock/assessments'),
@@ -70,6 +82,11 @@ for (const viewport of [
     expect(request.criteria).toMatchObject({ version: '1.1', offerFrom: 95 })
     expect(updated.rubricId).toBe(request.criteria.id)
     expect(updated.recommendation).toBe('Further review')
-    await expect(page.getByText('Criteria v1.1', { exact: true })).toBeVisible()
+    await expect(
+      page
+        .getByRole('region', { name: 'Application review' })
+        .getByText('Conditional', { exact: true }),
+    ).toBeVisible()
+    await expect(page.getByText(/FastAPI mock assessment: Further review/)).toBeVisible()
   })
 }

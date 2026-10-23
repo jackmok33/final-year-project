@@ -1,6 +1,5 @@
 export const modulesPageContent = {
-  title: 'Courses',
-  subtitle: 'Choose a course, then select an intake year to review applications.',
-  addCourse: 'Add course',
+  title: 'Programme',
+  addCourse: 'Add Programme',
   empty: 'You do not have access to any courses yet. Add a course to get started.',
 } as const

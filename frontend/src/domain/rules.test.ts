@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { aggregate, csvCell, validateRubric } from './rules'
 import { baseRubric } from '../services/seed'
+import { aggregate, csvCell, validateRubric } from './rules'
 import type { SectionScore } from './types'
 const sections = (values: (number | null)[]): SectionScore[] =>
   (['academic', 'cv', 'statement'] as const).map((key, i) => ({

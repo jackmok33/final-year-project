@@ -1,138 +1,232 @@
-# Frontend verification — 19 October 2026
+# Frontend verification — 23 October 2026
 
-This record describes the current course, intake, ZIP-batch and criteria workflows.
-It replaces the accumulated per-change notes; reproducible commands are in the
+This snapshot covers the user's revised desktop Figma design implemented with the
+supplied Mantis source. Startup and reproducible commands are in the
 [frontend guide](README.md#checks).
 
-## Latest checks
+## Shared hooks follow-up
 
-| Check                                | Result                                                             |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| TypeScript and Vite production build | Passed                                                             |
-| ESLint and Prettier                  | Passed                                                             |
-| Unit, component and service tests    | 496 passed across 38 files                                         |
-| Coverage                             | 98.84% lines, 97.64% statements, 98.88% functions, 92.78% branches |
-| Standalone browser suite             | All 16 workflows passed                                            |
-| FastAPI browser integration          | 2 workflows passed                                                 |
-| FastAPI mock API tests               | 34 passed; backend code unchanged                                  |
+`useWorkspace` and the typed Redux bindings now live directly in `src/hooks/`,
+with their matching tests. Imports and test mocks use the new paths; no duplicate
+app-level implementations or re-export shims remain. `app/store.ts` retains the
+store, reducers, actions and persistence; generated endpoint hooks stay in
+`app/api.ts`.
 
-The screen audit covers all 15 screens at 1440×1000 and 390×844, including the
-mobile navigation drawer, with no critical or serious axe findings. Screenshots
-of the desktop/mobile application review, including expanded details and history,
-were visually checked. The correction action is visible in the first viewport on
-both screen sizes.
-Automated accessibility checks do not replace a full assistive-technology audit.
+Applicant and batch tables share `usePagination` for page/page-size state, bounded
+row offsets and resets. Filtering, sorting, data queries, uploads, drafts and
+validation stay in their Page files. Hook tests cover result shrinking, empty
+tables, page-size changes and resets. Page tests also verify batch pagination and
+the return to page one after changing its size. All 219 production modules remain
+reachable.
 
-## Direct decision recording and optional notes
+Four production-browser workflows passed for redesigned review navigation, all
+routes, programme/intake selection and applicant filtering/sorting/pagination.
+The earlier full standalone and FastAPI suites below were not rerun for this
+structural follow-up. No product behaviour, saved data or backend contract changes
+are intended. See the [hooks guide](src/hooks/README.md).
 
-Tutors may select a different outcome from the AI recommendation without entering
-an explanation. Every outcome uses the same optional review note. The UI and demo
-service no longer enforce override reasons; original recommendations, decisions
-and optional notes remain separate stored records. The evidence-review checkbox,
-its state/props and the local decision command's acknowledgement field are removed.
-The Record button saves directly without a required note, tick box or extra dialog.
-Critical evidence still blocks final outcomes. The extra confirmation dialog, its
-state/props and its display copy are removed. Deletion/reset/restore
-confirmations retain the shared Confirm component. Further review remains unresolved.
-Blank-note history uses Decision recorded, without implying agreement with the AI.
+All 661 tests across 108 companion files pass. Coverage was verified with
+`npm run test:coverage -- --maxWorkers=1` after the concurrent run encountered two
+worker-start timeouts; the serial run completed every test without errors. No
+assertions or thresholds changed. TypeScript/build, lint and formatting pass.
 
-Browser workflows cover all 15 screens at desktop/mobile sizes,
-correction followed by a blank-note decision, independent Offer/Reject recording,
-saving without a checkbox or decision dialog, refresh persistence and duplicate-decision
-protection. Desktop/mobile decision-form screenshots were saved. FastAPI integration
-checks also pass after the review cleanup.
+## Final pre-PR review
 
-## Application review layout
+The review found and fixed two individual-upload edge cases. An unreadable
+replacement PDF now clears the earlier document from that slot instead of leaving
+it ready to submit. Document removal respects the same disabled state as file
+selection while validation/submission is busy. Focused tests reproduce both cases;
+the browser upload flow also rejects an actual malformed PDF and verifies retry.
 
-The summary groups score, AI recommendation, tutor decision and the decision
-action. Concerns appear before the explanation; raw flag codes and an empty
-success panel are omitted. Sources remain visible while scoring rules, individual
-section explanations and assessment history expand on demand. Re-evaluation is
-inside history. Tests cover keyboard expansion, source navigation, old-run review,
-returning to the latest result and disabled actions for historic results.
-Processing/failed/unavailable results display no precomputed overall score.
-No stored assessment, document, correction or decision records are changed by
-this presentation update.
+The test-layout check normalises path separators before applying its static-file
+exceptions. The source audit found all 217 production modules reachable, and all
+61 Mantis source/asset hashes plus five layout-reference hashes match the supplied
+folder. No remaining blocking frontend findings were identified.
 
-## Review cleanup and regression fixes
+The complete 16-workflow browser suite and both FastAPI workflows passed. After
+the final disabled-remove-button change, the individual-upload browser workflow
+was rerun against a fresh production build and passed. Backend source, PostgreSQL
+and the existing unrelated working-tree changes were not modified by this review.
 
-Recommendation cards and scoring-rule markup each have one rendering path.
-Obsolete decision props, copy and a duplicate browser assertion are removed.
-Queries and review state remain in the page files, with controlled visual sections
-in components. A private controller keyed by application clears history expansion
-and old-run selection when navigating away and back.
+## Test organisation
 
-Assessment, evidence, correction and decision pages use only the query's current
-application data. Regression tests cover loading a different record while the
-query retains the preceding result, preventing stale forms and document display.
-The correction form now starts from the actual extracted grade rather than a
-hardcoded 74%; zero and fractional values are covered, and the browser workflow
-explicitly enters the corrected value.
-Accessibility audits wait for queried controls, fonts and finite animations to
-settle before analysing contrast. The intake-switching workflow explicitly waits
-for export data to finish loading.
+All 14 Page files and every application runtime module/component have a colocated
+test with the same basename. The previous mixed page and feature suites have been
+split into their owning modules; adapted Mantis controls, layout navigation and
+utilities follow the same convention. Cross-module atomicity checks remain beside
+the public `demo.ts` adapter. See the [test guide](src/test/README.md) for the small
+set of static/type-only/bootstrap exceptions and shared test support.
 
-## Behaviour covered
+`npm run test:structure` validates all 108 test/source pairs and runs before the
+unit/coverage commands. Isolated temporary-directory checks confirmed that it
+accepts matching companions and rejects missing sources/companions. New tests cover
+controlled callbacks, keyboard behaviour, disabled/empty states and permission
+guards. One small fix keeps FilePicker's hidden file input disabled with its button.
+All earlier behaviour assertions are retained in their matching suites.
 
-- **Courses and intakes:** sign-in routes, private course creation by name,
-  owner-only deletion, course/intake switching, deep links, refresh persistence,
-  empty-course recovery and administrator separation. Forged assignment lists and
-  admin status alone cannot grant applicant access.
-- **ZIP batches:** numbered history, local upload date/time, pending-review counts,
-  intake overview and whole-course CSV export. Imports cover optional outer
-  folders, filename classification, missing documents, duplicate/unsafe paths,
-  corrupt PDFs, compressed/extracted limits and the combined page limit.
-  Validation and storage failures leave no partial batch or PDF writes.
-- **Review and evidence:** original PDF viewing/download, document/page navigation,
-  invalid citations, corrections with source/reason, preserved run history,
-  recommendation justification, direct decision recording without acknowledgement controls and optional
-  review notes. Critical evidence blocks final decisions. New uploads have no
-  fabricated scores, facts or recommendations.
-- **Criteria:** owner-only numeric editing, weight/threshold validation, stale and
-  unchanged draft rejection, independent course versions and explicit
-  re-evaluation. Clicking or keyboard-activating a history row populates the form
-  without changing storage; saving creates a new version while preserving old
-  criteria, runs and decisions. Discard restores the active version.
-- **Persistence:** refresh, interrupted simulated evaluations, application/course
-  deletion, PDF-inclusive backup/restore and reset. Legacy ownership/intake/batch
-  upgrades preserve IDs, originals and history. Existing APP-2026-0148 uploads
-  survive sample installation; SAMPLE-CSML cases use separate references. The v2
-  completion marker repairs older incomplete default-batch upgrades and respects
-  deliberate deletions.
-- **Administration:** account roles/deactivation, existing-course metadata,
-  simulated model recovery, local maintenance and storage errors. Metadata edits
-  cannot transfer course ownership; owned courses are read-only account information.
-- **HTTP integration:** real Uvicorn/Vite requests, response validation, updated
-  numeric criteria, refresh persistence and evidence navigation. Disconnection
-  surfaces an error without partial runs/corrections or silent local fallback.
+The initial test-layout follow-up reran individual-upload, ZIP/PDF-import and
+administrator backup/restore workflows. The final pre-PR review above expands that
+verification to the full frontend/FastAPI browser suites. No backend or database
+code was changed.
 
-Unit tests use Testing Library/jsdom and fake IndexedDB. PDF parsing and HTTP
-boundaries are mocked there; Chromium exercises the actual PDF.js parser and
-separate FastAPI integration servers. Coverage excludes test helpers, the React
-bootstrap and declarative theme. Enforced minimums are 95% lines, 90%
-statements/functions and 85% branches.
+## AI and decision fields
 
-## Cleanup and boundaries
+AI fields now contain Unconditional, Conditional or Reject; incomplete/unavailable
+assessments show a neutral dash. The approved prototype display mapping is legacy
+Offer → Unconditional and Further review → Conditional. The original mock result,
+justification and HTTP contract remain unchanged. Tutor decision fields use the
+three classified outcomes plus Pending. Old-run decisions and unclassified legacy
+Offer/Further review tutor records remain stored and display/count as Pending.
 
-The cleanup removes unused domain-label aliases, an unused dataset alias and the
-RTK health query left behind by the deleted connection banner. Layout and upload
-pages reuse existing workspace results instead of subscribing again. No orphaned
-production files were found. Compatibility models and migration code remain
-because saved browser datasets and backups depend on them.
+Shared projections keep applicant tables, summaries, sorting, CSV, batch counts
+and analytics aligned. Pending remains derived rather than a saved radio option.
+Tests cover all choices, legacy preservation, unavailable assessments, sort order,
+current-run decision matching and unclassified-offer counts. Browser assertions
+check both table/detail values and the mapping from unchanged FastAPI responses.
 
-Pages retain queries, form state, validation and actions; controlled panels stay
-in `src/components/`. Display copy uses the shared typed `useContent()` hook.
-Local Public Sans and the shared UCL image avoid external font/image requests.
-Responsive tables remain keyboard focusable.
+## Structural review
 
-Authentication, document assessment, inference and service-health data remain
-simulated. Persistence is browser IndexedDB; no frontend-to-PostgreSQL switch or
-new upload API is included. The existing mock API supports the synthetic fixture
-map. Backend source, contracts and PostgreSQL storage are outside this frontend PR.
-Full PostgreSQL tests and backend Ruff checks were not rerun; the separate database
-verification is recorded in the
-[backend guide](../backend/README.md) and agent context.
+The 1,027-line demo service is now a 79-line public entry point backed by focused
+modules for contracts, runtime/recovery, permissions, queries, application changes,
+settings and backups. The backup validator has named course, document, history
+and integrity stages. Prepared mutations still commit records and PDFs atomically
+under the same cross-tab lock. RTK Query explicitly distinguishes reads/commands;
+it no longer guesses using a string list and type casts.
 
-Browser screenshots/traces are generated under ignored `test-results/frontend/`
-and `test-results/backend/`; HTML reports are under ignored `playwright-report/`.
-These checks do not validate official admissions policy or a university deployment.
+Layout shrank from 337 to 193 lines. It retains deep-link selection, queries and
+navigation state; controlled header/sidebar components render the Mantis shell.
+The permission guard now lives under `auth/`. Recommendation markup and batch-list
+states/pagination are controlled components. Pages keep queries, derived values,
+drafts and handlers. Matching content moves with each visual section, and the
+registry is alphabetised.
+
+The unused course-deletion command and obsolete feature tests are removed. Active
+ownership, empty-backup, metadata and invalid-owner checks remain. Earlier deletion
+audit entries and migration tombstones are preserved for saved-data compatibility.
+The import audit found no unreachable production modules or runtime import cycles.
+Guides document the new boundaries; no frontend dataset reset, HTTP contract or
+PostgreSQL change is included.
+
+## Earlier pre-commit cleanup
+
+Removed 68 unused content entries and the orphaned intake-label content file,
+unused section-panel props, standalone padding options for embedded review pages,
+the old deletion-preview query/type and the unused frontend HTTP health probe.
+The backend health route remains unchanged. Obsolete batch-summary counts are no
+longer calculated; visible counts still use current final tutor decisions.
+
+Queues, assessment summaries, decision forms and synthetic evidence now share
+assessment-readiness logic. A rejected replacement ZIP clears the earlier file
+rather than leaving it available for upload. Regression tests cover rejection,
+reselection, unfinished/unavailable results and legitimate zero scores.
+
+An import/symbol audit found no unreachable production modules after cleanup.
+Dynamic import bindings, Vite title content, structurally passed control labels
+and Mantis theme declarations were checked separately. Component-prop and package
+checks found no further unused props or removable dependencies. All 61 source
+mappings and five layout references still match the supplied Mantis hashes.
+Domain-specific components remain controlled compositions of Mantis UI.
+
+The earlier simplifications also remove course-card settings, the management
+page/deletion dialog, criteria history and applicant assessment-history panels.
+Old management URLs return to Programme. Historical records, criteria IDs, PDFs,
+permissions and backup compatibility remain intact. Existing old-run/citation
+bookmarks stay read-only; re-evaluation is available from the assessment header.
+
+## Current checks
+
+| Check                                   | Result                                                                          |
+| --------------------------------------- | ------------------------------------------------------------------------------- |
+| Test naming and colocation              | 108 matched source/test pairs; no missing/orphaned runtime companions           |
+| TypeScript and Vite production build    | Passed                                                                          |
+| ESLint, Prettier and `git diff --check` | Passed                                                                          |
+| Unit/component/service tests            | 661 passed across 108 files using one worker                                    |
+| Application coverage                    | 98.21% lines, 97.01% statements, 97.45% functions, 91.70% branches              |
+| Latest targeted browser regression      | Four routes/workspace/navigation/table workflows passed after hook extraction   |
+| Previous full standalone browser suite  | All 16 workflows passed during the earlier pre-PR review                        |
+| Previous FastAPI browser integration    | Both desktop and small-screen workflows passed during the earlier pre-PR review |
+
+Coverage exceeds the existing 95% line, 90% statement/function and 85% branch
+minimums. Imported Mantis source is excluded from application coverage totals and
+has focused companion suites for components, navigation and utilities. Unit tests use Testing Library/jsdom and fake
+IndexedDB. Browser checks exercise actual PDF.js, production bundles and isolated
+FastAPI/Uvicorn integration servers. No assertions or coverage thresholds were
+weakened to accommodate the design change.
+
+## Design and source verification
+
+The authoritative fallback reference is the user's full-resolution export:
+`UCL Application Review Workspace — Frontend Review.png` (7844×6458). Figma MCP
+identified the `final` page (`50:27395`) in `T0kdTyHiQDCy4NCIge7ssx`, then reached
+the account's Starter-plan quota. Final-page component IDs, token bindings and
+measurements could not be retrieved. Implementation follows the exported desktop
+layout and local Mantis source; this is visual comparison, not an automated
+pixel-difference assertion against a Figma frame.
+
+The source manifest verifies original SHA-256 hashes for 61 source/asset mappings
+and five adapted layout references against Mantis React Next TypeScript 4.0.1.
+Imported components now include tabs, table pagination and the SingleFile dropzone
+with its original SVG, plus four additional theme factories. Mantis is a source
+template over MUI; product queries/rules/fixtures remain custom application code.
+No Next.js or TanStack Table migration was introduced.
+
+Desktop screenshots for login, programme/intake cards, intake workspace, criteria,
+batch table and all five review tabs were visually inspected. Data-derived counts
+and saved assessment values intentionally take precedence over inconsistent
+numbers in the design's mock data. Existing records/PDFs were not reset to match
+screenshot values.
+
+## Browser and accessibility coverage
+
+The 16 production workflows cover:
+
+- Programme/intake links, refresh persistence, creation, removed management-route fallback and forbidden
+  owner/admin deep links.
+- ZIP validation/atomic import, persisted originals, individual applicant creation
+  within a batch and confirmed owner-only applicant deletion.
+- Search, status filters, score sorting, pagination bounds and whole-course CSV.
+- Recommendation/source navigation, original PDF viewing, critical-evidence
+  blocking, correction history and read-only historic assessments.
+- Conditional, Unconditional and Reject saving directly with optional notes,
+  independent AI recommendations and refresh persistence.
+- Active criteria validation/saving, no visible history controls and unchanged prior runs.
+- Interrupted evaluation recovery and administrator edit/delete/backup/restore/reset.
+- Desktop screen/tab axe audits and a small-screen keyboard/sidebar regression.
+
+Axe found no critical/serious issues in the audited desktop routes and review tabs.
+The FastAPI suite also performs accessibility checks. Desktop is the presentation
+priority; this is not a comprehensive assistive-technology or mobile audit.
+The browser test for interrupted evaluation waits until its queued run is committed
+before refreshing, distinguishing recovery from an uncommitted click. The deletion test waits for dialog closure and table reload. A background link is hidden
+from accessibility queries while a modal is open, so its absence alone cannot prove
+that deletion has committed. No product storage behaviour was weakened for the test.
+
+Focused control tests verify keyboard tab changes, disabled actions, bounded
+pagination, ZIP rejection and busy upload behaviour. They caught an input that
+remained enabled during upload; the hidden file input is now explicitly disabled.
+The hidden input is also outside the clickable dropzone, avoiding nested
+interactive controls. Navigation labels use spans rather than extra heading levels.
+Typed Ant Design ESM aliases and MUI 9-compatible override adaptations remain.
+
+## Data and backend boundaries
+
+New tutor decisions accept only Conditional, Unconditional and Reject. Legacy
+Offer/Further review records remain valid in existing datasets/backups and are
+not reclassified. The unchanged AI mock evaluator still produces Offer, Further
+review or Reject. Critical evidence blocks all new final decisions. No extra
+checkbox, override explanation or confirmation dialog is required to save.
+
+Expanded evidence/identity values are presentation fixtures for known synthetic
+cases only. Newly uploaded applicants never receive those facts or invented
+assessments. The sign-in password is presentation-only; real authentication,
+registration and reset are not implemented. Original PDFs, ownership permissions,
+criteria versions, corrections and browser persistence remain intact.
+
+FastAPI checks verify real requests, changed criteria, source-page links,
+persistence and disconnection without silent local fallback. Backend source,
+HTTP response contracts and the five-table PostgreSQL foundation are unchanged
+by the redesign. Database tests and backend Ruff were not rerun. No claim is made
+about live extraction, inference, real service monitoring or deployment.
+
+Browser artifacts are ignored under `test-results/frontend/`, `test-results/backend/`
+and `playwright-report/`. Local preview checks do not alter the user's browser data.

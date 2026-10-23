@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import '../test/domSetup'
 import { renderHook } from '@testing-library/react'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { content, type ContentKey } from '../content'
+import '../test/domSetup'
 import { useContent } from './useContent'
 
 describe('shared content hook', () => {
@@ -25,18 +25,11 @@ describe('shared content hook', () => {
     expect(result.current).toBe(content.decisionForm)
   })
 
-  it('formats decisions with the original outcome, case and criteria context', () => {
-    const { result } = renderHook(() => useContent('decisionForm'))
-    expect(result.current.aiRecommendation('Reject')).toBe('AI recommendation: Reject')
-    expect(result.current.subtitle('APP-TEST', '1.2')).toBe(
-      'APP-TEST / Latest assessment / Criteria v1.2',
-    )
-    expect(result.current.recordAction('Further review')).toBe('Record further review')
-    expect(result.current.overallScore(0)).toBe('Overall score: 0 / 100')
-    expect(result.current.overallScore(null)).toBe('Overall score: Not available / 100')
-    expect(content.runHistory.decisionDetails('', '19 Oct 2026')).toBe(
-      'Decision recorded · 19 Oct 2026',
-    )
+  it('formats the current assessment summary without losing zero or missing scores', () => {
+    const { result } = renderHook(() => useContent('recommendationSummary'))
+    expect(result.current.scoreValue(0)).toBe('0.0')
+    expect(result.current.scoreValue(78.4)).toBe('78.4')
+    expect(result.current.scoreValue(null)).toBe('—')
   })
 
   it('preserves missing values and line breaks in operational messages', () => {
@@ -51,10 +44,8 @@ describe('shared content hook', () => {
     const { result } = renderHook(() => useContent('criteriaFields'))
     expect(result.current.totalLabel(100, false)).toBe('100% · Valid')
     expect(result.current.totalLabel(NaN, true)).toBe('—% · Invalid')
-    expect(content.common.criteriaContext()).toContain('Criteria vunknown')
-    expect(content.intakeCards.applications(1)).toBe('1 application')
-    expect(content.intakeCards.applications(2)).toBe('2 applications')
-    expect(content.intakeCards.applications(undefined)).toBe('Application count unavailable')
-    expect(content.sectionAssessments.scoreSummary(null)).toBe('— / 100 · Weight %')
+    expect(content.moduleCards.openProgramme('CSML 26/27')).toBe('Open CSML 26/27')
+    expect(content.applicationTable.notAvailable).toBe('—')
+    expect(content.sectionAssessments.sectionScore(null)).toBe('Score unavailable')
   })
 })

@@ -1,72 +1,113 @@
-import { useContent } from '../../hooks/useContent'
-import { ArrowForward } from '@mui/icons-material'
-import { Box, Button, MenuItem, Stack, TextField, Typography } from '@mui/material'
-import type { User } from '../../domain/types'
+// Controlled adaptation of the supplied Mantis AuthLogin form.
+import EyeOutlined from '@ant-design/icons/EyeOutlined'
+import EyeInvisibleOutlined from '@ant-design/icons/EyeInvisibleOutlined'
+import { Box, Button, InputAdornment, Link, Stack, TextField, Typography } from '@mui/material'
+import IconButton from '../../mantis/components/IconButton'
 import { ErrorNotice, Loading } from '../common'
-
-type DemoAccount = Pick<User, 'id' | 'name' | 'active'>
+import { useContent } from '../../hooks/useContent'
 
 export function DemoSignIn({
-  accounts,
-  account,
+  email,
+  password,
+  showPassword,
+  onEmailChange,
+  onPasswordChange,
+  onTogglePassword,
+  onHelp,
   error,
   isLoading,
-  setSelected,
   login,
+  disabled,
 }: {
-  accounts: DemoAccount[] | undefined
-  account: DemoAccount | undefined
+  email: string
+  password: string
+  showPassword: boolean
+  onEmailChange: (value: string) => void
+  onPasswordChange: (value: string) => void
+  onTogglePassword: () => void
+  onHelp: (kind: 'accounts' | 'password') => void
   error: unknown
   isLoading: boolean
-  setSelected: (id: string) => void
   login: () => void
+  disabled: boolean
 }) {
   const content = useContent('demoSignIn')
   return (
-    <Stack sx={{ p: { xs: 3, sm: 4 }, pt: { xs: 1, sm: 1 } }}>
-      <Stack spacing={3}>
+    <Stack spacing={4}>
+      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
         <Typography variant="h4" component="h2">
           {content.signIn}
         </Typography>
-        <ErrorNotice error={error} />
-        {isLoading ? (
-          <Loading />
-        ) : (
-          <Box
-            component="form"
-            onSubmit={(e) => {
-              e.preventDefault()
-              login()
-            }}
-          >
-            <Stack spacing={2.5}>
-              <TextField
-                select
-                label={content.account}
-                value={account?.id ?? ''}
-                onChange={(e) => setSelected(e.target.value)}
-              >
-                {accounts
-                  ?.filter((a) => a.active)
-                  .map((a) => (
-                    <MenuItem key={a.id} value={a.id}>
-                      {a.name}
-                    </MenuItem>
-                  ))}
-              </TextField>
-              <Button
-                variant="contained"
-                type="submit"
-                fullWidth
-                endIcon={<ArrowForward />}
-                disabled={!account?.active}
-              >
-                {content.continue}
-              </Button>
-            </Stack>
-          </Box>
-        )}
+        <Link component="button" type="button" onClick={() => onHelp('accounts')} underline="none">
+          {content.noAccount}
+        </Link>
       </Stack>
+      <ErrorNotice error={error} />
+      {isLoading ? (
+        <Loading />
+      ) : (
+        <Box
+          component="form"
+          onSubmit={(event) => {
+            event.preventDefault()
+            login()
+          }}
+        >
+          <Stack spacing={2.5}>
+            <TextField
+              type="email"
+              required
+              placeholder={content.emailPlaceholder}
+              value={email}
+              onChange={(event) => onEmailChange(event.target.value)}
+              autoComplete="username"
+              slotProps={{ htmlInput: { 'aria-label': content.email } }}
+            />
+            <TextField
+              type={showPassword ? 'text' : 'password'}
+              required
+              placeholder={content.passwordPlaceholder}
+              value={password}
+              onChange={(event) => onPasswordChange(event.target.value)}
+              autoComplete="current-password"
+              slotProps={{
+                htmlInput: { 'aria-label': content.password },
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label={showPassword ? content.hidePassword : content.showPassword}
+                        onClick={onTogglePassword}
+                        color="secondary"
+                        size="small"
+                      >
+                        {showPassword ? (
+                          <EyeOutlined aria-hidden="true" />
+                        ) : (
+                          <EyeInvisibleOutlined aria-hidden="true" />
+                        )}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+            <Button variant="contained" type="submit" fullWidth disabled={disabled}>
+              {content.signInAction}
+            </Button>
+            <Link
+              component="button"
+              type="button"
+              underline="none"
+              color="text.primary"
+              onClick={() => onHelp('password')}
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              {content.forgotPassword}
+            </Link>
+          </Stack>
+        </Box>
+      )}
     </Stack>
   )
 }

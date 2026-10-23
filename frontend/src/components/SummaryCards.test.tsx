@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
-import '../test/domSetup'
-import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import '../test/domSetup'
 import { SummaryCards } from './SummaryCards'
-import { QueueSummary } from './applications/QueueSummary'
 import { HealthSummary } from './admin/HealthSummary'
-import { application, run } from '../test/fixtures'
 
 function card(label: string) {
   return within(
@@ -24,21 +22,6 @@ describe('shared summary cards', () => {
     expect(screen.queryByRole('heading', { name: 'Jobs' })).not.toBeInTheDocument()
     expect(card('Storage').getByText('Browser')).toBeInTheDocument()
     expect(card('Storage').getByText('Demo only')).toBeInTheDocument()
-  })
-
-  it('shows queue counts derived from application states', () => {
-    render(
-      <QueueSummary
-        applications={[
-          application,
-          { ...application, id: 'APP-FAILED', runs: [{ ...run, status: 'failed' }] },
-        ]}
-      />,
-    )
-    expect(card('Applications').getByText('2')).toBeInTheDocument()
-    expect(card('Awaiting review').getByText('1')).toBeInTheDocument()
-    expect(card('Final decisions').getByText('0')).toBeInTheDocument()
-    expect(card('Failed runs').getByText('1')).toBeInTheDocument()
   })
 
   it('keeps health figures separate from queue counts without repeated environment notices', () => {

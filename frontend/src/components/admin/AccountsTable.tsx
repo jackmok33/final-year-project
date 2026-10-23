@@ -1,7 +1,9 @@
+import MainCard from '../../mantis/components/MainCard'
 import { useContent } from '../../hooks/useContent'
 import {
   Alert,
   Button,
+  Box,
   Table,
   TableBody,
   TableCell,
@@ -11,7 +13,7 @@ import {
   Typography,
 } from '@mui/material'
 import type { Programme, User } from '../../domain/types'
-import { Card, Status } from '../common'
+import { Status } from '../common'
 
 export function AccountsTable({
   users,
@@ -24,9 +26,16 @@ export function AccountsTable({
 }) {
   const content = useContent('accountsTable')
   return (
-    <Card title={content.accounts}>
+    <MainCard title={content.accounts} content={false}>
       <TableContainer>
-        <Table aria-label={content.demoAccounts}>
+        <Table
+          aria-label={content.demoAccounts}
+          sx={{
+            minWidth: 650,
+            '& th:first-of-type, & td:first-of-type': { pl: 3 },
+            '& th:last-of-type, & td:last-of-type': { pr: 3 },
+          }}
+        >
           <TableHead>
             <TableRow>
               {[content.user, content.role, content.programmeAccess, content.state, ''].map(
@@ -38,7 +47,7 @@ export function AccountsTable({
           </TableHead>
           <TableBody>
             {users?.map((u) => (
-              <TableRow key={u.id}>
+              <TableRow key={u.id} hover>
                 <TableCell>
                   <Typography sx={{ fontWeight: 600 }}>{u.name}</Typography>
                   <Typography variant="body2">{u.email}</Typography>
@@ -63,7 +72,9 @@ export function AccountsTable({
           </TableBody>
         </Table>
       </TableContainer>
-      <Alert severity="info">{content.permissionNotice}</Alert>
-    </Card>
+      <Box sx={{ p: 2.5 }}>
+        <Alert severity="info">{content.permissionNotice}</Alert>
+      </Box>
+    </MainCard>
   )
 }

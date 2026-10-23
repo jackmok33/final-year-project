@@ -1,14 +1,15 @@
 import { useContent } from '../../hooks/useContent'
-import { Box, FormControlLabel, Radio, RadioGroup, Typography } from '@mui/material'
-import { type Outcome } from '../../domain/types'
+import { FormControlLabel, Radio, RadioGroup, Typography } from '@mui/material'
+import { tutorOutcomes, type TutorOutcome } from '../../domain/types'
+import MainCard from '../../mantis/components/MainCard'
 
 export function OutcomeOptions({
   outcome,
   setOutcome,
   critical,
 }: {
-  outcome: Outcome
-  setOutcome: (outcome: Outcome) => void
+  outcome: TutorOutcome
+  setOutcome: (outcome: TutorOutcome) => void
   critical: boolean
 }) {
   const content = useContent('outcomeOptions')
@@ -16,16 +17,15 @@ export function OutcomeOptions({
     <RadioGroup
       aria-label={content.tutorOutcome}
       value={outcome}
-      onChange={(e) => setOutcome(e.target.value as Outcome)}
+      onChange={(e) => setOutcome(e.target.value as TutorOutcome)}
     >
-      {(['Further review', 'Offer', 'Reject'] as const).map((o) => (
-        <Box
+      {tutorOutcomes.map((o) => (
+        <MainCard
+          content={false}
           key={o}
           sx={{
-            bgcolor: outcome === o ? 'primary.light' : 'background.paper',
-            border: 1,
+            bgcolor: outcome === o ? 'primary.lighter' : 'background.paper',
             borderColor: outcome === o ? 'primary.main' : 'divider',
-            borderRadius: 1,
             px: 2,
             py: 1,
             mb: 1,
@@ -35,12 +35,12 @@ export function OutcomeOptions({
             value={o}
             control={<Radio />}
             label={content.outcomeLabels[o]}
-            disabled={critical && o !== 'Further review'}
+            disabled={critical}
           />
           <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
-            {o === 'Further review' ? content.reviewHint : content.finalDecisionHint}
+            {content.hints[o]}
           </Typography>
-        </Box>
+        </MainCard>
       ))}
     </RadioGroup>
   )

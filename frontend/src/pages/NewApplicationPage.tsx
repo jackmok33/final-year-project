@@ -1,9 +1,9 @@
 import { useContent } from '../hooks/useContent'
 import { Alert } from '@mui/material'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useCommandMutation } from '../app/api'
-import { useWorkspace } from '../app/workspace'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useCommandMutation, useBatchQuery } from '../app/api'
+import { useWorkspace } from '../hooks/useWorkspace'
 import {
   NewApplicationForm,
   type SelectedDocuments,
@@ -15,11 +15,20 @@ export function NewApplicationPage() {
   const content = useContent('newApplicationPage')
   const {
     user,
-    programme,
-    intakeYear,
+    programme: selectedProgramme,
+    programmes,
+    intakeYear: selectedIntakeYear,
     isLoading: workspaceLoading,
     error: workspaceError,
   } = useWorkspace()
+  const [params] = useSearchParams()
+  const batchId = params.get('batch')
+  const batchQuery = useBatchQuery(batchId ?? '', { skip: !batchId })
+  const batch = batchQuery.currentData
+  const programme = batchId
+    ? programmes.find((p) => p.id === batch?.programmeId)
+    : selectedProgramme
+  const intakeYear = batch?.intakeYear ?? selectedIntakeYear
   const [candidate, setCandidate] = useState('')
   const [files, setFiles] = useState<SelectedDocuments>({})
   const [validationError, setValidationError] = useState('')
@@ -35,6 +44,7 @@ export function NewApplicationPage() {
       const { pages } = await inspectPdf(file)
       setFiles((previous) => ({ ...previous, [type]: { file, pages } }))
     } catch (error) {
+      remove(type)
       setValidationError(error instanceof Error ? error.message : content.unableToReadPdf)
     } finally {
       setChecking(null)
@@ -64,6 +74,7 @@ export function NewApplicationPage() {
     try {
       const result = await command({
         op: 'create',
+        ...(batchId ? { batchId } : {}),
         candidate,
         programmeId: programme.id,
         intakeYear: intakeYear ?? programme.year,
@@ -77,7 +88,9 @@ export function NewApplicationPage() {
     }
   }
 
-  if (workspaceLoading) return <Loading />
+  if (workspaceLoading || (batchId && batchQuery.isLoading)) return <Loading />
+  if (batchId && (!batch || !programme))
+    return <ErrorNotice error={batchQuery.error ?? content.batchUnavailable} />
   if (workspaceError) return <ErrorNotice error={workspaceError} />
   if (!programme) return <Alert severity="info">{content.noWorkspaceMessage}</Alert>
   const disabled =

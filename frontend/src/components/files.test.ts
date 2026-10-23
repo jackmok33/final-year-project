@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import '../test/domSetup'
 import { describe, expect, it, vi } from 'vitest'
-import { downloadBlob, displayTime } from './files'
+import '../test/domSetup'
+import { displayTime, downloadBlob } from './files'
 describe('document/CSV download helpers', () => {
   it('downloads original bytes and releases the object URL after the click', () => {
     vi.useFakeTimers()

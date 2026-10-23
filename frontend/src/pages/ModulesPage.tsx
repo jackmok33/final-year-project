@@ -1,9 +1,9 @@
-import { AddOutlined } from '@mui/icons-material'
+import PlusOutlined from '@ant-design/icons/PlusOutlined'
 import { Alert, Button } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useCommandMutation } from '../app/api'
-import { useWorkspace } from '../app/workspace'
+import { useCommandMutation, useProgrammeIntakesQuery } from '../app/api'
+import { useWorkspace } from '../hooks/useWorkspace'
 import { ErrorNotice, Loading, Page } from '../components/common'
 import { CreateWorkspaceDialog } from '../components/workspace/CreateWorkspaceDialog'
 import { ModuleCards } from '../components/workspace/ModuleCards'
@@ -13,6 +13,7 @@ import { normalizeCourseName } from '../domain/courseName'
 export function ModulesPage() {
   const content = useContent('modulesPage')
   const { programmes, isLoading, error } = useWorkspace()
+  const { data: intakes } = useProgrammeIntakesQuery()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [saveError, setSaveError] = useState<unknown>()
@@ -26,7 +27,7 @@ export function ModulesPage() {
       const { id } = await command({ op: 'workspace', name: normalizedName }).unwrap()
       if (id) {
         setOpen(false)
-        navigate(`/modules/${encodeURIComponent(id)}`)
+        navigate(`/batches?${new URLSearchParams({ programme: id })}`)
       }
     } catch (error) {
       setSaveError(error)
@@ -36,11 +37,10 @@ export function ModulesPage() {
   return (
     <Page
       title={content.title}
-      subtitle={content.subtitle}
       actions={
         <Button
           variant="contained"
-          startIcon={<AddOutlined />}
+          startIcon={<PlusOutlined aria-hidden="true" />}
           onClick={() => {
             setName('')
             setSaveError(undefined)
@@ -53,7 +53,7 @@ export function ModulesPage() {
     >
       <ErrorNotice error={error} />
       {!error && !programmes.length && <Alert severity="info">{content.empty}</Alert>}
-      <ModuleCards modules={programmes} />
+      <ModuleCards modules={programmes} intakes={intakes} />
       <CreateWorkspaceDialog
         open={open}
         name={name}

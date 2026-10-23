@@ -17,13 +17,18 @@ typed hook:
 const content = useContent('demoSignIn')
 
 <Typography>{content.signIn}</Typography>
-<Button>{content.continue}</Button>
+<Button>{content.signInAction}</Button>
 ```
 
 The registry in `index.ts` maps keys to content files. TypeScript checks both the
 key and the fields and formatter arguments returned for that key. Register a new
 file there when adding interface copy. There is no provider, asynchronous fetch
 or separate hook per screen.
+
+Registry imports and keys are alphabetised. When extracting a visual section,
+move its copy to the matching content file rather than leaving unused page labels
+or importing the page's content from the component. Shared domain/navigation labels
+may be referenced by both content files without duplicating their text.
 
 Store titles, descriptions, labels, help text, accessibility labels, empty-state
 messages and confirmation copy here. Use named formatter functions for dynamic

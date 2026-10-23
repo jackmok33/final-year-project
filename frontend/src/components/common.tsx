@@ -4,46 +4,30 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Paper,
   Stack,
   Typography,
 } from '@mui/material'
 import type { ReactNode } from 'react'
 import { errorMessage } from '../app/api'
-import {
-  hasUnavailableAssessment,
-  type AssessmentRun,
-  type DocumentRecord,
-  type Rubric,
-} from '../domain/types'
-import { EvidenceLink } from './evidence/EvidenceLink'
+import MainCard, { type MainCardProps } from '../mantis/components/MainCard'
+import CircularWithPath from '../mantis/components/CircularWithPath'
 export function Card({
   title,
   children,
-  ...props
+  sx,
 }: {
   title?: string
   children: ReactNode
-  sx?: object
+  sx?: MainCardProps['sx']
 }) {
   return (
-    <Paper variant="outlined" sx={{ minWidth: 0, overflow: 'hidden', ...props.sx }}>
-      {title && (
-        <Box sx={{ px: 2.5, py: 2, borderBottom: 1, borderColor: 'divider' }}>
-          <Typography variant="subtitle1" component="h2">
-            {title}
-          </Typography>
-        </Box>
-      )}
-      <Stack spacing={2.5} sx={{ p: 2.5 }}>
-        {children}
-      </Stack>
-    </Paper>
+    <MainCard title={title} sx={[{ minWidth: 0 }, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}>
+      <Stack spacing={2.5}>{children}</Stack>
+    </MainCard>
   )
 }
 export function Page({
@@ -53,7 +37,7 @@ export function Page({
   children,
 }: {
   title: string
-  subtitle: string
+  subtitle?: string
   actions?: ReactNode
   children: ReactNode
 }) {
@@ -69,12 +53,14 @@ export function Page({
         }}
       >
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="h3" component="h1">
+          <Typography variant="h1" component="h1">
             {title}
           </Typography>
-          <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-            {subtitle}
-          </Typography>
+          {subtitle && (
+            <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+              {subtitle}
+            </Typography>
+          )}
         </Box>
         {actions && (
           <Stack
@@ -94,32 +80,25 @@ export function Status({ label }: { label: string }) {
   const labels = content.statusLabels
   const displayLabel = Object.hasOwn(labels, label) ? labels[label as keyof typeof labels] : label
   const color =
-    /Offer|completed|Available|Active|Valid/i.test(label) &&
+    /Offer|Unconditional|completed|Available|Active|Valid/i.test(label) &&
     !/Unavailable|Inactive|Invalid/i.test(label)
       ? 'success'
       : /Reject|failed|Unavailable|Critical|Invalid/i.test(label)
         ? 'error'
         : /review|running|queued|Missing/i.test(label)
           ? 'warning'
-          : 'default'
+          : /Conditional/i.test(label)
+            ? 'info'
+            : 'default'
   return (
-    <Chip
-      label={displayLabel}
-      color={color}
-      variant="outlined"
-      sx={(theme) => ({
-        alignSelf: 'flex-start',
-        bgcolor: color === 'default' ? 'action.hover' : theme.palette[color].light,
-        borderColor: color === 'default' ? 'divider' : `${theme.palette[color].main}40`,
-      })}
-    />
+    <Chip label={displayLabel} color={color} variant="combined" sx={{ alignSelf: 'flex-start' }} />
   )
 }
 export function Loading() {
   const content = useContent('common')
   return (
     <Stack sx={{ p: 5, alignItems: 'center' }}>
-      <CircularProgress size={28} aria-label={content.loadingLabel} />
+      <CircularWithPath size={28} aria-label={content.loadingLabel} />
       <Typography sx={{ mt: 2 }}>{content.loadingMessage}</Typography>
     </Stack>
   )
@@ -190,66 +169,5 @@ export function Confirm({
         </Button>
       </DialogActions>
     </Dialog>
-  )
-}
-export function Rationale({
-  run,
-  rubric,
-  documents,
-  applicationId,
-  compact = false,
-}: {
-  run: AssessmentRun
-  rubric?: Rubric
-  documents: DocumentRecord[]
-  applicationId: string
-  compact?: boolean
-}) {
-  const content = useContent('common')
-  const unavailable = hasUnavailableAssessment(run)
-  const rules =
-    !unavailable &&
-    run.justification.rules.map((rule) => (
-      <Typography key={rule} variant="body2">
-        {rule}
-      </Typography>
-    ))
-  return (
-    <Stack spacing={1.5}>
-      <Typography variant="subtitle1" component={compact ? 'h2' : 'h3'} sx={{ fontWeight: 600 }}>
-        {unavailable ? content.assessmentStatus : content.whyThisRecommendation}
-      </Typography>
-      <Typography>
-        {unavailable ? content.assessmentUnavailable : run.justification.summary}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {content.criteriaContext(rubric?.version)}
-      </Typography>
-      {compact && !unavailable && run.justification.rules.length > 0 ? (
-        <Box component="details">
-          <Box component="summary" sx={{ cursor: 'pointer', typography: 'body2', py: 0.5 }}>
-            {content.scoringRules}
-          </Box>
-          <Stack spacing={1} sx={{ mt: 1 }}>
-            {rules}
-          </Stack>
-        </Box>
-      ) : (
-        rules
-      )}
-      <Stack direction={compact ? 'row' : 'column'} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-        {!unavailable &&
-          run.justification.citations.map((citation, i) => (
-            <EvidenceLink
-              key={i}
-              applicationId={applicationId}
-              citation={citation}
-              document={documents.find((d) => d.id === citation.documentId)}
-              runId={run.id}
-              sx={{ justifyContent: 'flex-start', textAlign: 'left' }}
-            />
-          ))}
-      </Stack>
-    </Stack>
   )
 }

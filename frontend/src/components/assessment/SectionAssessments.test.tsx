@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
-import '../../test/domSetup'
-import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { describe, expect, it } from 'vitest'
+import '../../test/domSetup'
+import { documents, run } from '../../test/fixtures'
 import { SectionAssessments } from './SectionAssessments'
-import { documents, rubric, run } from '../../test/fixtures'
 describe('section evidence references', () => {
   it('disables invalid or missing source references just as the recommendation does', async () => {
     const sections = [
@@ -19,15 +18,13 @@ describe('section evidence references', () => {
     ]
     render(
       <MemoryRouter>
-        <SectionAssessments
-          run={{ ...run, sections }}
-          rubric={rubric}
-          documents={documents}
-          id="APP-TEST"
-        />
+        <SectionAssessments run={{ ...run, sections }} documents={documents} id="APP-TEST" />
       </MemoryRouter>,
     )
-    await userEvent.click(screen.getByRole('button', { name: /Academic performance/ }))
+    expect(screen.getByRole('button', { name: /Academic performance/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    )
     expect(screen.getByText('transcript.pdf · p.0').closest('a')).toHaveAttribute(
       'aria-disabled',
       'true',
@@ -52,14 +49,17 @@ describe('section evidence references', () => {
     }
     render(
       <MemoryRouter>
-        <SectionAssessments run={sourceRun} rubric={rubric} documents={[document]} id="APP-TEST" />
+        <SectionAssessments run={sourceRun} documents={[document]} id="APP-TEST" />
       </MemoryRouter>,
     )
-    await userEvent.click(screen.getByRole('button', { name: /Academic performance/ }))
+    expect(screen.getByRole('button', { name: /Academic performance/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    )
     expect(screen.getByRole('link', { name: 'transcript.pdf · p.2' })).toHaveAttribute(
       'href',
       `/applications/APP-TEST/evidence?document=${encodeURIComponent(document.id)}&page=2&run=${encodeURIComponent(sourceRun.id)}`,
     )
-    expect(screen.getByText(/— \/ 100/)).toBeInTheDocument()
+    expect(screen.getByText('Score unavailable')).toBeInTheDocument()
   })
 })
