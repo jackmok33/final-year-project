@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { downloadBlob } from '../components/files'
 import type { BatchSummary, Decision } from '../domain/types'
-import { releaseArchive, stageArchive } from '../services/demo'
+import { releaseArchive, stageArchive } from '../services/fileStaging'
 import '../test/domSetup'
 import { application, otherProgramme, programme, run, tutor } from '../test/fixtures'
 import {
@@ -24,7 +24,7 @@ vi.mock('../hooks/redux', async () => (await import('../test/pageMocks')).reduxM
 vi.mock('../hooks/useWorkspace', async () => ({
   useWorkspace: (await import('../test/pageMocks')).workspaceMock,
 }))
-vi.mock('../services/demo', () => ({
+vi.mock('../services/fileStaging', () => ({
   stageArchive: vi.fn(() => 'archive-staged'),
   releaseArchive: vi.fn(),
 }))

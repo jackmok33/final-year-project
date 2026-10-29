@@ -1,5 +1,10 @@
 # Page and component structure
 
+Pages use RTK Query and the `services/admissions.ts` port for application data and
+original documents. Temporary file references come from `services/fileStaging.ts`;
+error text is normalised in `services/errors.ts`. Components do not import demo
+storage, dataset recovery or API initialisation for formatting an error.
+
 Start in `src/pages/`. Pages own screen queries, mutations, temporary form state,
 derived values, validation and handlers. File/component names have the `Page`
 suffix. A keyed private controller may reset a draft when the selected record,
@@ -64,8 +69,11 @@ columns. The controlled table renders Mantis-styled sort toggles and aria-sort;
 Actions stays unsorted. Quick-sort choices stay synchronised with header sorting.
 Status/score/decision helpers prevent incomplete assessments and old decisions
 from appearing current. `NewApplicationPage` validates PDF drafts and the optional
-batch context before staging files. Import parsing and atomic persistence stay
-in services, outside UI components.
+batch context before staging files. Its private editor is keyed by account,
+programme, intake and batch, so switching context starts a fresh draft. Creation
+requires an active tutor who owns the course; compatibility assignment arrays do
+not grant access. Late PDF inspection/create results cannot update or redirect a
+different screen. Import parsing and atomic persistence stay in services.
 
 AI fields use `aiRecommendation()` for Unconditional/Conditional/Reject, or `—`
 while unavailable. It projects legacy Offer/Further review to Unconditional/
@@ -73,6 +81,12 @@ Conditional for the prototype without changing source runs. `decisionOutcome()`
 provides the three tutor outcomes plus Pending; unclassified legacy decisions and
 old-run decisions remain pending. Table sorting, summaries, intake counts/analytics
 and CSV exports use these same current values. Pending is not a saved radio option.
+
+`domain/applicationSummary.ts` provides current-decision counts for applicant
+queues, intake metrics, analytics and batch rows; each caller supplies its own
+scope. `domain/documentLimits.ts` shares PDF size/page validation between forms,
+PDF parsing, ZIP import and backup validation. Stateful async completion guards
+belong in `hooks/useIsMounted.ts`; resource cleanup still runs after navigation.
 
 `AssessmentPage` owns queries, tab navigation, URL-backed decision-popup state and
 re-evaluation. It

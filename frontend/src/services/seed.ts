@@ -52,7 +52,7 @@ export const thirdRubric: Rubric = {
   programmeId: thirdProgramme.id,
   weights: { ...baseRubric.weights },
 }
-export const secondRubric: Rubric = {
+const secondRubric: Rubric = {
   ...baseRubric,
   id: 'rubric-2',
   programmeId: secondProgramme.id,

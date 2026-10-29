@@ -258,14 +258,28 @@ Pages own screen logic and compose controlled components. Copy lives in matching
 `src/content/` files through the shared `useContent()` hook. See the
 [component guide](src/components/README.md) and [content guide](src/content/README.md).
 
-The RTK Query adapter and `services/evaluation.ts` are future backend replacement
-boundaries. With the optional mock API, synthetic reassessments send fixture IDs,
+`services/admissions.ts` is the shared query/command/original-PDF boundary used by
+RTK Query and document consumers. `services/contracts.ts` holds typed requests and
+read models; `fileStaging.ts` keeps temporary files outside Redux. A future HTTP
+adapter can implement that interface without changing screen-level handlers.
+Browser backup previews remain explicitly local in `services/browserBackups.ts`.
+See the [service guide](src/services/README.md#future-fastapi-integration) for the
+integration boundary and remaining work.
+
+The separate `services/evaluation.ts` selects the current evaluator. With the
+optional mock API, synthetic reassessments send fixture IDs,
 document metadata and criteria, not original PDFs or tutor notes. HTTP errors do
 not silently fall back or save partial corrections. The HTTP response contract
 and independent five-table PostgreSQL foundation are unchanged by this redesign.
 
 Real authentication, upload APIs, extraction, inference, PostgreSQL-backed HTTP
 routes, live health monitoring and deployment remain future work.
+
+Current-decision summaries and PDF limits are shared domain helpers; pages retain
+their own filtering, drafts and mutation logic. Upload drafts reset when account,
+programme, intake or batch changes. Async completion guards prevent old validation
+or create requests from updating a later screen, while temporary files are still
+released after each operation.
 
 ## Checks
 

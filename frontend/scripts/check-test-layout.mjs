@@ -19,9 +19,13 @@ function needsCompanion(path) {
     path.startsWith('test/') ||
     (path.startsWith('content/') && path !== 'content/formatText.ts') ||
     path.endsWith('.d.ts') ||
-    ['main.tsx', 'services/demo/contracts.ts', 'mantis/config.ts', 'mantis/types.ts'].includes(
-      path,
-    ) ||
+    [
+      'main.tsx',
+      'services/contracts.ts',
+      'services/demo/contracts.ts',
+      'mantis/config.ts',
+      'mantis/types.ts',
+    ].includes(path) ||
     path.startsWith('mantis/theme/') ||
     /^mantis\/layout\/(AppBarStyled|DrawerHeaderStyled|MiniDrawerStyled)\./.test(path)
   )

@@ -2,9 +2,9 @@ import { useContent } from '../../hooks/useContent'
 import { Accordion, AccordionSummary, AccordionDetails, Box, Typography } from '@mui/material'
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
 import { useEffect, useId, useRef, useState } from 'react'
-import { errorMessage } from '../../app/api'
+import { errorMessage } from '../../services/errors'
 import { type DocumentRecord } from '../../domain/types'
-import { authorizedFile } from '../../services/demo'
+import { admissionsService } from '../../services/admissions'
 import { ErrorNotice } from '../common'
 
 export function PdfViewer({
@@ -28,7 +28,8 @@ export function PdfViewer({
   useEffect(() => {
     let cancelled = false
     let loaded: PDFDocumentProxy | undefined
-    void authorizedFile(document.id, userId)
+    void admissionsService
+      .originalDocument(document.id, userId)
       .then(async (file) => (await import('../../services/pdf')).openPdf(file))
       .then((value) => {
         loaded = value

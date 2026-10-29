@@ -6,7 +6,6 @@ import {
   assessmentScore,
   decisionOutcome,
   finalDecision,
-  isOffer,
   latestDecision,
   latestRun,
   type Outcome,
@@ -29,9 +28,6 @@ describe('new programme and applicant presentation', () => {
     expect(
       finalDecision({ ...application, decisions: [{ ...decision, runId: 'old' }] }),
     ).toBeUndefined()
-    expect(isOffer('Conditional')).toBe(true)
-    expect(isOffer('Unconditional')).toBe(true)
-    expect(isOffer('Reject')).toBe(false)
     expect(
       assessmentScore({ ...application, runs: [{ ...run, status: 'queued', overall: 99 }] }),
     ).toBeNull()

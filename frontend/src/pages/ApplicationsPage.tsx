@@ -23,13 +23,12 @@ import {
   assessmentScore,
   currentDecision,
   decisionOutcome,
-  finalDecision,
-  isOffer,
   latestRun,
   type Application,
 } from '../domain/types'
 import { applicationIntakeYear, normalizeIntakeYear } from '../domain/intakes'
 import { batchApplications } from '../domain/batches'
+import { summarizeApplications } from '../domain/applicationSummary'
 import { useContent } from '../hooks/useContent'
 import { usePagination } from '../hooks/usePagination'
 
@@ -113,8 +112,7 @@ export function ApplicationsPage() {
   if (batchId && (!batch || !programme))
     return <ErrorNotice error={batchQuery.error ?? content.batchUnavailable} />
   if (!programme) return <Alert severity="info">{content.noWorkspaceMessage}</Alert>
-  const offers = scoped.filter((a) => isOffer(finalDecision(a)?.outcome)).length
-  const pending = scoped.filter((a) => !finalDecision(a)).length
+  const summary = summarizeApplications(scoped)
   function filter(change: () => void) {
     pagination.resetPage()
     change()
@@ -154,9 +152,9 @@ export function ApplicationsPage() {
       {applications.currentData && (
         <SummaryCards
           items={[
-            { label: content.total, value: scoped.length, hint: content.batchHint },
-            { label: content.offers, value: offers, hint: content.offersHint },
-            { label: content.pending, value: pending, hint: content.pendingHint },
+            { label: content.total, value: summary.total, hint: content.batchHint },
+            { label: content.offers, value: summary.offers, hint: content.offersHint },
+            { label: content.pending, value: summary.pending, hint: content.pendingHint },
           ]}
         />
       )}

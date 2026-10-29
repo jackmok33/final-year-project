@@ -66,6 +66,30 @@ describe('FastAPI adapter', () => {
     expect(first.parentRunId).toBeUndefined()
     expect(first.overall).toBeNull()
   })
+  it('normalises optional transport fields without mutating the response object', async () => {
+    const original = Object.freeze({ ...result(), parentRunId: null })
+    const response = Response.json(original)
+    vi.spyOn(response, 'json').mockResolvedValue(original)
+    fetchMock.mockResolvedValue(response)
+    const assessment = await evaluateBackend(
+      { ...application, runs: [] },
+      documents,
+      rubric,
+      74,
+      true,
+    )
+    expect(assessment).not.toBe(original)
+    expect(assessment.parentRunId).toBeUndefined()
+    expect(assessment.error).toBeUndefined()
+    expect(original.parentRunId).toBeNull()
+    expect(original.error).toBeNull()
+  })
+  it.each([false, 42, 'assessment', []])('rejects a non-object response %j', async (body) => {
+    fetchMock.mockResolvedValue(Response.json(body))
+    await expect(evaluateBackend(application, documents, rubric, 74, true)).rejects.toThrow(
+      /Invalid|invalid/,
+    )
+  })
   it('keeps standalone browser mode and real uploads outside the mock endpoint', async () => {
     vi.stubEnv('VITE_API_BASE_URL', '   ')
     expect(backendUrl()).toBe('')
@@ -123,12 +147,20 @@ describe('FastAPI adapter', () => {
     { overall: 101 },
     { extractedGrade: -1 },
     { status: 'queued' },
+    { status: ['awaiting review'] },
     { recommendation: 'Auto admit' },
+    { recommendation: ['Offer'] },
     { startedAt: 'not a date' },
+    { startedAt: 0 },
+    { finishAt: 0 },
     { finishAt: '2020-01-01' },
     { error: 123 },
     { sections: [] },
+    { sections: [null, run.sections[1], run.sections[2]] },
+    { sections: [{ ...run.sections[0], citations: [null] }, ...run.sections.slice(1)] },
+    { sections: [{ ...run.sections[0], score: '88' }, ...run.sections.slice(1)] },
     { sections: [run.sections[0], run.sections[0], run.sections[0]] },
+    { flags: [null] },
     { flags: [{ code: 'bad', message: 'bad', critical: 'yes' }] },
     {
       justification: {
@@ -144,6 +176,7 @@ describe('FastAPI adapter', () => {
     },
     { justification: { ...run.justification, rules: [123] } },
     { justification: { ...run.justification, summary: null } },
+    { justification: null },
     { flags: [{ code: 'critical', message: 'missing', critical: true }] },
     {
       sections: run.sections.map((s) => ({ ...s, score: null })),

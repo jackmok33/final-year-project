@@ -9,6 +9,7 @@ import { CreateWorkspaceDialog } from '../components/workspace/CreateWorkspaceDi
 import { ModuleCards } from '../components/workspace/ModuleCards'
 import { useContent } from '../hooks/useContent'
 import { normalizeCourseName } from '../domain/courseName'
+import { useIsMounted } from '../hooks/useIsMounted'
 
 export function ModulesPage() {
   const content = useContent('modulesPage')
@@ -19,18 +20,19 @@ export function ModulesPage() {
   const [saveError, setSaveError] = useState<unknown>()
   const [command, { isLoading: saving }] = useCommandMutation()
   const navigate = useNavigate()
+  const isMounted = useIsMounted()
   const normalizedName = normalizeCourseName(name)
   async function createWorkspace() {
     if (saving || !normalizedName) return
     setSaveError(undefined)
     try {
       const { id } = await command({ op: 'workspace', name: normalizedName }).unwrap()
-      if (id) {
+      if (isMounted() && id) {
         setOpen(false)
         navigate(`/batches?${new URLSearchParams({ programme: id })}`)
       }
     } catch (error) {
-      setSaveError(error)
+      if (isMounted()) setSaveError(error)
     }
   }
   if (isLoading) return <Loading />

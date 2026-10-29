@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { downloadBlob } from '../components/files'
 import type { Backup } from '../domain/types'
-import { discardBackup, stageBackup, takeBackup, validateBackup } from '../services/demo'
+import { prepareBackupRestore } from '../services/browserBackups'
+import { discardBackup, takeBackup } from '../services/fileStaging'
 import '../test/domSetup'
 import { dataset } from '../test/fixtures'
 import { command, resetPageMocks, unwrap } from '../test/pageMocks'
@@ -16,18 +17,24 @@ vi.mock('../hooks/redux', async () => (await import('../test/pageMocks')).reduxM
 vi.mock('../hooks/useWorkspace', async () => ({
   useWorkspace: (await import('../test/pageMocks')).workspaceMock,
 }))
-vi.mock('../services/demo', () => ({
+vi.mock('../services/fileStaging', () => ({
   discardBackup: vi.fn(),
-  stageBackup: vi.fn(() => 'backup-1'),
   takeBackup: vi.fn(),
-  validateBackup: vi.fn(),
 }))
+vi.mock('../services/browserBackups', () => ({ prepareBackupRestore: vi.fn() }))
 vi.mock('../components/files', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   downloadBlob: vi.fn(),
 }))
 describe('browser data maintenance', () => {
-  beforeEach(resetPageMocks)
+  beforeEach(() => {
+    resetPageMocks()
+    vi.mocked(prepareBackupRestore).mockReset().mockResolvedValue({
+      id: 'backup-1',
+      applications: 1,
+      documents: 3,
+    })
+  })
   const show = (page: React.ReactElement) => renderPage(page, '/admin', '*')
   it('requires confirmation for deletion and records reset separately', async () => {
     show(<DataOperationsPage />)
@@ -65,7 +72,6 @@ describe('browser data maintenance', () => {
     expect(screen.getByText(/backup downloaded, including original PDFs/)).toBeInTheDocument()
   })
   it('verifies a backup before confirmation and discards it if cancelled', async () => {
-    vi.mocked(validateBackup).mockResolvedValue({ dataset, files: {} })
     show(<DataOperationsPage />)
     await userEvent.upload(
       screen.getByLabelText('Import demo backup'),
@@ -73,14 +79,13 @@ describe('browser data maintenance', () => {
     )
     const dialog = await screen.findByRole('dialog', { name: 'Restore browser demo backup?' })
     expect(dialog).toHaveTextContent('1 applications')
-    expect(stageBackup).toHaveBeenCalledWith({})
+    expect(prepareBackupRestore).toHaveBeenCalledWith({})
     expect(command).not.toHaveBeenCalled()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     expect(discardBackup).toHaveBeenCalledWith('backup-1')
     expect(command).not.toHaveBeenCalled()
   })
   it('restores only a verified, confirmed backup', async () => {
-    vi.mocked(validateBackup).mockResolvedValue({ dataset, files: {} })
     show(<DataOperationsPage />)
     await userEvent.upload(
       screen.getByLabelText('Import demo backup'),
@@ -90,6 +95,55 @@ describe('browser data maintenance', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
     expect(command).toHaveBeenCalledWith({ op: 'restore', backupId: 'backup-1' })
     expect(await screen.findByText(/Browser demo restored/)).toBeInTheDocument()
+  })
+  it('releases an unconfirmed restore when leaving the screen', async () => {
+    const view = show(<DataOperationsPage />)
+    await userEvent.upload(
+      screen.getByLabelText('Import demo backup'),
+      new File(['{}'], 'backup.json', { type: 'application/json' }),
+    )
+    await screen.findByRole('dialog')
+    view.unmount()
+    expect(discardBackup).toHaveBeenCalledWith('backup-1')
+    expect(command).not.toHaveBeenCalled()
+  })
+  it('releases a restore preview that finishes after leaving the screen', async () => {
+    let finish!: (value: Awaited<ReturnType<typeof prepareBackupRestore>>) => void
+    vi.mocked(prepareBackupRestore).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    const view = show(<DataOperationsPage />)
+    await userEvent.upload(
+      screen.getByLabelText('Import demo backup'),
+      new File(['{}'], 'backup.json', { type: 'application/json' }),
+    )
+    await waitFor(() => expect(prepareBackupRestore).toHaveBeenCalled())
+    view.unmount()
+    finish({ id: 'late-preview', applications: 1, documents: 3 })
+    await waitFor(() => expect(discardBackup).toHaveBeenCalledWith('late-preview'))
+    expect(command).not.toHaveBeenCalled()
+  })
+  it('keeps a confirmed restore staged until its in-flight command finishes', async () => {
+    let finish!: (value: { id?: string }) => void
+    unwrap.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    const view = show(<DataOperationsPage />)
+    await userEvent.upload(
+      screen.getByLabelText('Import demo backup'),
+      new File(['{}'], 'backup.json', { type: 'application/json' }),
+    )
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+    expect(command).toHaveBeenCalledWith({ op: 'restore', backupId: 'backup-1' })
+    view.unmount()
+    expect(discardBackup).not.toHaveBeenCalled()
+    finish({})
+    await waitFor(() => expect(discardBackup).toHaveBeenCalledWith('backup-1'))
   })
   it('surfaces malformed, oversized and failed backup operations without replacing data', async () => {
     show(<DataOperationsPage />)

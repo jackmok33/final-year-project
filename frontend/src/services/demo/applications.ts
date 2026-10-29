@@ -1,10 +1,12 @@
 import { isTutorOutcome, type Application, type Dataset, type Programme } from '../../domain/types'
 import { assignExistingBatches } from '../../domain/batches'
 import { applicationIntakeYear, normalizeIntakeYear } from '../../domain/intakes'
+import { isWithinApplicationPageLimit } from '../../domain/documentLimits'
 import { evaluateApplication } from '../evaluation'
 import { sha256 } from '../storage'
 import { requireAdmin, requireTutor, applicationFor, latestReadyRun } from './access'
-import { archives, uploads, recordAudit } from './runtime'
+import { archives, uploads } from '../fileStaging'
+import { recordAudit } from './runtime'
 import type { Command, CommandContext, CommandResult } from './contracts'
 
 function selectedIntake(data: Dataset, programme: Programme, year = programme.year) {
@@ -95,7 +97,7 @@ export async function changeApplication(
           throw new Error('The selected upload is no longer available. Select the files again.')
         const { pages } = await inspectPdf(file)
         pageCount += pages
-        if (pageCount > 100)
+        if (!isWithinApplicationPageLimit(pageCount))
           throw new Error('An application cannot contain more than 100 pages in total.')
         const docId = crypto.randomUUID()
         data.documents.push({

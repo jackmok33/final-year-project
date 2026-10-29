@@ -3,7 +3,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { downloadBlob } from '../components/files'
-import { authorizedFile } from '../services/demo'
+import { admissionsService } from '../services/admissions'
 import '../test/domSetup'
 import { detail, documents, run } from '../test/fixtures'
 import { apiMocks, queryResult, resetPageMocks } from '../test/pageMocks'
@@ -15,7 +15,7 @@ vi.mock('../hooks/redux', async () => (await import('../test/pageMocks')).reduxM
 vi.mock('../hooks/useWorkspace', async () => ({
   useWorkspace: (await import('../test/pageMocks')).workspaceMock,
 }))
-vi.mock('../services/demo', () => ({ authorizedFile: vi.fn() }))
+vi.mock('../services/admissions', () => ({ admissionsService: { originalDocument: vi.fn() } }))
 vi.mock('../components/files', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   downloadBlob: vi.fn(),
@@ -67,13 +67,13 @@ describe('source evidence page', () => {
   })
   it('downloads the authorised original and surfaces access/storage failures', async () => {
     const blob = new Blob(['%PDF'])
-    vi.mocked(authorizedFile)
+    vi.mocked(admissionsService.originalDocument)
       .mockResolvedValueOnce(blob)
       .mockRejectedValueOnce(new Error('Original PDF is missing'))
     renderPage(<EvidencePage />, '/applications/APP-TEST/evidence')
     await userEvent.click(screen.getByRole('button', { name: 'Download original' }))
     await waitFor(() => expect(downloadBlob).toHaveBeenCalledWith(blob, 'transcript.pdf'))
-    expect(authorizedFile).toHaveBeenCalledWith(documents[0].id, 'tutor-a')
+    expect(admissionsService.originalDocument).toHaveBeenCalledWith(documents[0].id, 'tutor-a')
     await userEvent.click(screen.getByRole('button', { name: 'Download original' }))
     expect(await screen.findByText('Original PDF is missing')).toBeInTheDocument()
   })

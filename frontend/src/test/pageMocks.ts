@@ -20,12 +20,6 @@ export const unwrap = vi.fn<() => Promise<{ id?: string; backupId?: string }>>()
 export const command = vi.fn(() => ({ unwrap }))
 export const mutation = { isLoading: false, error: undefined as unknown }
 export const apiMocks = {
-  errorMessage: (error: unknown) =>
-    typeof error === 'string'
-      ? error
-      : error instanceof Error
-        ? error.message
-        : ((error as { data?: string })?.data ?? 'The operation could not be completed.'),
   admissionsApi: { util: { resetApiState: () => ({ type: 'api/reset' }) } },
   useAccountsQuery: vi.fn(),
   useMeQuery: vi.fn(),

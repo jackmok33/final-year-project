@@ -1,8 +1,55 @@
-# Frontend verification — 28 October 2026
+# Frontend verification — 29 October 2026
 
-This snapshot covers the user's revised desktop Figma design implemented with the
-supplied Mantis source. Startup and reproducible commands are in the
+This snapshot covers the frontend quality refactor while retaining the revised
+desktop design and supplied Mantis source. Earlier verification snapshots remain
+below. Startup and reproducible commands are in the
 [frontend guide](README.md#checks).
+
+## Frontend quality review — 29 October
+
+The UI now depends on typed service contracts and `admissionsService` for
+queries/commands/original documents. Temporary files, error normalisation and
+local backup previews have focused service modules. Demo storage, permissions,
+locking and atomic writes remain behind the selected adapter. No UI module
+imports demo storage or its internals. The service guide documents the future
+FastAPI replacement point without presenting local demo commands as HTTP routes.
+
+Shared domain helpers now provide current-decision counts and document limits;
+pages retain their filtering, sorting, drafts and mutations. Shared mounted-state
+guards prevent late callbacks from redirecting or updating another screen.
+Application drafts reset by account, course, intake and batch; canonical tutor
+ownership replaces the legacy assignment-array check. Restore previews are released
+after cancellation/navigation while confirmed restores retain references until
+completion. Backend response guards are named, reject malformed nested fields
+and non-string timestamps, and normalise optional nulls without mutating input.
+
+The final import audit found all 228 production modules reachable, including
+dynamic imports, with no runtime cycles or removable dependency. Unused exports
+and one registry selector were removed; migrations, saved history, original PDFs
+and supplied Mantis components remain. Independent integrated reviews found no
+remaining blocking regression in the changed scope.
+
+| Check                                   | Result                                                             |
+| --------------------------------------- | ------------------------------------------------------------------ |
+| Naming/colocation                       | 116 matching companion files; no missing/orphaned runtime tests    |
+| Unit/component/service coverage run     | 742 tests passed with `--maxWorkers=1`                             |
+| Application coverage                    | 98.31% lines, 97.12% statements, 97.77% functions, 92.50% branches |
+| TypeScript and Vite production build    | Passed                                                             |
+| ESLint, Prettier and whitespace         | Passed                                                             |
+| Standalone production-browser workflows | All 16 passed                                                      |
+| FastAPI integration workflows           | Both desktop and small-screen workflows passed                     |
+
+All newly added runtime helpers and the revised backend-response validator have
+100% line/branch coverage in this run. Coverage thresholds are unchanged.
+Duplicate helper tests now live beside their implementation; shared summary tests
+cover the meaningful outcome rules from the removed unused helper.
+Browser checks cover actual PDF.js, ZIP import/rollback, roles, criteria, decisions,
+refresh recovery, backup/restore/reset, keyboard navigation and axe audits.
+
+The current browser adapter and existing mock assessment HTTP contract retain
+their behaviour. Real authentication, PDF-upload endpoints and PostgreSQL-backed
+HTTP routes remain later work. Backend source, database data and unrelated local
+planning edits were not changed; backend unit/Ruff/PostgreSQL checks were not rerun.
 
 ## Mantis reuse audit — 28 October
 

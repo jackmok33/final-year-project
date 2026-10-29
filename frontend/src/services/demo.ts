@@ -1,4 +1,5 @@
-import type { Query, Command, CommandResult, CommandContext } from './demo/contracts'
+import type { Query, QueryResult, Command, CommandResult } from './contracts'
+import type { CommandContext } from './demo/contracts'
 import { runExclusive, loadDataset, recordAudit } from './demo/runtime'
 import { activeUser, applicationFor } from './demo/access'
 import { readQuery } from './demo/queries'
@@ -7,7 +8,7 @@ import { changeSettings } from './demo/settings'
 import { changeDemoData } from './demo/backups'
 import { readFile, writeDataset } from './storage'
 
-export type { UploadReference, Query, Command, CommandResult } from './demo/contracts'
+export type { UploadReference, Query, Command, CommandResult } from './contracts'
 export {
   stageArchive,
   releaseArchive,
@@ -16,11 +17,14 @@ export {
   discardBackup,
   stageUploads,
   releaseUploads,
-} from './demo/runtime'
+} from './fileStaging'
 export { validateBackup } from './demo/backups'
 
 /** Public demo adapter. All reads/writes share one cross-tab storage lock. */
-export function queryDemo(query: Query, userId: string | null): Promise<unknown> {
+export function queryDemo<Q extends Query>(
+  query: Q,
+  userId: string | null,
+): Promise<QueryResult<Q>> {
   return runExclusive(async () => readQuery(await loadDataset(), query, userId))
 }
 

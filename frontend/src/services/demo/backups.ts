@@ -1,11 +1,17 @@
 import type { Application, Backup, Dataset, User } from '../../domain/types'
 import { assignExistingBatches, validBatches } from '../../domain/batches'
 import { validateRubric } from '../../domain/rules'
+import {
+  isValidDocumentPageCount,
+  isValidPdfSize,
+  isWithinApplicationPageLimit,
+} from '../../domain/documentLimits'
 import { assignCourseOwners, migrateDataset } from '../migration'
 import { readFile, sha256, writeDataset } from '../storage'
 import { createSeed } from '../seed'
 import { requireAdmin } from './access'
-import { backups, recordAudit, stageBackup } from './runtime'
+import { backups, stageBackup } from '../fileStaging'
+import { recordAudit } from './runtime'
 import type { Command, CommandResult } from './contracts'
 
 type DataCommand = Extract<Command, { op: 'backup' | 'restore' | 'reset' }>
@@ -159,12 +165,8 @@ function validateDocumentRecords(dataset: Dataset) {
       (doc) =>
         [doc.id, doc.applicationId, doc.name, doc.hash].every(isString) &&
         ['transcript', 'cv', 'statement'].includes(doc.type) &&
-        Number.isInteger(doc.pages) &&
-        doc.pages > 0 &&
-        doc.pages <= 100 &&
-        Number.isFinite(doc.size) &&
-        doc.size > 0 &&
-        doc.size <= 20 * 1024 * 1024 &&
+        isValidDocumentPageCount(doc.pages) &&
+        isValidPdfSize(doc.size) &&
         dataset.applications.some(
           (application) =>
             application.id === doc.applicationId && application.documentIds.includes(doc.id),
@@ -175,6 +177,9 @@ function validateDocumentRecords(dataset: Dataset) {
 }
 
 function validateApplicationHistory(dataset: Dataset, application: Application) {
+  const totalPages = dataset.documents
+    .filter((document) => document.applicationId === application.id)
+    .reduce((total, document) => total + document.pages, 0)
   const docFor = (id: string, appId: string, page: number) =>
     dataset.documents.some(
       (doc) =>
@@ -189,9 +194,7 @@ function validateApplicationHistory(dataset: Dataset, application: Application) 
     !application.documentIds.every((id) =>
       dataset.documents.some((doc) => doc.id === id && doc.applicationId === application.id),
     ) ||
-    dataset.documents
-      .filter((doc) => doc.applicationId === application.id)
-      .reduce((n, doc) => n + doc.pages, 0) > 100
+    !isWithinApplicationPageLimit(totalPages)
   )
     throw new Error()
   if (

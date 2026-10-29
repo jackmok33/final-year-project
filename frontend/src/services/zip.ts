@@ -1,10 +1,10 @@
 import { Unzip, UnzipInflate, unzipSync } from 'fflate'
 import type { DocumentType } from '../domain/types'
+import { isValidPdfSize, MAX_PDF_BYTES } from '../domain/documentLimits'
 
 export const MAX_ZIP_SIZE = 100 * 1024 * 1024
 export const MAX_EXPANDED_SIZE = 200 * 1024 * 1024
 export const MAX_APPLICANTS = 100
-const MAX_PDF_SIZE = 20 * 1024 * 1024
 export interface ArchiveApplicant {
   candidate: string
   documents: { type: DocumentType; file: File }[]
@@ -57,7 +57,7 @@ export async function readApplicantArchive(file: File): Promise<ArchiveApplicant
           throw new Error(`“${entry.name}” is not a PDF. This version imports PDF documents only.`)
         if (inventory.has(entry.name.toLowerCase()))
           throw new Error('The ZIP contains duplicate file paths.')
-        if (entry.originalSize === 0 || entry.originalSize > MAX_PDF_SIZE)
+        if (!isValidPdfSize(entry.originalSize))
           throw new Error('Each PDF must be non-empty and no larger than 20 MB.')
         expanded += entry.originalSize
         if (expanded > MAX_EXPANDED_SIZE)
@@ -108,7 +108,7 @@ export async function readApplicantArchive(file: File): Promise<ArchiveApplicant
         if (error) throw error
         size += chunk.length
         outputSize += chunk.length
-        if (size > MAX_PDF_SIZE || outputSize > MAX_EXPANDED_SIZE || size > expected.size)
+        if (size > MAX_PDF_BYTES || outputSize > MAX_EXPANDED_SIZE || size > expected.size)
           throw new Error('The extracted ZIP exceeds its document or batch size limit.')
         chunks.push(new Uint8Array(chunk))
         if (final) {
