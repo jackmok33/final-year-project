@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '../test/domSetup'
@@ -69,6 +69,23 @@ describe('module workspace creation', () => {
     await userEvent.type(input, 'x'.repeat(101))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add Programme' })).toBeDisabled()
+  })
+  it('does not redirect when workspace creation finishes after leaving the screen', async () => {
+    let finish!: (result: { id?: string }) => void
+    unwrap.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    const view = renderPage(<ModulesPage />, '/modules', '*')
+    await userEvent.click(screen.getByRole('button', { name: 'Add Programme' }))
+    await userEvent.type(screen.getByRole('textbox', { name: 'Programme name' }), 'New programme')
+    await userEvent.click(screen.getByRole('button', { name: 'Add Programme' }))
+    view.rerender(<p>Another screen</p>)
+    await act(async () => {
+      finish({ id: 'late-workspace' })
+    })
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('/modules')
   })
 })
 describe('module and intake selection', () => {

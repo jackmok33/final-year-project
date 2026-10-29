@@ -40,6 +40,7 @@ describe('BatchList', () => {
       '/batches/batch%2Fone',
     )
     const cells = within(screen.getAllByRole('row')[1]).getAllByRole('cell')
+    expect(cells[1]).toHaveTextContent(/\d{1,2}\s+[A-Za-z]{3}\s+\d{4},\s+\d{2}:\d{2}/)
     expect(cells.slice(2).map((cell) => cell.textContent)).toEqual(['5', '1', '1', '1', '2'])
     await userEvent.click(screen.getByRole('button', { name: 'Go to page 2' }))
     expect(onPageChange).toHaveBeenCalledWith(1)

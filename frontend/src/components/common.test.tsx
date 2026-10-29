@@ -41,6 +41,8 @@ describe('shared accessible controls', () => {
   it('shows explicit error text and renders nothing without an error', () => {
     const view = render(<ErrorNotice error="PDF could not be read" />)
     expect(screen.getByRole('alert')).toHaveTextContent('PDF could not be read')
+    view.rerender(<ErrorNotice error={{ status: 422, data: { detail: 'Invalid source page.' } }} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Invalid source page.')
     view.rerender(<ErrorNotice error={undefined} />)
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })

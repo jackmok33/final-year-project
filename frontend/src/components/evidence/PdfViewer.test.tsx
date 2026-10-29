@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { authorizedFile } from '../../services/demo'
+import { admissionsService } from '../../services/admissions'
 import { openPdf } from '../../services/pdf'
 import '../../test/domSetup'
 import { documents } from '../../test/fixtures'
 import { PdfViewer } from './PdfViewer'
-vi.mock('../../services/demo', () => ({ authorizedFile: vi.fn() }))
+vi.mock('../../services/admissions', () => ({ admissionsService: { originalDocument: vi.fn() } }))
 vi.mock('../../services/pdf', () => ({ openPdf: vi.fn() }))
 const cancel = vi.fn(),
   destroy = vi.fn(),
@@ -14,7 +14,7 @@ const cancel = vi.fn(),
   getPage = vi.fn()
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(authorizedFile).mockResolvedValue(new Blob(['%PDF']))
+  vi.mocked(admissionsService.originalDocument).mockResolvedValue(new Blob(['%PDF']))
   renderPdf.mockReturnValue({ promise: Promise.resolve(), cancel })
   getPage.mockResolvedValue({
     getViewport: ({ scale }: { scale: number }) => ({ width: 600 * scale, height: 800 * scale }),
@@ -30,7 +30,7 @@ describe('local PDF viewer lifecycle', () => {
     const view = render(<PdfViewer document={documents[0]} page={2} userId="tutor-a" />)
     expect(screen.getByRole('status')).toHaveTextContent('Loading PDF page')
     expect(await screen.findByText('Original embedded PDF text')).toBeInTheDocument()
-    expect(authorizedFile).toHaveBeenCalledWith(documents[0].id, 'tutor-a')
+    expect(admissionsService.originalDocument).toHaveBeenCalledWith(documents[0].id, 'tutor-a')
     expect(getPage).toHaveBeenCalledWith(2)
     expect(screen.getByRole('img')).toHaveAccessibleName(/transcript.pdf, page 2/)
     view.unmount()
@@ -45,7 +45,9 @@ describe('local PDF viewer lifecycle', () => {
     expect(cancel).toHaveBeenCalledOnce()
   })
   it('shows the storage/permission error and stops the loading status', async () => {
-    vi.mocked(authorizedFile).mockRejectedValue(new Error('Original PDF missing'))
+    vi.mocked(admissionsService.originalDocument).mockRejectedValue(
+      new Error('Original PDF missing'),
+    )
     render(<PdfViewer document={documents[0]} page={1} userId="tutor-a" />)
     expect(await screen.findByRole('alert')).toHaveTextContent('Original PDF missing')
     expect(screen.queryByRole('status')).not.toBeInTheDocument()

@@ -1,5 +1,6 @@
-import { finalDecision, type Application, type Dataset, type UploadBatch } from './types'
+import type { Application, Dataset, UploadBatch } from './types'
 import { applicationIntakeYear } from './intakes'
+import { summarizeApplications } from './applicationSummary'
 
 /** Number a single module/intake chronologically; stored order breaks timestamp ties. */
 export function numberBatches<T extends UploadBatch>(batches: T[]) {
@@ -85,17 +86,14 @@ export function batchSummaries(data: Dataset, programmeId: string, intakeYear: s
     data.batches!.filter((b) => b.programmeId === programmeId && b.intakeYear === intakeYear),
   ).map((batch) => {
     const applications = batchApplications(batch, data.applications)
-    const outcomes = applications.flatMap((application) => {
-      const decision = finalDecision(application)
-      return decision ? [decision.outcome] : []
-    })
+    const summary = summarizeApplications(applications)
     return {
       ...batch,
-      applicantCount: applications.length,
-      conditionalCount: outcomes.filter((outcome) => outcome === 'Conditional').length,
-      unconditionalCount: outcomes.filter((outcome) => outcome === 'Unconditional').length,
-      rejectCount: outcomes.filter((outcome) => outcome === 'Reject').length,
-      pendingReviewCount: applications.length - outcomes.length,
+      applicantCount: summary.total,
+      conditionalCount: summary.conditional,
+      unconditionalCount: summary.unconditional,
+      rejectCount: summary.reject,
+      pendingReviewCount: summary.pending,
     }
   })
 }

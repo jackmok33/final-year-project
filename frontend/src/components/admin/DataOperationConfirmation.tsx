@@ -1,12 +1,8 @@
 import { useContent } from '../../hooks/useContent'
 import { Typography } from '@mui/material'
 import { Confirm } from '../common'
+import type { BackupPreview } from '../../services/browserBackups'
 export type DataOperation = 'delete' | 'restore' | 'reset'
-export interface PendingRestore {
-  id: string
-  applications: number
-  documents: number
-}
 export function DataOperationConfirmation({
   action,
   cancel,
@@ -20,7 +16,7 @@ export function DataOperationConfirmation({
   confirm: () => Promise<void>
   busy: boolean
   id: string
-  pending: PendingRestore | null
+  pending: BackupPreview | null
 }) {
   const content = useContent('dataOperationConfirmation')
   return (

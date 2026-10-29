@@ -1,4 +1,3 @@
-import { useContent } from '../hooks/useContent'
 import { Alert } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -9,8 +8,12 @@ import {
   type SelectedDocuments,
 } from '../components/applications/NewApplicationForm'
 import { ErrorNotice, Loading } from '../components/common'
-import { type DocumentType } from '../domain/types'
-import { releaseUploads, stageUploads } from '../services/demo'
+import type { DocumentType, Programme, User } from '../domain/types'
+import { isWithinApplicationPageLimit } from '../domain/documentLimits'
+import { useContent } from '../hooks/useContent'
+import { useIsMounted } from '../hooks/useIsMounted'
+import { releaseUploads, stageUploads } from '../services/fileStaging'
+
 export function NewApplicationPage() {
   const content = useContent('newApplicationPage')
   const {
@@ -24,33 +27,76 @@ export function NewApplicationPage() {
   const [params] = useSearchParams()
   const batchId = params.get('batch')
   const batchQuery = useBatchQuery(batchId ?? '', { skip: !batchId })
-  const batch = batchQuery.currentData
+  const batch = batchId ? batchQuery.currentData : undefined
   const programme = batchId
     ? programmes.find((p) => p.id === batch?.programmeId)
     : selectedProgramme
   const intakeYear = batch?.intakeYear ?? selectedIntakeYear
+  if (workspaceLoading || (batchId && batchQuery.isLoading)) return <Loading />
+  if (batchId && (!batch || !programme))
+    return <ErrorNotice error={batchQuery.error ?? content.batchUnavailable} />
+  if (workspaceError) return <ErrorNotice error={workspaceError} />
+  if (!programme) return <Alert severity="info">{content.noWorkspaceMessage}</Alert>
+  const year = intakeYear ?? programme.year
+  return (
+    <NewApplicationEditor
+      key={`${user?.id}:${programme.id}:${year}:${batchId ?? ''}`}
+      user={user}
+      programme={programme}
+      intakeYear={year}
+      batchId={batchId ?? undefined}
+    />
+  )
+}
+
+// A different account, programme, intake or batch starts a fresh upload draft.
+function NewApplicationEditor({
+  user,
+  programme,
+  intakeYear,
+  batchId,
+}: {
+  user?: User
+  programme: Programme
+  intakeYear: string
+  batchId?: string
+}) {
+  const content = useContent('newApplicationPage')
   const [candidate, setCandidate] = useState('')
   const [files, setFiles] = useState<SelectedDocuments>({})
   const [validationError, setValidationError] = useState('')
   const [checking, setChecking] = useState<DocumentType | null>(null)
   const [command, { isLoading, error }] = useCommandMutation()
   const navigate = useNavigate()
+  const isMounted = useIsMounted()
   async function select(type: DocumentType, file?: File) {
-    if (!file) return
+    if (!file || checking || isLoading) return
     setValidationError('')
     setChecking(type)
     try {
       const { inspectPdf } = await import('../services/pdf')
       const { pages } = await inspectPdf(file)
-      setFiles((previous) => ({ ...previous, [type]: { file, pages } }))
+      if (isMounted()) setFiles((previous) => ({ ...previous, [type]: { file, pages } }))
     } catch (error) {
-      remove(type)
-      setValidationError(error instanceof Error ? error.message : content.unableToReadPdf)
+      if (isMounted()) {
+        remove(type)
+        setValidationError(error instanceof Error ? error.message : content.unableToReadPdf)
+      }
     } finally {
-      setChecking(null)
+      if (isMounted()) setChecking(null)
     }
   }
   const total = Object.values(files).reduce((n, file) => n + file.pages, 0)
+  const ownsProgramme = Boolean(
+    user?.active && user.roles.includes('tutor') && programme.createdBy === user.id,
+  )
+  const disabled =
+    isLoading ||
+    !!checking ||
+    !candidate.trim() ||
+    !Object.keys(files).length ||
+    !isWithinApplicationPageLimit(total) ||
+    !ownsProgramme
   function remove(type: DocumentType) {
     setFiles((previous) => {
       const next = { ...previous }
@@ -59,17 +105,12 @@ export function NewApplicationPage() {
     })
   }
   async function submit() {
-    if (!programme || checking || total > 100) return
+    if (disabled) return
     const refs = stageUploads(
-      (
-        Object.entries(files) as [
-          DocumentType,
-          {
-            file: File
-            pages: number
-          },
-        ][]
-      ).map(([type, value]) => ({ type, file: value.file })),
+      (['transcript', 'cv', 'statement'] as const).flatMap((type) => {
+        const document = files[type]
+        return document ? [{ type, file: document.file }] : []
+      }),
     )
     try {
       const result = await command({
@@ -77,32 +118,19 @@ export function NewApplicationPage() {
         ...(batchId ? { batchId } : {}),
         candidate,
         programmeId: programme.id,
-        intakeYear: intakeYear ?? programme.year,
+        intakeYear,
         uploads: refs,
       }).unwrap()
-      navigate(`/applications/${result.id}`)
+      if (isMounted() && result.id) navigate(`/applications/${encodeURIComponent(result.id)}`)
     } catch {
       /* RTK Query presents the error. */
     } finally {
       releaseUploads(refs)
     }
   }
-
-  if (workspaceLoading || (batchId && batchQuery.isLoading)) return <Loading />
-  if (batchId && (!batch || !programme))
-    return <ErrorNotice error={batchQuery.error ?? content.batchUnavailable} />
-  if (workspaceError) return <ErrorNotice error={workspaceError} />
-  if (!programme) return <Alert severity="info">{content.noWorkspaceMessage}</Alert>
-  const disabled =
-    isLoading ||
-    !!checking ||
-    !candidate.trim() ||
-    !Object.keys(files).length ||
-    total > 100 ||
-    !user?.programmeIds.includes(programme?.id ?? '')
   return (
     <NewApplicationForm
-      programme={{ ...programme, year: intakeYear ?? programme.year }}
+      programme={{ ...programme, year: intakeYear }}
       candidate={candidate}
       setCandidate={setCandidate}
       files={files}

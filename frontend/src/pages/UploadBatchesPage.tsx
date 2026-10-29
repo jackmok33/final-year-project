@@ -5,7 +5,7 @@ import { programmeIntakeLabel } from '../domain/programmeDisplay'
 import ArrowLeftOutlined from '@ant-design/icons/ArrowLeftOutlined'
 import DownloadOutlined from '@ant-design/icons/DownloadOutlined'
 import { Alert, Box, Button, Stack } from '@mui/material'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import {
   useApplicationsQuery,
@@ -23,8 +23,6 @@ import {
   applicationState,
   aiRecommendation,
   assessmentScore,
-  finalDecision,
-  isOffer,
   currentDecision,
   decisionOutcome,
   latestRun,
@@ -33,7 +31,9 @@ import { csvCell } from '../domain/rules'
 import { downloadBlob } from '../components/files'
 import { useContent } from '../hooks/useContent'
 import { usePagination } from '../hooks/usePagination'
-import { releaseArchive, stageArchive } from '../services/demo'
+import { useIsMounted } from '../hooks/useIsMounted'
+import { summarizeApplications } from '../domain/applicationSummary'
+import { releaseArchive, stageArchive } from '../services/fileStaging'
 
 export function UploadBatchesPage() {
   const source = useWorkspace()
@@ -72,13 +72,7 @@ function BatchUploadController({ workspace }: { workspace: ReturnType<typeof use
   const [uploadError, setUploadError] = useState<unknown>()
   const [command, { isLoading: busy }] = useCommandMutation()
   const navigate = useNavigate()
-  const active = useRef(true)
-  useEffect(() => {
-    active.current = true
-    return () => {
-      active.current = false
-    }
-  }, [])
+  const isMounted = useIsMounted()
   async function importBatch() {
     if (!file || !programme || busy) return
     const archiveId = stageArchive(file)
@@ -90,9 +84,9 @@ function BatchUploadController({ workspace }: { workspace: ReturnType<typeof use
         intakeYear: year,
         archiveId,
       }).unwrap()
-      if (active.current && id) navigate(`/batches/${encodeURIComponent(id)}`)
+      if (isMounted() && id) navigate(`/batches/${encodeURIComponent(id)}`)
     } catch (error) {
-      if (active.current) setUploadError(error || content.importError)
+      if (isMounted()) setUploadError(error || content.importError)
     } finally {
       releaseArchive(archiveId)
     }
@@ -107,18 +101,7 @@ function BatchUploadController({ workspace }: { workspace: ReturnType<typeof use
   const intakeApplications = courseApplications?.filter(
     (application) => applicationIntakeYear(application, programme) === currentYear,
   )
-  const outcomes =
-    intakeApplications?.flatMap((application) => {
-      const decision = finalDecision(application)
-      return decision ? [decision.outcome] : []
-    }) ?? []
-  const offers = outcomes.filter(isOffer).length
-  const analyticsCounts = {
-    unconditional: outcomes.filter((outcome) => outcome === 'Unconditional').length,
-    conditional: outcomes.filter((outcome) => outcome === 'Conditional').length,
-    reject: outcomes.filter((outcome) => outcome === 'Reject').length,
-    pending: (intakeApplications?.length ?? 0) - outcomes.length,
-  }
+  const summary = summarizeApplications(intakeApplications ?? [])
   const sortedBatches = [...(batches.currentData ?? [])].sort((a, b) => b.sequence - a.sequence)
   const pagedBatches = sortedBatches.slice(pagination.startIndex, pagination.endIndex)
   function exportCsv() {
@@ -215,13 +198,13 @@ function BatchUploadController({ workspace }: { workspace: ReturnType<typeof use
                       items={[
                         {
                           label: content.total,
-                          value: intakeApplications.length,
+                          value: summary.total,
                           hint: content.totalHint,
                         },
-                        { label: content.offers, value: offers, hint: content.offersHint },
+                        { label: content.offers, value: summary.offers, hint: content.offersHint },
                         {
                           label: content.pending,
-                          value: intakeApplications.length - outcomes.length,
+                          value: summary.pending,
                           hint: content.pendingHint,
                         },
                       ]}
@@ -268,7 +251,7 @@ function BatchUploadController({ workspace }: { workspace: ReturnType<typeof use
             content: applications.error ? (
               <ErrorNotice error={applications.error} />
             ) : intakeApplications ? (
-              <CourseAnalytics counts={analyticsCounts} total={intakeApplications.length} />
+              <CourseAnalytics counts={summary} total={summary.total} />
             ) : (
               <Loading />
             ),

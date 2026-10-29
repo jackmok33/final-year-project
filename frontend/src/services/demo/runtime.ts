@@ -1,54 +1,10 @@
-import type { Backup, Dataset, DocumentType } from '../../domain/types'
+import type { Dataset } from '../../domain/types'
 import { applicationIntakeYear } from '../../domain/intakes'
 import { assignExistingBatches } from '../../domain/batches'
 import { addSampleCourseBatches, createSeed } from '../seed'
 import { assignCourseOwners, migrateDataset, renameExampleCourses } from '../migration'
 import { readDataset, writeDataset } from '../storage'
-import type { UploadReference } from './contracts'
-
-// Binary objects stay outside Redux and are released after each operation.
-export const uploads = new Map<string, File>()
-export const archives = new Map<string, File>()
-export const backups = new Map<string, Backup>()
 let serial: Promise<unknown> = Promise.resolve()
-
-export function stageArchive(file: File) {
-  const id = crypto.randomUUID()
-  archives.set(id, file)
-  return id
-}
-
-export function releaseArchive(id: string) {
-  archives.delete(id)
-}
-
-export function stageBackup(backup: Backup) {
-  const id = crypto.randomUUID()
-  backups.set(id, backup)
-  return id
-}
-
-export function takeBackup(id: string) {
-  const backup = backups.get(id)
-  backups.delete(id)
-  return backup
-}
-
-export function discardBackup(id: string) {
-  backups.delete(id)
-}
-
-export function stageUploads(files: { file: File; type: DocumentType }[]): UploadReference[] {
-  return files.map(({ file, type }) => {
-    const id = crypto.randomUUID()
-    uploads.set(id, file)
-    return { id, type }
-  })
-}
-
-export function releaseUploads(refs: UploadReference[]) {
-  refs.forEach((r) => uploads.delete(r.id))
-}
 
 export function runExclusive<T>(work: () => Promise<T>): Promise<T> {
   const result = serial.then(() =>

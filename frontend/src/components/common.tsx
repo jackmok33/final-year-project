@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 import type { ReactNode } from 'react'
-import { errorMessage } from '../app/api'
+import { errorMessage } from '../services/errors'
 import MainCard, { type MainCardProps } from '../mantis/components/MainCard'
 import CircularWithPath from '../mantis/components/CircularWithPath'
 export function Card({

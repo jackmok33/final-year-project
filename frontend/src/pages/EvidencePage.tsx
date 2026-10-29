@@ -2,14 +2,15 @@ import { Button, Box, Stack, Typography } from '@mui/material'
 import DownloadOutlined from '@ant-design/icons/DownloadOutlined'
 import { useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { errorMessage, useApplicationQuery } from '../app/api'
+import { useApplicationQuery } from '../app/api'
 import { useAppSelector } from '../hooks/redux'
 import { ErrorNotice, Loading } from '../components/common'
 import { DocumentNavigation } from '../components/evidence/DocumentNavigation'
 import { PdfViewer } from '../components/evidence/PdfViewer'
 import { downloadBlob } from '../components/files'
 import { latestRun } from '../domain/types'
-import { authorizedFile } from '../services/demo'
+import { admissionsService } from '../services/admissions'
+import { errorMessage } from '../services/errors'
 import { useContent } from '../hooks/useContent'
 import MainCard from '../mantis/components/MainCard'
 
@@ -39,7 +40,7 @@ export function EvidencePage() {
     if (!doc) return
     setDownloadError('')
     try {
-      downloadBlob(await authorizedFile(doc.id, userId), doc.name)
+      downloadBlob(await admissionsService.originalDocument(doc.id, userId), doc.name)
     } catch (error) {
       setDownloadError(errorMessage(error))
     }

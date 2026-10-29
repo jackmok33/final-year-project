@@ -42,7 +42,6 @@ import { workspaceHeaderContent } from './components/layout/WorkspaceHeader.cont
 import { workspaceNavigationContent } from './components/layout/WorkspaceNavigation.content'
 import { createWorkspaceDialogContent } from './components/workspace/CreateWorkspaceDialog.content'
 import { moduleCardsContent } from './components/workspace/ModuleCards.content'
-import { domainLabelsContent } from './domain/types.content'
 import { applicationsPageContent } from './pages/ApplicationsPage.content'
 import { assessmentPageContent } from './pages/AssessmentPage.content'
 import { correctionPageContent } from './pages/CorrectionPage.content'
@@ -83,7 +82,6 @@ export const content = {
   demoSignIn: demoSignInContent,
   documentNavigation: documentNavigationContent,
   documentUpload: documentUploadContent,
-  domainLabels: domainLabelsContent,
   evidenceLink: evidenceLinkContent,
   evidencePage: evidencePageContent,
   evidenceSummary: evidenceSummaryContent,

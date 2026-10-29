@@ -7,7 +7,7 @@ const abbreviations: Record<string, string> = {
   'Machine Learning MSc': 'ML',
 }
 
-export function programmeName(programme: Programme): string {
+function programmeName(programme: Programme): string {
   return abbreviations[programme.name] ?? programme.name
 }
 

@@ -2,6 +2,7 @@ import type { Application, Dataset, Programme, UploadBatch } from '../domain/typ
 import { readApplicantArchive } from './zip'
 import { sha256 } from './storage'
 import { inspectPdf } from './pdf'
+import { isWithinApplicationPageLimit } from '../domain/documentLimits'
 
 /** Build the complete import first; the caller commits metadata and PDFs in one transaction. */
 export async function prepareBatchImport(
@@ -54,7 +55,7 @@ export async function prepareBatchImport(
         )
       }
       pages += count
-      if (pages > 100)
+      if (!isWithinApplicationPageLimit(pages))
         throw new Error(`“${applicant.candidate}” exceeds the combined 100-page application limit.`)
       const docId = crypto.randomUUID()
       documents.push({

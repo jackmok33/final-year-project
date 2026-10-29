@@ -28,8 +28,11 @@ transaction and HTTP-failure guarantees belong in `services/demo.test.ts`.
 Do not add placeholder tests merely to match filenames. Static content records,
 content registration, type-only contracts/declarations, `main.tsx` bootstrapping,
 and supplied Mantis configuration/style factories are tested through their
-consumers, TypeScript and browser checks. Content formatters have direct tests;
-the content registry is checked by `useContent.test.tsx`. Adapted Mantis components,
+consumers, TypeScript and browser checks.
+`services/contracts.ts` and `services/demo/contracts.ts` contain types only and
+are explicit exceptions to the runtime companion check.
+Content formatters have direct tests; the content registry is checked by
+`useContent.test.tsx`. Adapted Mantis components,
 navigation and utility functions have their own companion tests. Shared MUI theme
 compatibility checks live in `app/theme.test.tsx`.
 

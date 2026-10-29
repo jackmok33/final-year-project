@@ -2,10 +2,15 @@ import type { Dataset } from '../../domain/types'
 import { applicationIntakeYear, intakeYears, normalizeIntakeYear } from '../../domain/intakes'
 import { batchSummaries } from '../../domain/batches'
 import { activeUser, requireAdmin, requireTutor, applicationFor } from './access'
-import type { Query } from './contracts'
+import type { Query, QueryResult } from '../contracts'
 
 /** Read permissions and projections only; locking and recovery belong to the service entry. */
-export function readQuery(data: Dataset, query: Query, userId: string | null): unknown {
+export function readQuery<Q extends Query>(
+  data: Dataset,
+  query: Q,
+  userId: string | null,
+): QueryResult<Q>
+export function readQuery(data: Dataset, query: Query, userId: string | null): QueryResult {
   if (query.op === 'accounts')
     return data.users.map(({ id, name, email, active, roles }) => ({
       id,
@@ -26,7 +31,7 @@ export function readQuery(data: Dataset, query: Query, userId: string | null): u
         normalizeIntakeYear(query.intakeYear) ?? query.intakeYear,
       )
     case 'batch': {
-      const batch = data.batches!.find((b) => b.id === query.id)
+      const batch = data.batches?.find((b) => b.id === query.id)
       if (!batch) throw new Error('Upload batch not found.')
       requireTutor(data, user, batch.programmeId)
       return batchSummaries(data, batch.programmeId, batch.intakeYear).find(

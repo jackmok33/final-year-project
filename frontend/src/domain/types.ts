@@ -106,7 +106,7 @@ export interface Correction {
   at: string
 }
 
-export function hasUnavailableAssessment(run: AssessmentRun): boolean {
+function hasUnavailableAssessment(run: AssessmentRun): boolean {
   return run.flags.some((flag) => flag.code === 'BACKEND_UNAVAILABLE')
 }
 
@@ -214,10 +214,6 @@ export function applicationState(app: Application): Workflow | 'not evaluated' {
 export function finalDecision(app: Application) {
   const decision = currentDecision(app)
   return decision && isTutorOutcome(decision.outcome) ? decision : undefined
-}
-
-export function isOffer(outcome: Outcome | undefined): boolean {
-  return outcome === 'Offer' || outcome === 'Conditional' || outcome === 'Unconditional'
 }
 
 export function assessmentScore(app: Application): number | null {

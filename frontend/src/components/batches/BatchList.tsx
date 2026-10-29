@@ -13,6 +13,7 @@ import type { BatchSummary } from '../../domain/types'
 import { useContent } from '../../hooks/useContent'
 import TablePagination from '../../mantis/components/TablePagination'
 import { ErrorNotice, Loading } from '../common'
+import { displayTime } from '../files'
 
 export function BatchList({
   batches,
@@ -70,10 +71,7 @@ export function BatchList({
                         </MuiLink>
                       </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                        {new Intl.DateTimeFormat('en-GB', {
-                          dateStyle: 'medium',
-                          timeStyle: 'short',
-                        }).format(new Date(batch.uploadedAt))}
+                        {displayTime(batch.uploadedAt)}
                       </TableCell>
                       <TableCell align="center">{batch.applicantCount}</TableCell>
                       <TableCell align="center">{batch.unconditionalCount ?? 0}</TableCell>

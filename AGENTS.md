@@ -1,9 +1,46 @@
 # Project context for agents
 
-Last reviewed: 28 October 2026. Applies to this project and its subdirectories.
+Last reviewed: 29 October 2026. Applies to this project and its subdirectories.
 Read this file when starting a session, then inspect the code relevant to the
 user's request. Follow newer user instructions when they change a convention
 recorded here. Keep this context current after material architectural changes.
+
+## Frontend quality and service boundaries — 29 October 2026
+
+`services/admissions.ts` selects the query/command/original-PDF implementation.
+RTK Query and document consumers use that typed port; UI code no longer imports
+`services/demo` or its internals. Shared `services/contracts.ts` owns requests and
+named read models; `demo/contracts.ts` holds only the internal mutation context
+and compatibility type exports. Preserve the demo transaction/permission boundary.
+`services/fileStaging.ts` owns temporary references outside Redux; `services/errors.ts`
+normalises errors without loading API initialisation into visual components.
+
+`services/browserBackups.ts` validates/stages local restore previews and returns
+only a reference/counts to the admin page. Preserve legacy archives for validation;
+release cancelled/abandoned previews, and keep confirmed in-flight restores staged
+until the command finishes. These operations remain browser-demo features, not
+implemented server backup endpoints. `backend.ts` validates unknown HTTP results
+in named groups and normalises optional nulls on a copy, without changing the mock
+request/response contract. Future HTTP adapters implement AdmissionsService; this
+refactor does not connect authentication, uploads or PostgreSQL HTTP routes.
+
+`domain/applicationSummary.ts` centralises current classified-decision counts;
+callers still own intake/batch filtering. `domain/documentLimits.ts` centralises
+PDF size/page checks across UI, parser, ZIP and backups. `useIsMounted` in hooks
+guards late UI state/navigation; cleanup still runs in finally. NewApplicationPage
+keeps its draft controller keyed by account/programme/intake/batch, uses canonical
+active tutor ownership and does not rely on legacy programmeIds for access.
+Keep queries, draft state, validation and handlers in Page files.
+
+The audit found all 228 production modules reachable and no runtime import cycles
+or removable dependency. Removed unused helper exports and an unused content
+selector; retain migrations, original PDFs, saved history and Mantis source.
+See frontend guides and VERIFICATION.md for completed checks.
+Verification for this refactor: 742 tests across 116 companion files pass;
+coverage is 98.31% lines, 97.12% statements, 97.77% functions and 92.50% branches.
+TypeScript/build, lint/format, all 16 standalone production-browser workflows and
+both FastAPI integration workflows pass. No source/dependency was removed merely
+to shorten the repository; existing backend/planning changes remain untouched.
 
 ## Mantis reuse audit — 28 October 2026
 

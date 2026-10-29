@@ -1,4 +1,13 @@
-import type { Application, AssessmentRun, DocumentRecord, Rubric } from '../domain/types'
+import type {
+  Application,
+  AssessmentRun,
+  Citation,
+  DocumentRecord,
+  Justification,
+  ReviewFlag,
+  Rubric,
+  SectionScore,
+} from '../domain/types'
 
 export function backendUrl() {
   return (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '')
@@ -31,74 +40,147 @@ async function requestAssessment(body: unknown): Promise<unknown> {
   })
 }
 
-/** Reject malformed or mismatched results before they enter persistent review history. */
-function validateRun(value: unknown, app: Application, docs: DocumentRecord[], rubric: Rubric) {
-  if (!value || typeof value !== 'object') throw new Error('Invalid mock assessment response.')
-  const run = value as AssessmentRun
-  // Python's optional fields are nullable; the existing browser dataset omits them.
-  if (run.error == null) delete run.error
-  if (run.parentRunId == null) delete run.parentRunId
-  const score = (value: unknown) =>
+type JsonObject = Record<string, unknown>
+
+function isObject(value: unknown): value is JsonObject {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isScore(value: unknown): value is number | null {
+  return (
     value === null ||
     (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100)
-  const citations = (value: unknown) =>
+  )
+}
+
+function hasValidCitations(value: unknown, documents: DocumentRecord[]): value is Citation[] {
+  return (
+    Array.isArray(value) &&
+    value.every((citation) => {
+      if (
+        !isObject(citation) ||
+        typeof citation.claim !== 'string' ||
+        typeof citation.page !== 'number' ||
+        !Number.isInteger(citation.page) ||
+        citation.page < 1
+      )
+        return false
+      const page = citation.page
+      return documents.some(
+        (document) => document.id === citation.documentId && page <= document.pages,
+      )
+    })
+  )
+}
+
+function hasValidSections(value: unknown, documents: DocumentRecord[]): value is SectionScore[] {
+  if (!Array.isArray(value) || value.length !== 3) return false
+  const sectionsAreComplete = ['academic', 'cv', 'statement'].every(
+    (key) => value.filter((section) => isObject(section) && section.key === key).length === 1,
+  )
+  return (
+    sectionsAreComplete &&
+    value.every(
+      (section) =>
+        isObject(section) &&
+        isScore(section.score) &&
+        typeof section.explanation === 'string' &&
+        typeof section.uncertainty === 'string' &&
+        hasValidCitations(section.citations, documents),
+    )
+  )
+}
+
+function hasValidFlags(value: unknown): value is ReviewFlag[] {
+  return (
     Array.isArray(value) &&
     value.every(
-      (c) =>
-        c &&
-        typeof c.claim === 'string' &&
-        Number.isInteger(c.page) &&
-        c.page >= 1 &&
-        docs.some((d) => d.id === c.documentId && c.page <= d.pages),
+      (flag) =>
+        isObject(flag) &&
+        typeof flag.code === 'string' &&
+        typeof flag.message === 'string' &&
+        typeof flag.critical === 'boolean',
     )
-  if (
-    typeof run.id !== 'string' ||
-    !run.id ||
-    app.runs.some((previous) => previous.id === run.id) ||
-    run.applicationId !== app.id ||
-    run.rubricId !== rubric.id ||
-    run.parentRunId !== app.runs.at(-1)?.id ||
-    !['awaiting review', 'failed'].includes(run.status) ||
-    !Number.isFinite(Date.parse(run.startedAt)) ||
-    !Number.isFinite(Date.parse(run.finishAt)) ||
-    Date.parse(run.finishAt) < Date.parse(run.startedAt) ||
-    run.simulated !== true ||
-    run.evaluationSource !== 'fastapi-mock' ||
-    !['Offer', 'Reject', 'Further review'].includes(run.recommendation) ||
-    !score(run.overall) ||
-    !score(run.extractedGrade) ||
-    (run.error !== undefined && typeof run.error !== 'string') ||
-    !Array.isArray(run.sections) ||
-    run.sections.length !== 3 ||
-    !['academic', 'cv', 'statement'].every(
-      (key) => run.sections.filter((s) => s?.key === key).length === 1,
-    ) ||
-    !run.sections.every(
-      (s) =>
-        score(s.score) &&
-        typeof s.explanation === 'string' &&
-        typeof s.uncertainty === 'string' &&
-        citations(s.citations),
-    ) ||
-    !Array.isArray(run.flags) ||
-    !run.flags.every(
-      (f) =>
-        f &&
-        typeof f.code === 'string' &&
-        typeof f.message === 'string' &&
-        typeof f.critical === 'boolean',
-    ) ||
-    !run.justification ||
-    typeof run.justification.summary !== 'string' ||
-    !Array.isArray(run.justification.rules) ||
-    !run.justification.rules.every((rule) => typeof rule === 'string') ||
-    !citations(run.justification.citations) ||
-    ((run.flags.some((f) => f.critical) ||
-      run.sections.some((s) => s.score === null) ||
-      run.status === 'failed') &&
-      run.recommendation !== 'Further review') ||
-    (run.sections.some((s) => s.score === null) && run.overall !== null)
   )
+}
+
+function hasValidJustification(
+  value: unknown,
+  documents: DocumentRecord[],
+): value is Justification {
+  return (
+    isObject(value) &&
+    typeof value.summary === 'string' &&
+    Array.isArray(value.rules) &&
+    value.rules.every((rule) => typeof rule === 'string') &&
+    hasValidCitations(value.citations, documents)
+  )
+}
+
+function matchesAssessmentContext(run: JsonObject, app: Application, rubric: Rubric): boolean {
+  return (
+    typeof run.id === 'string' &&
+    run.id.length > 0 &&
+    !app.runs.some((previous) => previous.id === run.id) &&
+    run.applicationId === app.id &&
+    run.rubricId === rubric.id &&
+    run.parentRunId === app.runs.at(-1)?.id &&
+    run.simulated === true &&
+    run.evaluationSource === 'fastapi-mock'
+  )
+}
+
+function hasValidTiming(run: JsonObject): boolean {
+  if (typeof run.startedAt !== 'string' || typeof run.finishAt !== 'string') return false
+  const startedAt = Date.parse(run.startedAt)
+  const finishedAt = Date.parse(run.finishAt)
+  return Number.isFinite(startedAt) && Number.isFinite(finishedAt) && finishedAt >= startedAt
+}
+
+function isValidRun(
+  value: JsonObject,
+  app: Application,
+  documents: DocumentRecord[],
+  rubric: Rubric,
+): value is JsonObject & AssessmentRun {
+  if (
+    !matchesAssessmentContext(value, app, rubric) ||
+    !hasValidTiming(value) ||
+    typeof value.status !== 'string' ||
+    !['awaiting review', 'failed'].includes(value.status) ||
+    typeof value.recommendation !== 'string' ||
+    !['Offer', 'Reject', 'Further review'].includes(value.recommendation) ||
+    !isScore(value.overall) ||
+    !isScore(value.extractedGrade) ||
+    (value.error !== undefined && typeof value.error !== 'string') ||
+    !hasValidSections(value.sections, documents) ||
+    !hasValidFlags(value.flags) ||
+    !hasValidJustification(value.justification, documents)
+  )
+    return false
+
+  const missingScore = value.sections.some((section) => section.score === null)
+  const requiresReview =
+    value.flags.some((flag) => flag.critical) || missingScore || value.status === 'failed'
+  return (
+    (!requiresReview || value.recommendation === 'Further review') &&
+    (!missingScore || value.overall === null)
+  )
+}
+
+/** Validate and normalise transport data before it enters persistent review history. */
+function validateRun(
+  value: unknown,
+  app: Application,
+  documents: DocumentRecord[],
+  rubric: Rubric,
+) {
+  if (!isObject(value)) throw new Error('Invalid mock assessment response.')
+  const run = { ...value }
+  // Python sends null optional fields; browser records omit them. Keep the input unchanged.
+  if (run.error == null) delete run.error
+  if (run.parentRunId == null) delete run.parentRunId
+  if (!isValidRun(run, app, documents, rubric))
     throw new Error('The mock backend returned an invalid or mismatched assessment.')
   return run
 }
