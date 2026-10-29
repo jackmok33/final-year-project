@@ -97,3 +97,134 @@ describe('fact correction page', () => {
     expect(screen.getByLabelText(/Reason for correction/)).toHaveValue('')
   })
 })
+
+it('cancels through the supplied callback without saving', async () => {
+  resetPageMocks()
+  const close = vi.fn()
+  renderPage(<CorrectionPage onClose={close} />)
+  await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(close).toHaveBeenCalledOnce()
+  expect(command).not.toHaveBeenCalled()
+})
+
+it('calls the saved callback only after a valid correction succeeds', async () => {
+  resetPageMocks()
+  const saved = vi.fn()
+  renderPage(<CorrectionPage onSaved={saved} />)
+  await userEvent.type(screen.getByLabelText(/Reason for correction/), 'Verified transcript')
+  await userEvent.click(screen.getByRole('button', { name: 'Save & re-evaluate' }))
+  await waitFor(() => expect(saved).toHaveBeenCalledOnce())
+})
+
+it.each(['0', '-1', '1.5', '5', ''])(
+  'rejects invalid source page %s before saving',
+  async (page) => {
+    resetPageMocks()
+    renderPage(<CorrectionPage />)
+    fireEvent.change(screen.getByLabelText(/Source page/), { target: { value: page } })
+    await userEvent.type(screen.getByLabelText(/Reason for correction/), 'Verified transcript')
+    expect(screen.getByRole('button', { name: 'Save & re-evaluate' })).toBeDisabled()
+    expect(command).not.toHaveBeenCalled()
+  },
+)
+
+it.each(['-1', '101', ''])('rejects invalid corrected grade %s before saving', async (grade) => {
+  resetPageMocks()
+  renderPage(<CorrectionPage />)
+  fireEvent.change(screen.getByLabelText(/Corrected value/), { target: { value: grade } })
+  await userEvent.type(screen.getByLabelText(/Reason for correction/), 'Verified transcript')
+  expect(screen.getByRole('button', { name: 'Save & re-evaluate' })).toBeDisabled()
+  expect(command).not.toHaveBeenCalled()
+})
+
+it('keeps historical correction bookmarks read-only', () => {
+  resetPageMocks()
+  apiMocks.useApplicationQuery.mockReturnValue(
+    queryResult({
+      ...detail,
+      application: { ...application, runs: [{ ...run, id: 'older' }, run] },
+    }),
+  )
+  renderPage(<CorrectionPage />, '/applications/APP-TEST/correct?run=older')
+  expect(screen.getByRole('dialog', { name: 'Correct extracted fact' })).toBeInTheDocument()
+  expect(screen.getByText(/latest assessment before correcting/)).toBeInTheDocument()
+  expect(screen.queryByLabelText(/Corrected value/)).not.toBeInTheDocument()
+  expect(command).not.toHaveBeenCalled()
+})
+
+it('disables edits and dismissal while a correction is saving', async () => {
+  resetPageMocks()
+  mutation.isLoading = true
+  const close = vi.fn()
+  renderPage(<CorrectionPage onClose={close} />)
+  for (const label of [/Corrected value/, /Source page/, /Reason for correction/]) {
+    expect(screen.getByLabelText(label)).toBeDisabled()
+  }
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Close fact correction' })).toBeDisabled()
+  await userEvent.keyboard('{Escape}')
+  expect(close).not.toHaveBeenCalled()
+  expect(command).not.toHaveBeenCalled()
+})
+
+it('does not dismiss another screen after an in-flight save finishes', async () => {
+  resetPageMocks()
+  let finish!: (result: { id?: string }) => void
+  unwrap.mockReturnValue(
+    new Promise((resolve) => {
+      finish = resolve
+    }),
+  )
+  const saved = vi.fn()
+  const view = renderPage(<CorrectionPage onSaved={saved} />)
+  await userEvent.type(screen.getByLabelText(/Reason for correction/), 'Verified transcript')
+  await userEvent.click(screen.getByRole('button', { name: 'Save & re-evaluate' }))
+  view.unmount()
+  finish({ id: 'corrected-run' })
+  await Promise.resolve()
+  expect(saved).not.toHaveBeenCalled()
+})
+
+it('does not close a replacement run draft when an earlier save finishes', async () => {
+  resetPageMocks()
+  let finish!: (result: { id?: string }) => void
+  unwrap.mockReturnValue(
+    new Promise((resolve) => {
+      finish = resolve
+    }),
+  )
+  const saved = vi.fn()
+  const view = renderPage(<CorrectionPage onSaved={saved} />)
+  await userEvent.type(screen.getByLabelText(/Reason for correction/), 'Earlier run note')
+  await userEvent.click(screen.getByRole('button', { name: 'Save & re-evaluate' }))
+  apiMocks.useApplicationQuery.mockReturnValue(
+    queryResult({
+      ...detail,
+      application: { ...application, runs: [run, { ...run, id: 'replacement-run' }] },
+    }),
+  )
+  view.rerender(<CorrectionPage onSaved={saved} />)
+  expect(screen.getByLabelText(/Reason for correction/)).toHaveValue('')
+  finish({ id: 'corrected-run' })
+  await Promise.resolve()
+  expect(saved).not.toHaveBeenCalled()
+})
+
+it('blocks corrections without a transcript, grade, or assessed result', () => {
+  resetPageMocks()
+  apiMocks.useApplicationQuery.mockReturnValue(queryResult({ ...detail, documents: [] }))
+  const view = renderPage(<CorrectionPage />)
+  expect(screen.getByRole('button', { name: 'Save & re-evaluate' })).toBeDisabled()
+  for (const runs of [
+    [],
+    [{ ...run, extractedGrade: null }],
+    [{ ...run, flags: [{ code: 'BACKEND_UNAVAILABLE', message: 'Unavailable', critical: true }] }],
+  ]) {
+    apiMocks.useApplicationQuery.mockReturnValue(
+      queryResult({ ...detail, application: { ...application, runs } }),
+    )
+    view.rerender(<CorrectionPage />)
+    expect(screen.getByText(/completed extraction is required/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Corrected value/)).not.toBeInTheDocument()
+  }
+})

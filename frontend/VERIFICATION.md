@@ -1,9 +1,36 @@
 # Frontend verification — 29 October 2026
 
-This snapshot covers the frontend quality refactor while retaining the revised
-desktop design and supplied Mantis source. Earlier verification snapshots remain
+This snapshot covers the account menu and correction popup changes, following the
+frontend quality refactor and supplied Mantis integration. Earlier snapshots remain
 below. Startup and reproducible commands are in the
 [frontend guide](README.md#checks).
+
+## Account menu and correction popup — 29 October
+
+The avatar menu now offers Change password and Logout, without All programmes.
+The Mantis password form validates required/matching/new values, clears drafts on
+close and makes no password-storage or authentication request. A valid submission
+explains that saving needs account authentication; sign-in behaviour is unchanged.
+
+Update detail opens the existing source-based correction form in the supplied
+Mantis dialog within AssessmentPage. The standalone correction layout and its
+unused guidance component/content/tests were removed. Existing `/correct` links
+open the popup in the review shell; historical links remain read-only. Cancellation
+preserves the selected tab, and successful correction selects the latest run.
+Busy saves disable edits/dismissal, failures retain the draft, and keyed mounted
+guards prevent a late save from redirecting a different record or replacement run.
+
+All 759 tests across 116 colocated companion files pass with one worker. Coverage
+is 98.30% lines, 96.97% statements, 97.81% functions and 92.64% branches.
+TypeScript, standard/e2e production builds, ESLint, Prettier, test-layout and
+whitespace checks pass. Four targeted production-browser workflows pass: desktop
+routes and role guards, account form/Logout, correction/save/history, and the
+redesigned review flow. These include keyboard focus restoration and axe audits;
+both popup screenshots were visually inspected.
+
+Saved browser data and backend contracts are unchanged. The full standalone and
+FastAPI browser suites and backend/PostgreSQL checks were not rerun for these UI
+changes; their earlier results and scope remain below.
 
 ## Frontend quality review — 29 October
 

@@ -48,6 +48,11 @@ and sign-out handlers. `layout/WorkspaceHeader` and `WorkspaceNavigation` render
 the controlled Mantis shell. `auth/ProtectedRoute` owns route permission/session
 checks separately from the layout. Authorised deep links update programme/intake
 selection; the visual sections do not fetch or mutate application data.
+The avatar menu offers Change password and Logout without an All programmes
+shortcut. `Layout` owns the temporary password draft and validation;
+`auth/ChangePasswordForm` renders controlled fields in the shared Mantis dialog.
+No password is persisted/transmitted or claimed to have changed while real
+authentication remains unimplemented.
 
 `UploadBatchesPage` owns the selected URL tab, upload draft, archive staging,
 queries, pagination and whole-course CSV export. Its private controller is keyed
@@ -88,28 +93,28 @@ scope. `domain/documentLimits.ts` shares PDF size/page validation between forms,
 PDF parsing, ZIP import and backup validation. Stateful async completion guards
 belong in `hooks/useIsMounted.ts`; resource cleanup still runs after navigation.
 
-`AssessmentPage` owns queries, tab navigation, URL-backed decision-popup state and
+`AssessmentPage` owns queries, tab navigation, URL-backed correction/decision-popup state and
 re-evaluation. It
 shows the latest run by default without history controls; existing run/citation
 bookmarks remain supported as read-only views. It composes the summary and four
 tabs: recommendation/evidence, flags, scores and original documents. The summary
 accepts controlled action buttons for Re-run AI evaluation and Decision. Evidence
-URLs enter the documents tab; legacy decision URLs open the popup. `EvidencePage`
-and `DecisionPage` retain their own screen logic while rendering within that
+URLs enter the documents tab; legacy decision/correction URLs open their popups. `EvidencePage`,
+`CorrectionPage` and `DecisionPage` retain their own screen logic while rendering within that
 shell. Current query data avoids showing
 the previous applicant's PDF or form. Historic runs disable mutation actions.
 
 `RecommendationSummary` renders only score, AI and tutor decision. `RecommendationPanel`
 renders the explanation, source links and supplied evidence groups. `EvidenceSummary`
 renders supplied evidence groups without extraction. `ReviewFlags` renders Mantis
-alerts and supported correction links. `SectionAssessments` renders section
+alerts and a controlled correction action. `SectionAssessments` renders section
 accordions and validated `EvidenceLink` sources. The unused `RunHistory` panel and
 its old `Rationale` rendering path were removed. The recommendation still displays
 its justification and source-page links.
 
 `DecisionPage` owns the decision query/mutation, keyed draft and optional note.
-The supplied-source `mantis/components/CustomizedDialog` renders both the decision
-popup and login help; its caller supplies labels and state. The former separate
+The supplied-source `mantis/components/CustomizedDialog` renders the decision,
+correction, password and login-help popups; callers supply labels and state. The former separate
 `DecisionDialog` wrapper and its content were removed. `DecisionForm` and
 `OutcomeOptions` are controlled, using Mantis card/radio patterns. Successful save
 closes the popup and updates the summary; Cancel/close/Escape preserve the review
@@ -119,6 +124,13 @@ popup cannot navigate after an in-flight save completes.
 No override reason, acknowledgement checkbox or extra save dialog exists. The
 service still enforces active ownership, current run and critical-evidence rules.
 Original recommendations and legacy decisions remain separate stored records.
+
+`CorrectionPage` now renders only within the review dialog, with no standalone
+page layout. Its keyed draft starts from the selected current run, including zero,
+and validates the corrected value, transcript page and required reason. Busy saves
+disable fields and dismissal; failure keeps the draft, and late completion cannot
+redirect a different screen. A successful correction returns to the latest run
+while retaining the selected tab. The obsolete full-page correction guidance is removed.
 
 `CriteriaPage` owns draft validation, save/reset and mutations;
 its private editor is keyed by course/active version. Only active settings are

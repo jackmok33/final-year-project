@@ -23,7 +23,7 @@ describe('routed screens and lazy imports', () => {
     ['/applications/new', 'New application'],
     ['/applications/APP-TEST', 'CSML 26/27'],
     ['/applications/APP-TEST/evidence', 'CSML 26/27'],
-    ['/applications/APP-TEST/correct', 'Correct extracted fact'],
+    ['/applications/APP-TEST/correct', 'CSML 26/27'],
     ['/applications/APP-TEST/decision', 'CSML 26/27'],
     ['/criteria', 'CSML 26/27'],
     ['/admin/health', 'Service health'],
@@ -37,6 +37,16 @@ describe('routed screens and lazy imports', () => {
         <App />
       </MemoryRouter>,
     )
+    if (url.endsWith('/correct')) {
+      expect(
+        await screen.findByRole('dialog', { name: 'Correct extracted fact' }),
+      ).toBeInTheDocument()
+      expect(screen.getByText('Review flag').closest('[role=tab]')).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      return
+    }
     if (url.endsWith('/decision')) {
       expect(await screen.findByRole('dialog', { name: 'Record decision' })).toBeInTheDocument()
       return
