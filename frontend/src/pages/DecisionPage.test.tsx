@@ -25,6 +25,7 @@ describe('tutor decision page', () => {
     'records %s directly with an optional note',
     async (outcome) => {
       renderPage(<DecisionPage />, '/applications/APP-TEST/decision')
+      expect(screen.getByRole('dialog', { name: 'Record decision' })).toBeInTheDocument()
       expect(screen.getAllByRole('radio').map((r) => r.getAttribute('value'))).toEqual([
         'Unconditional',
         'Conditional',
@@ -41,7 +42,6 @@ describe('tutor decision page', () => {
         outcome,
         reason: '',
       })
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       await waitFor(() =>
         expect(screen.getByLabelText('Current URL')).toHaveTextContent(
           `/applications/${application.id}`,
@@ -49,6 +49,36 @@ describe('tutor decision page', () => {
       )
     },
   )
+  it('closes through the supplied callback only after a successful save', async () => {
+    const close = vi.fn()
+    renderPage(<DecisionPage onClose={close} />, '/applications/APP-TEST/decision')
+    await userEvent.click(screen.getByRole('radio', { name: 'Reject' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Record decision' }))
+    await waitFor(() => expect(close).toHaveBeenCalledOnce())
+    expect(command).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'Reject' }))
+  })
+  it('does not redirect after the popup is unmounted during an in-flight save', async () => {
+    let finish!: (result: { id?: string }) => void
+    unwrap.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    const close = vi.fn()
+    const view = renderPage(<DecisionPage onClose={close} />, '/applications/APP-TEST/decision')
+    await userEvent.click(screen.getByRole('button', { name: 'Record decision' }))
+    view.unmount()
+    finish({ id: 'decision' })
+    await Promise.resolve()
+    expect(close).not.toHaveBeenCalled()
+  })
+  it('keeps historical decision links read-only', () => {
+    renderPage(<DecisionPage readOnly />, '/applications/APP-TEST/decision?run=older')
+    expect(screen.getByRole('dialog', { name: 'Record decision' })).toBeInTheDocument()
+    expect(screen.getByText(/latest assessment before recording/)).toBeInTheDocument()
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+    expect(command).not.toHaveBeenCalled()
+  })
   it('saves the optional note and preserves drafts on storage failure', async () => {
     unwrap.mockRejectedValue(new Error('Decision failed'))
     mutation.error = { data: 'Decision failed' }

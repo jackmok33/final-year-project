@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '../test/domSetup'
@@ -43,10 +43,22 @@ describe('Mantis sign-in', () => {
     )
     renderPage(<LoginPage />, '/login', '/login')
     await userEvent.click(screen.getByRole('button', { name: "I don't have an account" }))
+    const help = screen.getByRole('dialog', { name: 'Available accounts' })
+    expect(within(help).getAllByRole('listitem')).toHaveLength(2)
     expect(screen.queryByText('Former tutor')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: new RegExp(administrator.name) }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue(administrator.email)
+  })
+  it('uses the shared Mantis dialog for help and restores keyboard focus on close', async () => {
+    renderPage(<LoginPage />, '/login', '/login')
+    const trigger = screen.getByRole('button', { name: 'Forgot password?' })
+    await userEvent.click(trigger)
+    expect(screen.getByRole('dialog', { name: 'Access your account' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Close help' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(trigger).toHaveFocus()
+    expect(dispatch).not.toHaveBeenCalled()
   })
   it('rejects unknown emails and disables sign-in without active accounts', async () => {
     const view = renderPage(<LoginPage />, '/login', '/login')

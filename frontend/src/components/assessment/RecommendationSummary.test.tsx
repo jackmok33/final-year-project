@@ -11,6 +11,15 @@ function value(label: string) {
 }
 
 describe('applicant AI and tutor decision fields', () => {
+  it('renders supplied review actions after the score, AI and decision fields', () => {
+    render(<RecommendationSummary run={run} actions={<button>Open decision</button>} />)
+    const summary = within(screen.getByRole('region', { name: 'Application review' }))
+    expect(summary.getByRole('button', { name: 'Open decision' })).toBeInTheDocument()
+    expect(
+      summary.getByText('Pending').compareDocumentPosition(summary.getByRole('button')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
   it.each([
     ['Offer', undefined, 'Unconditional', 'Pending'],
     ['Further review', 'Reject', 'Conditional', 'Reject'],

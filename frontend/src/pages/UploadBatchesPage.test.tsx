@@ -64,6 +64,51 @@ describe('intake upload batches', () => {
       ).getByText(value, { exact: true }),
     ).toBeInTheDocument()
   }
+  it('scopes the overview, ZIP upload and batch list to Batches and preserves the upload draft across tabs', async () => {
+    renderPage(<UploadBatchesPage />, '/batches', '*')
+    const panel = screen.getByRole('tabpanel', { name: 'Batches' })
+    expect(within(panel).getByRole('region', { name: 'Intake overview' })).toBeInTheDocument()
+    expect(within(panel).getByRole('heading', { name: 'Upload application' })).toBeInTheDocument()
+    expect(within(panel).getByRole('table', { name: 'Batches' })).toBeInTheDocument()
+
+    await userEvent.upload(
+      within(panel).getByLabelText('Application ZIP file'),
+      new File(['ZIP'], 'applications.zip', { type: 'application/zip' }),
+    )
+    await userEvent.click(screen.getByRole('tab', { name: 'Admission criteria' }))
+    expect(screen.getByRole('form', { name: 'Admission criteria' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('tab=criteria')
+    expect(screen.queryByRole('region', { name: 'Intake overview' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Choose application ZIP' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Batches' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Analytics' }))
+    expect(screen.getByRole('heading', { name: 'Decision overview' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('tab=analytics')
+    expect(screen.queryByRole('region', { name: 'Intake overview' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Choose application ZIP' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Batches' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Batches' }))
+    const restoredPanel = within(screen.getByRole('tabpanel', { name: 'Batches' }))
+    expect(restoredPanel.getByRole('region', { name: 'Intake overview' })).toBeInTheDocument()
+    expect(restoredPanel.getByText('applications.zip')).toBeInTheDocument()
+    expect(restoredPanel.getByRole('button', { name: 'Upload batch' })).toBeEnabled()
+    expect(restoredPanel.getByRole('table', { name: 'Batches' })).toBeInTheDocument()
+    expect(command).not.toHaveBeenCalled()
+  })
+  it.each([
+    ['/criteria', 'Admission criteria'],
+    ['/batches?tab=criteria', 'Admission criteria'],
+    ['/batches?tab=analytics', 'Analytics'],
+  ])('opens %s without rendering the Batches content', (url, label) => {
+    renderPage(<UploadBatchesPage />, url, '*')
+    expect(screen.getByRole('tab', { name: label })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tabpanel', { name: label })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Intake overview' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Choose application ZIP' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Batches' })).not.toBeInTheDocument()
+  })
   it('exports the whole course across intakes and batches with safe CSV values and separate tutor decisions', async () => {
     apiMocks.useApplicationsQuery.mockReturnValue(
       queryResult([

@@ -37,6 +37,10 @@ describe('routed screens and lazy imports', () => {
         <App />
       </MemoryRouter>,
     )
+    if (url.endsWith('/decision')) {
+      expect(await screen.findByRole('dialog', { name: 'Record decision' })).toBeInTheDocument()
+      return
+    }
     expect(
       await screen.findByRole('heading', { name: title, level: url === '/login' ? 2 : 1 }),
     ).toBeInTheDocument()

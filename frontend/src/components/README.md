@@ -47,7 +47,10 @@ selection; the visual sections do not fetch or mutate application data.
 `UploadBatchesPage` owns the selected URL tab, upload draft, archive staging,
 queries, pagination and whole-course CSV export. Its private controller is keyed
 by programme/intake. It composes the metrics, `ZipUploadPanel`, `BatchList`,
-`CriteriaPage` and `CourseAnalytics`. `BatchList` owns the visual loading/error/empty
+`CriteriaPage` and `CourseAnalytics` under page-level Mantis tabs. The metrics,
+upload panel and batch list live inside Batches; criteria and analytics show only
+their respective content. The page retains the selected ZIP across tab switches.
+`BatchList` owns the visual loading/error/empty
 states and Mantis pagination controls; its values and callbacks come from the page.
 Criteria is also available via `/criteria`,
 which selects this workspace's criteria tab. Passing the explicit programme ID
@@ -71,12 +74,15 @@ provides the three tutor outcomes plus Pending; unclassified legacy decisions an
 old-run decisions remain pending. Table sorting, summaries, intake counts/analytics
 and CSV exports use these same current values. Pending is not a saved radio option.
 
-`AssessmentPage` owns queries, tab navigation and direct header re-evaluation. It
+`AssessmentPage` owns queries, tab navigation, URL-backed decision-popup state and
+re-evaluation. It
 shows the latest run by default without history controls; existing run/citation
-bookmarks remain supported as read-only views. It composes the summary and five tabs: recommendation/evidence,
-flags, scores, original documents and decision recording. Legacy evidence/decision
-URLs enter the matching tab. `EvidencePage` and `DecisionPage` retain their own
-screen logic while rendering within that shell. Current query data avoids showing
+bookmarks remain supported as read-only views. It composes the summary and four
+tabs: recommendation/evidence, flags, scores and original documents. The summary
+accepts controlled action buttons for Re-run AI evaluation and Decision. Evidence
+URLs enter the documents tab; legacy decision URLs open the popup. `EvidencePage`
+and `DecisionPage` retain their own screen logic while rendering within that
+shell. Current query data avoids showing
 the previous applicant's PDF or form. Historic runs disable mutation actions.
 
 `RecommendationSummary` renders only score, AI and tutor decision. `RecommendationPanel`
@@ -87,8 +93,15 @@ accordions and validated `EvidenceLink` sources. The unused `RunHistory` panel a
 its old `Rationale` rendering path were removed. The recommendation still displays
 its justification and source-page links.
 
-`DecisionPage` owns the Conditional/Unconditional/Reject draft and optional note.
-`DecisionForm` and `OutcomeOptions` are controlled, using Mantis card/radio patterns.
+`DecisionPage` owns the decision query/mutation, keyed draft and optional note.
+The supplied-source `mantis/components/CustomizedDialog` renders both the decision
+popup and login help; its caller supplies labels and state. The former separate
+`DecisionDialog` wrapper and its content were removed. `DecisionForm` and
+`OutcomeOptions` are controlled, using Mantis card/radio patterns. Successful save
+closes the popup and updates the summary; Cancel/close/Escape preserve the review
+tab without saving. Saving disables edits and dismissal; errors retain the draft.
+Historical deep links show a read-only notice instead of the form. An unmounted
+popup cannot navigate after an in-flight save completes.
 No override reason, acknowledgement checkbox or extra save dialog exists. The
 service still enforces active ownership, current run and critical-evidence rules.
 Original recommendations and legacy decisions remain separate stored records.
@@ -104,7 +117,12 @@ The supplied Mantis source lives in `src/mantis/` with a provenance manifest.
 `MainCard`, `AuthCard`, `AnalyticEcommerce`, `FormActions`, header/drawer/NavItem,
 SimpleBar, avatar, icon buttons and loaders are shared imports. New controlled
 adaptations include `TabsCard`, `TablePagination` and `SingleFileUpload`, plus the
-actual template upload SVG. Theme factories style underlying MUI controls; Mantis
+actual template upload SVG. `CustomizedDialog` extracts the reusable chrome from
+the supplied dialog example; source hashes and adaptations are documented in the
+Mantis manifest/guide. Check supplied Mantis components and examples before adding
+a generic UI control. Keep custom components for admissions-specific composition,
+not duplicate buttons, fields, tables or modal mechanics.
+Theme factories style underlying MUI controls; Mantis
 itself imports MUI, so a MUI import is not evidence of a separate design system.
 Avoid aliases/wrappers that merely rename every MUI primitive.
 

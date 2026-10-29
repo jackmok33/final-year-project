@@ -7,7 +7,7 @@ not a replacement npm component package. The app remains React/Vite with its
 existing router, Redux state, domain rules and browser storage.
 
 `source-manifest.json` records the original paths and SHA-256 hashes for the
-61 imported source/asset mappings. Most come from `seed/src`; the statistics card and form action bar come
+62 imported source/asset mappings. Most come from `seed/src`; the statistics card and form action bar come
 from `full-version/src`. The source retains its original licensing. `layoutPatterns` separately records the supplied form and
 table examples adapted directly in feature components; these are source patterns,
 not additional standalone Mantis packages.
@@ -23,6 +23,7 @@ not additional standalone Mantis packages.
 | Sign-in                                                                                           | `components/AuthCard` and the supplied `AuthLogin` form pattern                   |
 | Dashboard statistics                                                                              | `components/AnalyticEcommerce`, with neutral title/count/hint props               |
 | Account avatar and navigation button                                                              | Extended `Avatar` and `IconButton`                                                |
+| Decision popup and sign-in help                                                                   | Controlled `CustomizedDialog` adaptation from the supplied dialog example         |
 | Form action bars                                                                                  | `components/FormActions`, adapted from the supplied action-bar layout             |
 | Route and inline loading                                                                          | `Loader` and `CircularWithPath`                                                   |
 | Fields, buttons, tables, menus, statuses, alerts, dialogs, radios, switches and expandable panels | The 38 factories in `theme/overrides/`                                            |
@@ -86,6 +87,22 @@ there is no generic table engine or sample sales/customer data.
 These are the template's own MUI compositions. Do not add a wrapper merely to
 make a MUI import look like a Mantis import. Continue reusing the imported shell,
 navigation, statistic cards and control overrides for dashboard screens.
+
+## Shared customized dialog
+
+`components/CustomizedDialog` extracts the supplied
+`full-version/src/sections/components-overview/dialogs/CustomizedDialog.tsx`
+dialog styling, title spacing and Mantis close control. It is a controlled
+adaptation of that example, not an unchanged standalone component supplied by the
+template. Demo state, placeholder text and unused footer styling are omitted.
+DecisionPage and LoginPage help use the same implementation; their labels, content
+and open/close state stay with the pages.
+
+The adaptation retains MUI focus restoration and adds unique accessible title IDs
+and a busy guard for close, Escape and backdrop dismissal. The close control stays
+outside the title so it cannot become part of the dialog's accessible name.
+These application compatibility changes are documented rather than passed off as
+original template behavior. The manifest records the original source hash.
 
 ## Revised Figma implementation (23 October 2026)
 

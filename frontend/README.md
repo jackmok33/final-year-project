@@ -6,6 +6,12 @@ The desktop interface follows the user's revised Figma export of 23 October 2026
 Mantis components and theme factories live in `src/mantis/`; this is still a Vite
 app, not a Next.js migration. See the [source map](src/mantis/README.md).
 
+Use the supplied Mantis components and examples before adding generic interface
+code. Cards, navigation, statistics, tabs, pagination and uploads share those
+adaptations. The source-backed `CustomizedDialog` is shared by decision recording
+and sign-in help. Mantis uses MUI controls internally; admissions-specific fields,
+queries and actions remain in the feature code.
+
 For implementation changes, start with the relevant Page file. The
 [component guide](src/components/README.md), [content guide](src/content/README.md)
 and [service guide](src/services/README.md) explain where screen logic, visual
@@ -94,8 +100,10 @@ whole programme across intakes.
 
 ## Intake workspace and uploads
 
-The intake workspace shows **Total applications**, **Offers given** and **Total
-pending review**. Counts use the latest tutor decision matching the latest run.
+The intake workspace has page-level **Batches**, **Admission criteria** and
+**Analytics** tabs. Batches contains **Total applications**, **Offers given** and
+**Total pending review**, followed by the ZIP upload area and batch table.
+Counts use the latest tutor decision matching the latest run.
 Conditional and Unconditional are offers; Reject is a completed decision. Older
 run decisions and legacy Further review/generic Offer records remain pending. A
 generic old offer must receive an explicit Conditional/Unconditional decision
@@ -103,7 +111,8 @@ before it counts as a current classified offer. Original records remain stored. 
 do not count as tutor decisions.
 
 Use the Mantis ZIP drop area to drop or browse for a ZIP, then **Upload batch**.
-The panel below has **Batches**, **Admission criteria** and **Analytics** tabs.
+The overview and upload area appear only in Batches; the other tabs show their
+own content. Switching tabs preserves the selected ZIP until leaving the intake.
 The selected tab survives refresh in the URL; `/criteria` opens the same workspace
 with the criteria tab selected.
 
@@ -175,7 +184,7 @@ The approved prototype AI mapping is legacy `Offer` → `Unconditional` and
 `Further review` → `Conditional`. Raw runs, explanations and mock HTTP responses
 are preserved; this display mapping does not implement a new admissions policy.
 
-The review has a compact score/AI/decision summary and five Mantis tabs:
+The review has a compact score/AI/decision summary and four Mantis tabs:
 
 - **AI recommendation:** justification, source-page links and a two-column evidence
   summary for English, education, references, transcript, publications, projects
@@ -184,7 +193,12 @@ The review has a compact score/AI/decision summary and five Mantis tabs:
   to correction with a source page and reason.
 - **Score breakdown:** expandable section scores, explanations and citations.
 - **View documents:** original PDF selection, page navigation and download.
-- **Record decision:** Conditional, Unconditional or Reject, with an optional note.
+
+The green **Decision** button in the summary opens a **Record decision** popup
+with Conditional, Unconditional or Reject and an optional note. Cancel, the close
+button or Escape returns to the selected review tab without saving. The popup
+keeps the draft on save failure and prevents dismissal/duplicate submits while
+saving. Existing `/decision` and `?tab=decision` links open the popup too.
 
 These are the only choices accepted by new decision commands. Saving is direct,
 without a review checkbox, override reason or extra confirmation dialog. Critical
@@ -194,7 +208,7 @@ mock evaluator contract. Historical generic Offer/Further review decisions remai
 readable and are never silently converted to a different outcome.
 
 The page shows the latest assessment without a history panel or run picker.
-**Re-evaluate application** is available in the header. Corrections retain the
+**Re-run AI evaluation** sits beside Decision in the summary. Corrections retain the
 original fact and create a new assessment internally; they do not rewrite older
 results. APP-2026-0142 starts with extracted grade 71%; its original synthetic
 transcript confirms 74% on page 2. Existing bookmarked source/run links remain

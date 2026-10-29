@@ -1,11 +1,9 @@
 import {
   Box,
   Button,
-  Dialog,
-  DialogContent,
-  DialogTitle,
   Link,
   List,
+  ListItem,
   ListItemButton,
   ListItemText,
   Stack,
@@ -19,6 +17,7 @@ import { useAppDispatch } from '../hooks/redux'
 import { DemoSignIn } from '../components/auth/DemoSignIn'
 import { SignInIntro } from '../components/auth/SignInIntro'
 import AuthCard from '../mantis/components/AuthCard'
+import CustomizedDialog from '../mantis/components/CustomizedDialog'
 import { useContent } from '../hooks/useContent'
 
 export function LoginPage() {
@@ -92,39 +91,36 @@ export function LoginPage() {
           </Link>
         </Stack>
       </Stack>
-      <Dialog
+      <CustomizedDialog
         open={!!help}
         onClose={() => setHelp(undefined)}
-        fullWidth
-        maxWidth="sm"
-        aria-labelledby="login-help-title"
-      >
-        <DialogTitle id="login-help-title">
-          {help === 'password'
+        closeLabel={content.closeHelp}
+        title={
+          help === 'password'
             ? content.passwordTitle
             : help === 'about'
               ? content.about
               : help === 'terms'
                 ? content.terms
-                : content.accountsTitle}
-        </DialogTitle>
-        <DialogContent>
-          <Typography>
-            {help === 'password'
-              ? content.passwordDescription
-              : help === 'about'
-                ? content.aboutDescription
-                : help === 'terms'
-                  ? content.termsDescription
-                  : content.accountsDescription}
-          </Typography>
-          {(help === 'accounts' || help === 'password') && (
-            <List>
-              {accounts
-                ?.filter((account) => account.active)
-                .map((account) => (
+                : content.accountsTitle
+        }
+      >
+        <Typography>
+          {help === 'password'
+            ? content.passwordDescription
+            : help === 'about'
+              ? content.aboutDescription
+              : help === 'terms'
+                ? content.termsDescription
+                : content.accountsDescription}
+        </Typography>
+        {(help === 'accounts' || help === 'password') && (
+          <List>
+            {accounts
+              ?.filter((account) => account.active)
+              .map((account) => (
+                <ListItem key={account.id} disablePadding>
                   <ListItemButton
-                    key={account.id}
                     onClick={() => {
                       setEmail(account.email)
                       setPassword('demo')
@@ -134,14 +130,14 @@ export function LoginPage() {
                   >
                     <ListItemText primary={account.name} secondary={account.email} />
                   </ListItemButton>
-                ))}
-            </List>
-          )}
-          <Button onClick={() => setHelp(undefined)} sx={{ mt: 2 }}>
-            {content.close}
-          </Button>
-        </DialogContent>
-      </Dialog>
+                </ListItem>
+              ))}
+          </List>
+        )}
+        <Button onClick={() => setHelp(undefined)} sx={{ mt: 2 }}>
+          {content.close}
+        </Button>
+      </CustomizedDialog>
     </Box>
   )
 }

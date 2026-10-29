@@ -13,6 +13,8 @@ export function DecisionForm({
   critical,
   disabled,
   record,
+  onCancel,
+  saving = false,
 }: {
   outcome: TutorOutcome
   setOutcome: (outcome: TutorOutcome) => void
@@ -22,6 +24,8 @@ export function DecisionForm({
   critical: boolean
   disabled: boolean
   record: () => void
+  onCancel?: () => void
+  saving?: boolean
 }) {
   const content = useContent('decisionForm')
   return (
@@ -29,30 +33,41 @@ export function DecisionForm({
       component="form"
       onSubmit={(event) => {
         event.preventDefault()
-        if (!disabled) record()
+        if (!disabled && !saving) record()
       }}
       sx={{ maxWidth: 700 }}
     >
       <Stack spacing={2.5}>
         {critical && <Alert severity="warning">{content.criticalWarning}</Alert>}
-        <OutcomeOptions outcome={outcome} setOutcome={setOutcome} critical={critical} />
+        <OutcomeOptions
+          outcome={outcome}
+          setOutcome={setOutcome}
+          critical={critical}
+          disabled={saving}
+        />
         <TextField
           placeholder={content.reviewNote}
           multiline
           minRows={3}
           value={reason}
+          disabled={saving}
           onChange={(event) => setReason(event.target.value)}
           slotProps={{ htmlInput: { 'aria-label': content.reviewNote } }}
         />
         <ErrorNotice error={error} />
-        <Button
-          type="submit"
-          variant="contained"
-          disabled={disabled}
-          sx={{ alignSelf: 'flex-start' }}
+        <Stack
+          direction="row"
+          sx={{ gap: 1, justifyContent: onCancel ? 'flex-end' : 'flex-start' }}
         >
-          {content.recordDecision}
-        </Button>
+          {onCancel && (
+            <Button type="button" onClick={onCancel} disabled={saving}>
+              {content.cancel}
+            </Button>
+          )}
+          <Button type="submit" variant="contained" disabled={disabled || saving}>
+            {content.recordDecision}
+          </Button>
+        </Stack>
       </Stack>
     </Box>
   )

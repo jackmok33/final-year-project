@@ -1,8 +1,76 @@
-# Frontend verification — 23 October 2026
+# Frontend verification — 28 October 2026
 
 This snapshot covers the user's revised desktop Figma design implemented with the
 supplied Mantis source. Startup and reproducible commands are in the
 [frontend guide](README.md#checks).
+
+## Mantis reuse audit — 28 October
+
+Checked actual tutor-screen imports against the supplied Mantis source. Cards,
+statistics, navigation/shell, tabs, pagination, uploads and form/table patterns
+reuse supplied components or documented compositions. MUI imports are expected
+because the template itself uses MUI. No suitable standalone Mantis admissions
+table/form was found that would replace the product-specific compositions.
+
+Extracted the reusable structure from Mantis's supplied CustomizedDialog example
+into a controlled adaptation shared by DecisionPage and LoginPage help. Removed
+the separate DecisionDialog component, tests and content; dialog copy now belongs
+to its calling pages. Preserved accessible titles, focus restoration and busy
+dismissal guards. The browser accessibility audit also caught invalid list
+semantics in login help; its account choices now use proper ListItem rows.
+
+All 62 original source/asset hashes and five layout-reference hashes match the
+supplied folder. All 54 focused tests across the shared dialog, login, decision,
+assessment and routes pass. Two production-browser workflows pass, covering
+login help, review navigation, decision cancellation and all three saved outcomes,
+with axe audits. TypeScript/build, ESLint, Prettier, test-layout and whitespace
+checks pass. Full unit/coverage/browser suites and backend checks were not rerun
+for this small reuse change; earlier snapshots below keep their original scope.
+
+## Applicant decision popup — 28 October
+
+Assessment now has four tabs. The green Decision button and blue Re-run AI
+evaluation action sit in the summary card. Decision opens the existing outcome
+form in a Mantis-themed dialog. Cancel, close and Escape return to the underlying
+tab/document context; saving closes the dialog. Existing decision links remain
+usable, historical links show an informational read-only dialog, and critical
+evidence still blocks final decisions. Save errors retain the draft, saving blocks
+edits/dismissal, and a late save cannot redirect an unmounted popup.
+
+All 678 unit/component/service tests across 109 colocated companion files pass
+with one worker. TypeScript/production build, ESLint, Prettier, test-layout and
+whitespace checks pass. Five targeted production-browser workflows pass: revised
+navigation, all three saved outcomes, correction/history guards, re-evaluation
+recovery and keyboard/small-screen access. Both FastAPI browser workflows also
+pass with the unchanged mock HTTP contract.
+
+The review and popup screenshots were visually inspected. Axe passes for the
+requested screen and dialog. The dialog's accessible title excludes its close
+control; accessibility checks settle portal animations before measuring contrast,
+with no rules disabled. Coverage, the full standalone browser suite and
+backend/PostgreSQL unit checks were not rerun for this change. The earlier
+verification snapshots below retain their original scope.
+
+## Programme workspace tabs — 28 October
+
+The existing Mantis tabs now govern the entire intake workspace. Batches contains
+the three summary cards, ZIP upload and batch list. Admission criteria and
+Analytics show only their own content. URL selection still survives refresh,
+`/criteria` still opens the criteria tab, and the selected ZIP remains in the page
+draft when switching tabs.
+
+All 32 focused tests across UploadBatchesPage, CriteriaPage and TabsCard pass,
+including tab scoping, direct links and upload-draft preservation. The test-layout
+check, TypeScript/production build, ESLint, Prettier and `git diff --check` pass.
+Three production-browser workflows pass: redesigned navigation, criteria editing
+and ZIP import with PDF validation. Browser checks verify tabs above the overview,
+criteria-tab refresh persistence and absence of batch controls in the other tabs.
+Desktop screenshots of all three workspace tabs and axe checks were reviewed.
+
+This is a layout change using existing Mantis components; records, backend
+contracts and dependencies are unchanged. Full unit/coverage, full browser suites
+and backend/PostgreSQL checks were not rerun for this change. The results below
+are the earlier full verification snapshots.
 
 ## Shared hooks follow-up
 

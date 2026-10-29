@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '../test/domSetup'
@@ -18,12 +18,21 @@ vi.mock('../components/evidence/PdfViewer', () => ({
     <div role="img" aria-label={`${document.name}, page ${page}`} />
   ),
 }))
-describe('five-tab application review', () => {
+describe('application review and decision popup', () => {
   beforeEach(resetPageMocks)
   it('starts with the summary and recommendation, with keyboard-accessible tabs', async () => {
     renderPage(<AssessmentPage />)
     expect(screen.getByRole('heading', { name: 'CSML 26/27', level: 1 })).toBeInTheDocument()
     expect(screen.getByText('88.0')).toBeInTheDocument()
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'AI recommendation',
+      'Review flag',
+      'Score breakdown',
+      'View documents',
+    ])
+    const summary = within(screen.getByRole('region', { name: 'Application review' }))
+    expect(summary.getByRole('button', { name: 'Decision' })).toBeEnabled()
+    expect(summary.getByRole('button', { name: 'Re-run AI evaluation' })).toBeEnabled()
     expect(screen.getByRole('tab', { name: 'AI recommendation' })).toHaveAttribute(
       'aria-selected',
       'true',
@@ -37,6 +46,44 @@ describe('five-tab application review', () => {
     expect(screen.getByText('academic evidence supported')).toBeInTheDocument()
     expect(screen.queryByText(run.justification.summary)).not.toBeInTheDocument()
   })
+  it('opens the decision popup from the summary and returns to the selected tab without saving', async () => {
+    renderPage(<AssessmentPage />)
+    await userEvent.click(screen.getByRole('tab', { name: 'Score breakdown' }))
+    const trigger = screen.getByRole('button', { name: 'Decision' })
+    await userEvent.click(trigger)
+    const dialog = within(screen.getByRole('dialog', { name: 'Record decision' }))
+    await userEvent.type(dialog.getByLabelText('Review note (optional)'), 'Unsaved review.')
+    await userEvent.click(dialog.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('tab', { name: 'Score breakdown' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('tab=scores')
+    expect(trigger).toHaveFocus()
+    expect(command).not.toHaveBeenCalled()
+    await userEvent.click(trigger)
+    expect(screen.getByLabelText('Review note (optional)')).toHaveValue('')
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(trigger).toHaveFocus()
+  })
+  it.each(['/applications/APP-TEST/decision', '/applications/APP-TEST?tab=decision'])(
+    'keeps the legacy decision link %s usable without a fifth tab',
+    async (url) => {
+      renderPage(<AssessmentPage />, url)
+      expect(screen.getByRole('dialog', { name: 'Record decision' })).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(screen.getAllByRole('tab')).toHaveLength(4)
+      expect(screen.getByRole('tab', { name: 'AI recommendation' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      expect(screen.getByLabelText('Current URL')).toHaveTextContent('/applications/APP-TEST')
+      expect(command).not.toHaveBeenCalled()
+    },
+  )
   it('keeps flags and the supported correction action in the flag tab', async () => {
     apiMocks.useApplicationQuery.mockReturnValue(
       queryResult({
@@ -74,6 +121,7 @@ describe('five-tab application review', () => {
         queryResult({ ...detail, application: { ...application, runs: [{ ...run, status }] } }),
       )
       renderPage(<AssessmentPage />)
+      expect(screen.getByRole('button', { name: 'Decision' })).toBeDisabled()
       expect(screen.queryByText('88.0')).not.toBeInTheDocument()
       expect(screen.queryByText(run.justification.summary)).not.toBeInTheDocument()
       await userEvent.click(screen.getByRole('tab', { name: 'Score breakdown' }))
@@ -116,7 +164,7 @@ describe('five-tab application review', () => {
     expect(screen.queryByText('12.0')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Assessment history' })).not.toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: 'Assessment run' })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Re-evaluate application' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Re-run AI evaluation' }))
     expect(command).toHaveBeenCalledWith({ op: 'evaluate', id: application.id })
   })
   it('keeps bookmarked older results read-only until returning to the latest assessment', async () => {
@@ -128,15 +176,15 @@ describe('five-tab application review', () => {
     )
     renderPage(<AssessmentPage />, '/applications/APP-TEST?run=older')
     expect(screen.getByText(/Viewing a previous assessment/)).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Record decision' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Re-evaluate application' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Decision' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Re-run AI evaluation' })).toBeDisabled()
     await userEvent.click(screen.getByRole('button', { name: 'Return to latest assessment' }))
     expect(screen.getByText('88.0')).toBeInTheDocument()
     expect(screen.queryByText(/Viewing a previous assessment/)).not.toBeInTheDocument()
   })
   it('does not turn a current-run document link into a historic review after re-evaluation', async () => {
     const view = renderPage(<AssessmentPage />, `/applications/APP-TEST?run=${run.id}`)
-    await userEvent.click(screen.getByRole('button', { name: 'Re-evaluate application' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Re-run AI evaluation' }))
     expect(screen.getByLabelText('Current URL')).not.toHaveTextContent('run=')
     apiMocks.useApplicationQuery.mockReturnValue(
       queryResult({

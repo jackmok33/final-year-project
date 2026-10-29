@@ -43,7 +43,7 @@ async function pdf(pages = 1) {
 async function audit(page: Page) {
   await page.evaluate(() => document.fonts.ready)
   await expect(page.locator('main').getByRole('progressbar')).toHaveCount(0)
-  await page.locator('main').evaluate((element) =>
+  await page.locator('body').evaluate((element) =>
     element
       .getAnimations({ subtree: true })
       .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
@@ -163,11 +163,30 @@ test('the three final tutor outcomes save directly and persist separately from t
 }) => {
   await login(page)
   const original = (await dataset(page)).applications.find((a) => a.id === 'APP-2026-0143')!.runs
+  for (const url of [
+    '/applications/APP-2026-0143/decision',
+    '/applications/APP-2026-0143?tab=decision',
+  ]) {
+    await page.goto(url)
+    const dialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByRole('radio')).toHaveCount(3)
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(dialog).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: 'AI recommendation', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+  }
   for (const outcome of ['Conditional', 'Unconditional', 'Reject']) {
-    await page.goto('/applications/APP-2026-0143/decision')
-    await expect(page.getByRole('radio')).toHaveCount(3)
-    await page.getByRole('radio', { name: outcome, exact: true }).check()
-    await page.getByRole('button', { name: 'Record decision', exact: true }).click()
+    await page.goto('/applications/APP-2026-0143')
+    await page.getByRole('button', { name: 'Decision', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
+    await expect(dialog.getByRole('radio')).toHaveCount(3)
+    await expect(dialog.getByRole('checkbox')).toHaveCount(0)
+    await dialog.getByRole('radio', { name: outcome, exact: true }).check()
+    await dialog.getByRole('button', { name: 'Record decision', exact: true }).click()
+    await expect(dialog).toHaveCount(0)
     await expect(page).toHaveURL(/\/applications\/APP-2026-0143$/)
     expect(
       (await dataset(page)).applications.find((a) => a.id === 'APP-2026-0143')!.decisions.at(-1)
@@ -186,7 +205,12 @@ test('flag correction preserves original facts, creates a run and enables final 
 }) => {
   await login(page)
   await page.goto('/applications/APP-2026-0142/decision')
-  for (const radio of await page.getByRole('radio').all()) await expect(radio).toBeDisabled()
+  const blockedDialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
+  await expect(blockedDialog).toBeVisible()
+  for (const radio of await blockedDialog.getByRole('radio').all())
+    await expect(radio).toBeDisabled()
+  await blockedDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(blockedDialog).toHaveCount(0)
   await page.getByRole('tab', { name: 'Review flag', exact: true }).click()
   await page.getByRole('link', { name: 'Update detail', exact: true }).click()
   await page.getByLabel('Corrected value', { exact: false }).fill('74')
@@ -194,17 +218,29 @@ test('flag correction preserves original facts, creates a run and enables final 
     .getByLabel('Reason for correction', { exact: false })
     .fill('Transcript page 2 confirms 74%.')
   await page.getByRole('button', { name: 'Save & re-evaluate', exact: true }).click()
-  await expect(page.getByRole('tab', { name: 'Record decision', exact: true })).toBeEnabled()
-  await page.getByRole('tab', { name: 'Record decision', exact: true }).click()
-  await expect(page.getByRole('radio', { name: 'Conditional', exact: true })).toBeEnabled()
-  await page.getByRole('button', { name: 'Record decision', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Decision', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: 'Decision', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
+  await expect(dialog.getByRole('radio', { name: 'Conditional', exact: true })).toBeEnabled()
+  await dialog.getByRole('button', { name: 'Record decision', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
   const app = (await dataset(page)).applications.find((a) => a.id === 'APP-2026-0142')!
   expect(app.runs).toHaveLength(2)
   expect(app.runs[0].extractedGrade).toBe(71)
   expect(app.corrections[0].value).toBe(74)
   await page.goto(`/applications/APP-2026-0142?run=${encodeURIComponent(app.runs[0].id)}`)
   await expect(page.getByText(/Viewing a previous assessment/)).toBeVisible()
-  await expect(page.getByRole('tab', { name: 'Record decision', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Decision', exact: true })).toBeDisabled()
+  await page.goto(`/applications/APP-2026-0142/decision?run=${encodeURIComponent(app.runs[0].id)}`)
+  const historicalDialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
+  await expect(historicalDialog).toBeVisible()
+  await expect(historicalDialog.getByRole('radio')).toHaveCount(0)
+  await expect(
+    historicalDialog.getByText('Return to the latest assessment before recording a decision.'),
+  ).toBeVisible()
+  await historicalDialog.getByRole('button', { name: 'Close decision', exact: true }).click()
+  await expect(historicalDialog).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Decision', exact: true })).toBeDisabled()
 })
 
 test('criteria edits preserve existing results without exposing history', async ({ page }) => {
@@ -383,7 +419,7 @@ test('interrupted simulated evaluation recovers after refresh without losing its
 }) => {
   await login(page)
   await page.goto('/applications/APP-2026-0143')
-  await page.getByRole('button', { name: 'Re-evaluate application', exact: true }).click()
+  await page.getByRole('button', { name: 'Re-run AI evaluation', exact: true }).click()
   await expect
     .poll(
       async () =>
@@ -407,6 +443,19 @@ test('keyboard users can select review tabs and open navigation on a small scree
   await first.focus()
   await page.keyboard.press('ArrowRight')
   await page.keyboard.press('Enter')
+  await expect(page.getByRole('tab', { name: 'Review flag', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  const decisionButton = page.getByRole('button', { name: 'Decision', exact: true })
+  await decisionButton.focus()
+  await page.keyboard.press('Enter')
+  const dialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('radio', { name: 'Conditional', exact: true })).toBeEnabled()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(decisionButton).toBeFocused()
   await expect(page.getByRole('tab', { name: 'Review flag', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',

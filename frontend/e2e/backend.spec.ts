@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { dataset } from './helpers/dataset'
 
 async function reEvaluate(page: Page) {
-  await page.getByRole('button', { name: 'Re-evaluate application', exact: true }).click()
+  await page.getByRole('button', { name: 'Re-run AI evaluation', exact: true }).click()
 }
 
 for (const viewport of [

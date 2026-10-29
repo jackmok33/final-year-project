@@ -6,6 +6,7 @@ export const loginPageContent = {
     'This frontend has no password service yet. Choose an available account to preview the workspace.',
   invalidAccount: 'No active account matches this email.',
   close: 'Close',
+  closeHelp: 'Close help',
   copyright: 'Copyright 2026 · UCL Computer Science project',
   terms: 'Terms and Conditions',
   about: 'About Us',

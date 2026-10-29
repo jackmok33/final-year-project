@@ -1,9 +1,63 @@
 # Project context for agents
 
-Last reviewed: 23 October 2026. Applies to this project and its subdirectories.
+Last reviewed: 28 October 2026. Applies to this project and its subdirectories.
 Read this file when starting a session, then inspect the code relevant to the
 user's request. Follow newer user instructions when they change a convention
 recorded here. Keep this context current after material architectural changes.
+
+## Mantis reuse audit — 28 October 2026
+
+Verified actual imports and all 62 original source/asset hashes plus five layout
+references against the supplied Mantis folder. Cards/statistics, tabs, pagination,
+upload, sidebar/header/navigation, forms and theme overrides use supplied source
+or its documented compositions. Mantis itself uses MUI; do not add facade wrappers
+or move admissions code into `mantis/` just to disguise its ownership.
+
+CustomizedDialog extracts the reusable layout from the supplied stateful example.
+DecisionPage and LoginPage help import it directly; remove duplicate feature-level
+modal chrome. Labels and application state stay in the pages. The login account
+list uses actual ListItem rows around its ListItemButton controls for valid list
+semantics. Check supplied components/examples before implementing generic UI.
+The reuse follow-up passes 54 focused tests and two production-browser workflows
+with axe checks, TypeScript/build, lint/format and test-layout checks. Full suites,
+coverage and backend checks were not rerun; see the verification record.
+
+## Applicant decision popup — 28 October 2026
+
+Assessment has four tabs: AI recommendation, Review flag, Score breakdown and
+View documents. Record decision is no longer a tab. The summary contains the
+blue Re-run AI evaluation action and green Decision button. Decision opens a
+Mantis-themed Record decision dialog; saving closes it, while Cancel/close/Escape
+return to the underlying tab without saving. URL-backed popup state preserves
+tab/document/page context. Legacy `/decision` and `?tab=decision` links still
+open it; historical links show a read-only notice, and incomplete assessments
+cannot be decided. Critical evidence still blocks every final outcome.
+
+DecisionPage retains queries, mutations and keyed draft logic. The source-backed
+`mantis/components/CustomizedDialog` is shared by the decision popup and login
+help; its callers supply labels/state. The separate DecisionDialog wrapper and
+content were removed. DecisionForm renders controlled admissions UI.
+Block dismissal/edits during saving, retain
+failed-save drafts, and avoid late navigation after unmount. Existing outcomes,
+permissions, data and backend contracts remain unchanged. This section supersedes
+older descriptions of a fifth decision tab or a header re-evaluation action.
+Verification: 678 tests across 109 matching companions, TypeScript/build,
+lint/format, five targeted standalone browser workflows and both FastAPI browser
+workflows pass. Desktop screenshots and axe checks include the popup. Coverage,
+the full standalone browser suite and backend/PostgreSQL unit checks were not
+rerun for this follow-up.
+
+## Programme workspace tabs — 28 October 2026
+
+The Mantis workspace tabs now sit directly below the programme/intake heading.
+The three summary cards, ZIP upload and batch table all belong inside Batches.
+Admission criteria and Analytics display only their respective content. Keep
+URL-backed tab selection and the page-owned ZIP draft across tab switches. This
+placement supersedes earlier descriptions of metrics/upload above the tabs.
+Verification: 32 focused page/criteria/tab tests and three production-browser
+workflows pass, with desktop screenshots and axe checks. TypeScript/build,
+lint/format and test-layout checks pass. Full suites/coverage and backend checks
+were not rerun; see `frontend/VERIFICATION.md` for scope.
 
 ## Latest UI revision — 23 October 2026
 
@@ -15,10 +69,14 @@ context reads reached the account quota. Use the PNG plus supplied Mantis source
 do not claim final-frame node/token mapping was retrieved.
 
 - Use the actual supplied Mantis source/layouts under `frontend/src/mantis/`.
-  The manifest now records 61 source/asset mappings and five feature-layout
+  The manifest now records 62 source/asset mappings and five feature-layout
   references with source hashes. Added adaptations: TabsCard, TablePagination,
   SingleFileUpload, upload SVG, and four tab/pagination theme factories. Mantis
   uses MUI internally; do not wrap every MUI primitive merely to rename imports.
+  Check the supplied template before adding generic UI; prefer its components
+  and patterns. Keep admissions-specific composition and behavior in feature code.
+  CustomizedDialog is a controlled adaptation of the supplied dialog example,
+  not a standalone export originally provided by Mantis; retain its source/hash.
 - The Programme landing page has direct programme/intake cards. Example labels
   are CSML/ML/CS plus compact intake year; full stored names and IDs are preserved.
   The sidebar lists programme/intake links; account/role/sign-out are in the header

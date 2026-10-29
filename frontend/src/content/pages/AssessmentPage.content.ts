@@ -6,7 +6,7 @@ export const assessmentPageContent = {
     `Evaluation ${textValue(status)}. This run will finish even if you refresh.`,
   readyForReview: 'Ready for review',
   requestEvaluation: 'Request evaluation',
-  reEvaluate: 'Re-evaluate application',
+  reEvaluate: 'Re-run AI evaluation',
   showLatest: 'Return to latest assessment',
   historicRunNotice:
     'Viewing a previous assessment. Return to the latest assessment to record a decision or correct a fact.',
@@ -21,5 +21,5 @@ export const assessmentPageContent = {
   scoreBreakdown: 'Score breakdown',
   noEvidence: workspaceLabels.noEvidence,
   documents: 'View documents',
-  recordDecision: 'Record decision',
+  decision: 'Decision',
 } as const

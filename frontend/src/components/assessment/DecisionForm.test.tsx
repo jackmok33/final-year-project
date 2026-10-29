@@ -49,4 +49,55 @@ describe('DecisionForm', () => {
     expect(record).not.toHaveBeenCalled()
     expect(screen.getByText('Save failed')).toBeInTheDocument()
   })
+  it('allows cancelling even when critical evidence blocks the decision', async () => {
+    const record = vi.fn()
+    const onCancel = vi.fn()
+    renderPage(
+      <DecisionForm
+        outcome="Conditional"
+        setOutcome={vi.fn()}
+        reason=""
+        setReason={vi.fn()}
+        critical
+        disabled
+        record={record}
+        onCancel={onCancel}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Record decision' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onCancel).toHaveBeenCalledOnce()
+    expect(record).not.toHaveBeenCalled()
+  })
+  it('disables edits, dismissal and repeated submission while saving', async () => {
+    const record = vi.fn()
+    const onCancel = vi.fn()
+    const setOutcome = vi.fn()
+    const setReason = vi.fn()
+    renderPage(
+      <DecisionForm
+        outcome="Conditional"
+        setOutcome={setOutcome}
+        reason="Save this note"
+        setReason={setReason}
+        critical={false}
+        disabled={false}
+        record={record}
+        onCancel={onCancel}
+        saving
+      />,
+    )
+    for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
+    expect(screen.getByLabelText('Review note (optional)')).toBeDisabled()
+    const submit = screen.getByRole('button', { name: 'Record decision' })
+    const cancel = screen.getByRole('button', { name: 'Cancel' })
+    expect(submit).toBeDisabled()
+    expect(cancel).toBeDisabled()
+    fireEvent.submit(submit.closest('form')!)
+    await userEvent.click(cancel)
+    expect(record).not.toHaveBeenCalled()
+    expect(onCancel).not.toHaveBeenCalled()
+    expect(setOutcome).not.toHaveBeenCalled()
+    expect(setReason).not.toHaveBeenCalled()
+  })
 })

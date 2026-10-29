@@ -1,4 +1,5 @@
 import { Box, Stack, Typography } from '@mui/material'
+import type { ReactNode } from 'react'
 import {
   aiRecommendation,
   isAssessmentReady,
@@ -13,9 +14,11 @@ import { Status } from '../common'
 export function RecommendationSummary({
   run,
   decision,
+  actions,
 }: {
   run: AssessmentRun
   decision?: Decision
+  actions?: ReactNode
 }) {
   const content = useContent('recommendationSummary')
   const ready = isAssessmentReady(run)
@@ -27,9 +30,12 @@ export function RecommendationSummary({
         aria-label={content.reviewTabs}
         sx={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(3,minmax(0,1fr))',
+          gridTemplateColumns: {
+            xs: 'repeat(2,minmax(0,1fr))',
+            md: actions ? 'repeat(3,minmax(0,1fr)) auto' : 'repeat(3,minmax(0,1fr))',
+          },
           gap: 3,
-          alignItems: 'start',
+          alignItems: 'center',
         }}
       >
         <Stack spacing={1}>
@@ -52,6 +58,9 @@ export function RecommendationSummary({
             label={decisionOutcome(decision?.runId === run.id ? decision.outcome : undefined)}
           />
         </Stack>
+        {actions && (
+          <Box sx={{ gridColumn: { xs: '1 / -1', md: 'auto' }, justifySelf: 'end' }}>{actions}</Box>
+        )}
       </Box>
     </MainCard>
   )

@@ -307,6 +307,12 @@
       "source": "full-version/src/themes/overrides/PaginationItem.ts",
       "local": "theme/overrides/PaginationItem.ts",
       "sourceSha256": "7da121fa73896e4d4fba8bfd3f38d1d6378378f2ed70461b4e55c20a5a209897"
+    },
+    {
+      "source": "full-version/src/sections/components-overview/dialogs/CustomizedDialog.tsx",
+      "local": "components/CustomizedDialog.tsx",
+      "sourceSha256": "f493bd4eadaaaf461785df62224a6feaee8eb919bfc22f5087d90e3da9be30aa",
+      "scope": "Controlled extraction of the supplied dialog styling, title and close control; callers own content and state"
     }
   ],
   "layoutPatterns": [

@@ -26,4 +26,13 @@ describe('OutcomeOptions', () => {
     screen.getByRole('radio', { name: 'Conditional' }).click()
     expect(setOutcome).not.toHaveBeenCalled()
   })
+  it('blocks changes while the enclosing decision form is saving', () => {
+    const setOutcome = vi.fn()
+    renderPage(
+      <OutcomeOptions outcome="Conditional" setOutcome={setOutcome} critical={false} disabled />,
+    )
+    for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
+    screen.getByRole('radio', { name: 'Reject' }).click()
+    expect(setOutcome).not.toHaveBeenCalled()
+  })
 })

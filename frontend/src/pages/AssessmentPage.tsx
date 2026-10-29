@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Typography } from '@mui/material'
+import { Alert, Box, Button, Stack, Typography } from '@mui/material'
 import ArrowLeftOutlined from '@ant-design/icons/ArrowLeftOutlined'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useApplicationQuery, useApplicationsQuery, useCommandMutation } from '../app/api'
@@ -60,12 +60,14 @@ function AssessmentReview({
   const busy = ['queued', 'running'].includes(latest?.status ?? '')
   const assessed = isAssessmentReady(run)
   const canCorrect = Boolean(assessed && !historic && !busy && run?.extractedGrade !== null)
+  const decisionOpen =
+    location.pathname.endsWith('/decision') ||
+    params.get('tab') === 'decision' ||
+    params.get('decision') === 'record'
   const tab = location.pathname.endsWith('/evidence')
     ? 'documents'
-    : location.pathname.endsWith('/decision')
-      ? 'decision'
-      : (params.get('tab') ?? 'recommendation')
-  const validTab = ['recommendation', 'flags', 'scores', 'documents', 'decision'].includes(tab)
+    : (params.get('tab') ?? 'recommendation')
+  const validTab = ['recommendation', 'flags', 'scores', 'documents'].includes(tab)
     ? tab
     : 'recommendation'
   const profile = applicantProfile(app)
@@ -78,14 +80,28 @@ function AssessmentReview({
   function selectTab(next: string) {
     const query = new URLSearchParams()
     if (historic && run) query.set('run', run.id)
-    if (next === 'documents' || next === 'decision')
+    if (next === 'documents')
       navigate(
-        `/applications/${encodeURIComponent(app.id)}/${next === 'documents' ? 'evidence' : 'decision'}${query.size ? `?${query}` : ''}`,
+        `/applications/${encodeURIComponent(app.id)}/evidence${query.size ? `?${query}` : ''}`,
       )
     else {
       query.set('tab', next)
       navigate(`/applications/${encodeURIComponent(app.id)}?${query}`)
     }
+  }
+  function openDecision() {
+    const query = new URLSearchParams(params)
+    query.set('decision', 'record')
+    navigate(`${location.pathname}?${query}`)
+  }
+  function closeDecision() {
+    const query = new URLSearchParams(params)
+    query.delete('decision')
+    if (query.get('tab') === 'decision') query.delete('tab')
+    const path = location.pathname.endsWith('/decision')
+      ? `/applications/${encodeURIComponent(app.id)}`
+      : location.pathname
+    navigate(`${path}${query.size ? `?${query}` : ''}`, { replace: true })
   }
   function evaluate() {
     if (mutation.isLoading || busy || historic) return
@@ -105,20 +121,9 @@ function AssessmentReview({
           : content.programme
       }
       actions={
-        <>
-          {run && (
-            <Button
-              variant="outlined"
-              onClick={evaluate}
-              disabled={mutation.isLoading || busy || historic}
-            >
-              {content.reEvaluate}
-            </Button>
-          )}
-          <Button component={Link} to={back} startIcon={<ArrowLeftOutlined aria-hidden="true" />}>
-            {content.back}
-          </Button>
-        </>
+        <Button component={Link} to={back} startIcon={<ArrowLeftOutlined aria-hidden="true" />}>
+          {content.back}
+        </Button>
       }
     >
       <ErrorNotice error={queryError ?? mutation.error} />
@@ -151,6 +156,25 @@ function AssessmentReview({
           run={run}
           decision={
             historic ? app.decisions.findLast((d) => d.runId === run.id) : latestDecision(app)
+          }
+          actions={
+            <Stack direction="row" sx={{ gap: 2, flexWrap: 'wrap' }}>
+              <Button
+                variant="contained"
+                onClick={evaluate}
+                disabled={mutation.isLoading || busy || historic}
+              >
+                {content.reEvaluate}
+              </Button>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={openDecision}
+                disabled={!assessed || busy || historic || mutation.isLoading}
+              >
+                {content.decision}
+              </Button>
+            </Stack>
           }
         />
       ) : (
@@ -203,18 +227,9 @@ function AssessmentReview({
               ),
           },
           { value: 'documents', label: content.documents, content: <EvidencePage /> },
-          {
-            value: 'decision',
-            disabled: !assessed || busy || historic,
-            label: content.recordDecision,
-            content: historic ? (
-              <Box sx={{ p: 4 }}>{content.historicRunNotice}</Box>
-            ) : (
-              <DecisionPage />
-            ),
-          },
         ]}
       />
+      {decisionOpen && <DecisionPage onClose={closeDecision} readOnly={historic} />}
     </Page>
   )
 }

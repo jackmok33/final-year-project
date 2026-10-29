@@ -4,7 +4,7 @@ import TabsCard from '../mantis/components/TabsCard'
 import { programmeIntakeLabel } from '../domain/programmeDisplay'
 import ArrowLeftOutlined from '@ant-design/icons/ArrowLeftOutlined'
 import DownloadOutlined from '@ant-design/icons/DownloadOutlined'
-import { Alert, Box, Button } from '@mui/material'
+import { Alert, Box, Button, Stack } from '@mui/material'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import {
@@ -174,39 +174,6 @@ function BatchUploadController({ workspace }: { workspace: ReturnType<typeof use
       }
     >
       <ErrorNotice error={criteria.error} />
-      <Box component="section" aria-label={content.overview}>
-        {applications.error ? (
-          <ErrorNotice error={applications.error} />
-        ) : applications.isLoading || !intakeApplications ? (
-          <Loading />
-        ) : (
-          <SummaryCards
-            items={[
-              {
-                label: content.total,
-                value: intakeApplications.length,
-                hint: content.totalHint,
-              },
-              { label: content.offers, value: offers, hint: content.offersHint },
-              {
-                label: content.pending,
-                value: intakeApplications.length - outcomes.length,
-                hint: content.pendingHint,
-              },
-            ]}
-          />
-        )}
-      </Box>
-      <ZipUploadPanel
-        file={file}
-        busy={busy}
-        error={uploadError}
-        onSelect={(next) => {
-          setFile(next)
-          setUploadError(undefined)
-        }}
-        onImport={() => void importBatch()}
-      />
       <TabsCard
         value={tab}
         onChange={(next) =>
@@ -237,16 +204,53 @@ function BatchUploadController({ workspace }: { workspace: ReturnType<typeof use
             value: 'batches',
             label: content.batches,
             content: (
-              <BatchList
-                batches={batches.currentData ? pagedBatches : undefined}
-                isLoading={batches.isLoading}
-                error={batches.error}
-                page={pagination.page}
-                pageSize={pagination.pageSize}
-                total={sortedBatches.length}
-                onPageChange={pagination.setPage}
-                onPageSizeChange={pagination.setPageSize}
-              />
+              <Stack spacing={2.5} sx={{ p: 2.5 }}>
+                <Box component="section" aria-label={content.overview}>
+                  {applications.error ? (
+                    <ErrorNotice error={applications.error} />
+                  ) : applications.isLoading || !intakeApplications ? (
+                    <Loading />
+                  ) : (
+                    <SummaryCards
+                      items={[
+                        {
+                          label: content.total,
+                          value: intakeApplications.length,
+                          hint: content.totalHint,
+                        },
+                        { label: content.offers, value: offers, hint: content.offersHint },
+                        {
+                          label: content.pending,
+                          value: intakeApplications.length - outcomes.length,
+                          hint: content.pendingHint,
+                        },
+                      ]}
+                    />
+                  )}
+                </Box>
+                <ZipUploadPanel
+                  file={file}
+                  busy={busy}
+                  error={uploadError}
+                  onSelect={(next) => {
+                    setFile(next)
+                    setUploadError(undefined)
+                  }}
+                  onImport={() => void importBatch()}
+                />
+                <Box>
+                  <BatchList
+                    batches={batches.currentData ? pagedBatches : undefined}
+                    isLoading={batches.isLoading}
+                    error={batches.error}
+                    page={pagination.page}
+                    pageSize={pagination.pageSize}
+                    total={sortedBatches.length}
+                    onPageChange={pagination.setPage}
+                    onPageSizeChange={pagination.setPageSize}
+                  />
+                </Box>
+              </Stack>
             ),
           },
           {
