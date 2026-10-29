@@ -1,10 +1,4 @@
-import type { ContentValue } from '../../formatText'
-
 export const correctionFormContent = {
-  correctExtractedFact: 'Correct extracted fact',
-  subtitle: (id: ContentValue, documentName: ContentValue) =>
-    `${String(id)} / ${String(documentName)} / Source-based correction`,
-  factCorrection: 'Fact correction',
   correctionNotice:
     'The original value is preserved. Saving creates a new fact version and a new evaluation.',
   fact: 'Fact',
@@ -16,5 +10,4 @@ export const correctionFormContent = {
   reasonForCorrection: 'Reason for correction',
   saveReEvaluate: 'Save & re-evaluate',
   cancel: 'Cancel',
-  transcriptFallback: 'Transcript',
 } as const

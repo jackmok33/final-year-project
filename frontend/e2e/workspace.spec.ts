@@ -33,7 +33,7 @@ async function intake(page: Page, label = 'CSML 26/27') {
 }
 async function signOut(page: Page) {
   await page.getByRole('button', { name: 'Account menu' }).click()
-  await page.getByRole('menuitem', { name: 'Sign out', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Logout', exact: true }).click()
 }
 async function pdf(pages = 1) {
   const document = await PDFDocument.create()
@@ -113,6 +113,43 @@ test('programme cards and sidebar intake links keep records separated through re
   await expect(page.locator('main h1')).toHaveText('CSML 25/26')
   await page.getByRole('link', { name: 'Open course ML 26/27', exact: true }).click()
   await expect(page.locator('main h1')).toHaveText('ML 26/27')
+})
+
+test('account menu opens the password form and logs out without changing prototype credentials', async ({
+  page,
+}, info) => {
+  await login(page)
+  const original = await dataset(page)
+  const accountMenu = page.getByRole('button', { name: 'Account menu', exact: true })
+  await accountMenu.click()
+  await expect(page.getByRole('menuitem', { name: 'All programmes', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('menuitem', { name: 'Logout', exact: true })).toBeVisible()
+  await page.getByRole('menuitem', { name: 'Change password', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Change password', exact: true })
+  await expect(dialog).toBeVisible()
+  await dialog.getByLabel(/^Current password/).fill('demo')
+  await dialog.getByLabel(/^New password/).fill('temporary-password')
+  await dialog.getByLabel(/^Confirm new password/).fill('different-password')
+  await dialog.getByRole('button', { name: 'Change password', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toBeVisible()
+  await dialog.getByLabel(/^Confirm new password/).fill('temporary-password')
+  await dialog.getByRole('button', { name: 'Change password', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toContainText(/authentication|password service/i)
+  expect(await dataset(page)).toEqual(original)
+  await audit(page)
+  await page.screenshot({ path: info.outputPath('change-password-popup.png'), fullPage: true })
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(accountMenu).toBeFocused()
+  await accountMenu.click()
+  await page.getByRole('menuitem', { name: 'Change password', exact: true }).click()
+  await expect(dialog.getByLabel(/^Current password/)).toBeEmpty()
+  await expect(dialog.getByLabel(/^New password/)).toBeEmpty()
+  await expect(dialog.getByLabel(/^Confirm new password/)).toBeEmpty()
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await signOut(page)
+  await expect(page).toHaveURL('/login')
+  await login(page)
 })
 
 test('search, status filters, score sorting and bounded pagination work on applicant rows', async ({
@@ -200,9 +237,9 @@ test('the three final tutor outcomes save directly and persist separately from t
   expect(saved.decisions.at(-1)?.outcome).toBe('Reject')
 })
 
-test('flag correction preserves original facts, creates a run and enables final decisions', async ({
+test('flag correction popup preserves review context and original facts while creating a run', async ({
   page,
-}) => {
+}, info) => {
   await login(page)
   await page.goto('/applications/APP-2026-0142/decision')
   const blockedDialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
@@ -212,12 +249,34 @@ test('flag correction preserves original facts, creates a run and enables final 
   await blockedDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(blockedDialog).toHaveCount(0)
   await page.getByRole('tab', { name: 'Review flag', exact: true }).click()
-  await page.getByRole('link', { name: 'Update detail', exact: true }).click()
-  await page.getByLabel('Corrected value', { exact: false }).fill('74')
-  await page
+  const updateDetail = page.getByRole('button', { name: 'Update detail', exact: true })
+  await updateDetail.click()
+  const correctionDialog = page.getByRole('dialog', { name: 'Correct extracted fact', exact: true })
+  await expect(correctionDialog).toBeVisible()
+  await expect(page).toHaveURL(/tab=flags.*correction=edit/)
+  await correctionDialog.getByLabel('Corrected value', { exact: false }).fill('74')
+  await correctionDialog.getByLabel('Reason for correction', { exact: false }).fill('Unsaved note')
+  await page.keyboard.press('Escape')
+  await expect(correctionDialog).toHaveCount(0)
+  await expect(updateDetail).toBeFocused()
+  expect(
+    (await dataset(page)).applications.find((a) => a.id === 'APP-2026-0142')!.runs,
+  ).toHaveLength(1)
+  await updateDetail.click()
+  await expect(correctionDialog.getByLabel('Corrected value', { exact: false })).toHaveValue('71')
+  await expect(correctionDialog.getByLabel('Reason for correction', { exact: false })).toBeEmpty()
+  await audit(page)
+  await page.screenshot({ path: info.outputPath('correction-popup.png'), fullPage: true })
+  await correctionDialog.getByLabel('Corrected value', { exact: false }).fill('74')
+  await correctionDialog
     .getByLabel('Reason for correction', { exact: false })
     .fill('Transcript page 2 confirms 74%.')
-  await page.getByRole('button', { name: 'Save & re-evaluate', exact: true }).click()
+  await correctionDialog.getByRole('button', { name: 'Save & re-evaluate', exact: true }).click()
+  await expect(correctionDialog).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'Review flag', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
   await expect(page.getByRole('button', { name: 'Decision', exact: true })).toBeEnabled()
   await page.getByRole('button', { name: 'Decision', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
@@ -241,6 +300,19 @@ test('flag correction preserves original facts, creates a run and enables final 
   await historicalDialog.getByRole('button', { name: 'Close decision', exact: true }).click()
   await expect(historicalDialog).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Decision', exact: true })).toBeDisabled()
+  await page.goto(`/applications/APP-2026-0142/correct?run=${encodeURIComponent(app.runs[0].id)}`)
+  const historicalCorrection = page.getByRole('dialog', {
+    name: 'Correct extracted fact',
+    exact: true,
+  })
+  await expect(historicalCorrection).toBeVisible()
+  await expect(historicalCorrection.getByLabel('Corrected value', { exact: false })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(historicalCorrection).toHaveCount(0)
+  await expect(page.getByText(/Viewing a previous assessment/)).toBeVisible()
+  expect(
+    (await dataset(page)).applications.find((a) => a.id === 'APP-2026-0142')!.runs,
+  ).toHaveLength(2)
 })
 
 test('criteria edits preserve existing results without exposing history', async ({ page }) => {

@@ -23,7 +23,7 @@ not additional standalone Mantis packages.
 | Sign-in                                                                                           | `components/AuthCard` and the supplied `AuthLogin` form pattern                   |
 | Dashboard statistics                                                                              | `components/AnalyticEcommerce`, with neutral title/count/hint props               |
 | Account avatar and navigation button                                                              | Extended `Avatar` and `IconButton`                                                |
-| Decision popup and sign-in help                                                                   | Controlled `CustomizedDialog` adaptation from the supplied dialog example         |
+| Decision, correction, password and sign-in help popups                                            | Controlled `CustomizedDialog` adaptation from the supplied dialog example         |
 | Form action bars                                                                                  | `components/FormActions`, adapted from the supplied action-bar layout             |
 | Route and inline loading                                                                          | `Loader` and `CircularWithPath`                                                   |
 | Fields, buttons, tables, menus, statuses, alerts, dialogs, radios, switches and expandable panels | The 38 factories in `theme/overrides/`                                            |
@@ -95,8 +95,8 @@ navigation, statistic cards and control overrides for dashboard screens.
 dialog styling, title spacing and Mantis close control. It is a controlled
 adaptation of that example, not an unchanged standalone component supplied by the
 template. Demo state, placeholder text and unused footer styling are omitted.
-DecisionPage and LoginPage help use the same implementation; their labels, content
-and open/close state stay with the pages.
+DecisionPage, CorrectionPage, Layout's password form and LoginPage help use the
+same implementation; labels, content and open/close state stay with their callers.
 
 The adaptation retains MUI focus restoration and adds unique accessible title IDs
 and a busy guard for close, Escape and backdrop dismissal. The close control stays

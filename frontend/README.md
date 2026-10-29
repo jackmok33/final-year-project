@@ -75,7 +75,10 @@ browser controls are not real server authentication.
 
 The main flow is **Programme → intake workspace → batch → applicant review**.
 The Programme page has direct intake cards. The sidebar lists programme/intake
-links, and the header avatar opens account details, All programmes and Sign out.
+links, and the header avatar opens account details, Change password and Logout.
+Change password opens a Mantis form with current/new password and confirmation.
+The form validates its fields but cannot save until account authentication is
+connected; entered passwords are never persisted or sent to the mock backend.
 The three examples display as **CSML**, **ML** and **CS** with years such as 26/27.
 Their full stored names remain Computational Statistics and Machine Learning MSc,
 Machine Learning MSc and Computer Science MSc. Other programme names display as
@@ -189,8 +192,8 @@ The review has a compact score/AI/decision summary and four Mantis tabs:
 - **AI recommendation:** justification, source-page links and a two-column evidence
   summary for English, education, references, transcript, publications, projects
   and work experience.
-- **Review flag:** actionable evidence alerts; supported grade discrepancies link
-  to correction with a source page and reason.
+- **Review flag:** actionable evidence alerts; Update detail opens a correction
+  popup with a source page and reason, keeping the review tab in place.
 - **Score breakdown:** expandable section scores, explanations and citations.
 - **View documents:** original PDF selection, page navigation and download.
 
@@ -199,6 +202,12 @@ with Conditional, Unconditional or Reject and an optional note. Cancel, the clos
 button or Escape returns to the selected review tab without saving. The popup
 keeps the draft on save failure and prevents dismissal/duplicate submits while
 saving. Existing `/decision` and `?tab=decision` links open the popup too.
+
+Fact correction uses the same supplied Mantis dialog. Cancel/close/Escape discard
+the draft and return to the current tab; saving preserves the original fact and
+creates a new assessment. Failed saves keep the draft, and in-flight saves block
+edits and dismissal. Old `/correct` links open the popup within the review shell;
+historic-run links remain read-only.
 
 These are the only choices accepted by new decision commands. Saving is direct,
 without a review checkbox, override reason or extra confirmation dialog. Critical

@@ -3,7 +3,7 @@ import { fireEvent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import '../../test/domSetup'
-import { application, documents, run } from '../../test/fixtures'
+import { documents, run } from '../../test/fixtures'
 import { renderPage } from '../../test/renderPage'
 import { CorrectionForm } from './CorrectionForm'
 
@@ -15,7 +15,6 @@ describe('CorrectionForm', () => {
       submit = vi.fn().mockResolvedValue(undefined)
     renderPage(
       <CorrectionForm
-        id={application.id}
         run={run}
         transcript={documents[0]}
         value="74"
@@ -24,7 +23,8 @@ describe('CorrectionForm', () => {
         setPage={setPage}
         reason="Source checked"
         setReason={setReason}
-        mutation={{ isLoading: false }}
+        saving={false}
+        cancel={vi.fn()}
         submit={submit}
         disabled={false}
       />,

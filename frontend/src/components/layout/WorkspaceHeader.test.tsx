@@ -10,6 +10,7 @@ import { WorkspaceHeader } from './WorkspaceHeader'
 describe('WorkspaceHeader', () => {
   it('provides account actions and a role switch only for dual-role users', async () => {
     const onSignOut = vi.fn(),
+      onChangePassword = vi.fn(),
       anchor = document.createElement('button')
     document.body.append(anchor)
     try {
@@ -21,15 +22,19 @@ describe('WorkspaceHeader', () => {
           onOpenAccount={vi.fn()}
           onCloseAccount={vi.fn()}
           onOpenNavigation={vi.fn()}
+          onChangePassword={onChangePassword}
           onSignOut={onSignOut}
         />,
       )
       expect(screen.getByText(tutor.name)).toBeInTheDocument()
+      expect(screen.queryByRole('menuitem', { name: 'All programmes' })).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Change password' }))
+      expect(onChangePassword).toHaveBeenCalledOnce()
       expect(screen.getByRole('menuitem', { name: /Switch to/ })).toHaveAttribute(
         'href',
         '/admin/health',
       )
-      await userEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }))
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Logout' }))
       expect(onSignOut).toHaveBeenCalledOnce()
       view.rerender(
         <WorkspaceHeader
@@ -39,6 +44,7 @@ describe('WorkspaceHeader', () => {
           onOpenAccount={vi.fn()}
           onCloseAccount={vi.fn()}
           onOpenNavigation={vi.fn()}
+          onChangePassword={onChangePassword}
           onSignOut={onSignOut}
         />,
       )

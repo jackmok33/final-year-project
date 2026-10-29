@@ -1,25 +1,25 @@
 // @vitest-environment jsdom
 import { screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import '../../test/domSetup'
 import { run } from '../../test/fixtures'
 import { renderPage } from '../../test/renderPage'
 import { ReviewFlags } from './ReviewFlags'
 
 describe('ReviewFlags', () => {
-  it('offers a correction only for supported grade flags with permission', () => {
+  it('offers a correction only for supported grade flags with permission', async () => {
     const flagged = {
       ...run,
       flags: [{ code: 'GRADE_MISMATCH', message: 'Check transcript', critical: true }],
     }
-    const view = renderPage(<ReviewFlags run={flagged} id="APP/1" canCorrect />)
+    const onCorrect = vi.fn()
+    const view = renderPage(<ReviewFlags run={flagged} onCorrect={onCorrect} canCorrect />)
     expect(screen.getByRole('alert')).toHaveTextContent('Check transcript')
-    expect(screen.getByRole('link', { name: 'Update detail' })).toHaveAttribute(
-      'href',
-      '/applications/APP%2F1/correct',
-    )
-    view.rerender(<ReviewFlags run={flagged} id="APP/1" canCorrect={false} />)
-    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Update detail' }))
+    expect(onCorrect).toHaveBeenCalledOnce()
+    view.rerender(<ReviewFlags run={flagged} onCorrect={onCorrect} canCorrect={false} />)
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
   it('omits backend placeholders and raw codes', () => {
     renderPage(
@@ -28,7 +28,7 @@ describe('ReviewFlags', () => {
           ...run,
           flags: [{ code: 'BACKEND_UNAVAILABLE', message: 'Backend unavailable', critical: true }],
         }}
-        id="APP"
+        onCorrect={vi.fn()}
         canCorrect
       />,
     )

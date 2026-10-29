@@ -1,15 +1,14 @@
 import { Alert, AlertTitle, Button, Stack, Typography } from '@mui/material'
-import { Link } from 'react-router-dom'
 import type { AssessmentRun } from '../../domain/types'
 import { useContent } from '../../hooks/useContent'
 
 export function ReviewFlags({
   run,
-  id,
+  onCorrect,
   canCorrect,
 }: {
   run: AssessmentRun
-  id: string
+  onCorrect: () => void
   canCorrect: boolean
 }) {
   const content = useContent('reviewFlags')
@@ -24,12 +23,7 @@ export function ReviewFlags({
           icon={false}
           action={
             canCorrect && flag.code === 'GRADE_MISMATCH' ? (
-              <Button
-                variant="outlined"
-                color="secondary"
-                component={Link}
-                to={`/applications/${encodeURIComponent(id)}/correct`}
-              >
+              <Button variant="outlined" color="secondary" onClick={onCorrect}>
                 {content.updateDetail}
               </Button>
             ) : undefined

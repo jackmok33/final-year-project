@@ -17,7 +17,6 @@ import { documentUploadContent } from './components/applications/DocumentUpload.
 import { newApplicationFormContent } from './components/applications/NewApplicationForm.content'
 import { uploadGuidanceContent } from './components/applications/UploadGuidance.content'
 import { correctionFormContent } from './components/assessment/CorrectionForm.content'
-import { correctionGuidanceContent } from './components/assessment/CorrectionGuidance.content'
 import { decisionFormContent } from './components/assessment/DecisionForm.content'
 import { evidenceSummaryContent } from './components/assessment/EvidenceSummary.content'
 import { outcomeOptionsContent } from './components/assessment/OutcomeOptions.content'
@@ -25,6 +24,7 @@ import { recommendationPanelContent } from './components/assessment/Recommendati
 import { recommendationSummaryContent } from './components/assessment/RecommendationSummary.content'
 import { reviewFlagsContent } from './components/assessment/ReviewFlags.content'
 import { sectionAssessmentsContent } from './components/assessment/SectionAssessments.content'
+import { changePasswordFormContent } from './components/auth/ChangePasswordForm.content'
 import { demoSignInContent } from './components/auth/DemoSignIn.content'
 import { protectedRouteContent } from './components/auth/ProtectedRoute.content'
 import { signInIntroContent } from './components/auth/SignInIntro.content'
@@ -66,9 +66,9 @@ export const content = {
   backupRecovery: backupRecoveryContent,
   batchList: batchListContent,
   branding: brandingContent,
+  changePasswordForm: changePasswordFormContent,
   common: commonContent,
   correctionForm: correctionFormContent,
-  correctionGuidance: correctionGuidanceContent,
   correctionPage: correctionPageContent,
   courseAnalytics: courseAnalyticsContent,
   createWorkspaceDialog: createWorkspaceDialogContent,

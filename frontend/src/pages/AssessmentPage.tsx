@@ -22,6 +22,7 @@ import {
 import { useContent } from '../hooks/useContent'
 import { EvidencePage } from './EvidencePage'
 import { DecisionPage } from './DecisionPage'
+import { CorrectionPage } from './CorrectionPage'
 
 export function AssessmentPage() {
   const { id = '' } = useParams()
@@ -60,13 +61,15 @@ function AssessmentReview({
   const busy = ['queued', 'running'].includes(latest?.status ?? '')
   const assessed = isAssessmentReady(run)
   const canCorrect = Boolean(assessed && !historic && !busy && run?.extractedGrade !== null)
+  const correctionOpen =
+    location.pathname.endsWith('/correct') || params.get('correction') === 'edit'
   const decisionOpen =
     location.pathname.endsWith('/decision') ||
     params.get('tab') === 'decision' ||
     params.get('decision') === 'record'
   const tab = location.pathname.endsWith('/evidence')
     ? 'documents'
-    : (params.get('tab') ?? 'recommendation')
+    : (params.get('tab') ?? (location.pathname.endsWith('/correct') ? 'flags' : 'recommendation'))
   const validTab = ['recommendation', 'flags', 'scores', 'documents'].includes(tab)
     ? tab
     : 'recommendation'
@@ -88,6 +91,20 @@ function AssessmentReview({
       query.set('tab', next)
       navigate(`/applications/${encodeURIComponent(app.id)}?${query}`)
     }
+  }
+  function openCorrection() {
+    const query = new URLSearchParams(params)
+    query.set('correction', 'edit')
+    navigate(`${location.pathname}?${query}`)
+  }
+  function closeCorrection(saved = false) {
+    const query = new URLSearchParams(params)
+    query.delete('correction')
+    if (saved) query.delete('run')
+    const legacyPath = location.pathname.endsWith('/correct')
+    if (legacyPath && !query.has('tab')) query.set('tab', 'flags')
+    const path = legacyPath ? `/applications/${encodeURIComponent(app.id)}` : location.pathname
+    navigate(`${path}${query.size ? `?${query}` : ''}`, { replace: true })
   }
   function openDecision() {
     const query = new URLSearchParams(params)
@@ -208,7 +225,7 @@ function AssessmentReview({
             label: content.reviewFlags,
             content: run ? (
               <Box sx={{ p: 2.5 }}>
-                <ReviewFlags run={run} id={app.id} canCorrect={canCorrect} />
+                <ReviewFlags run={run} canCorrect={canCorrect} onCorrect={openCorrection} />
               </Box>
             ) : (
               <Box sx={{ p: 4 }}>{content.noFlags}</Box>
@@ -229,6 +246,13 @@ function AssessmentReview({
           { value: 'documents', label: content.documents, content: <EvidencePage /> },
         ]}
       />
+      {correctionOpen && (
+        <CorrectionPage
+          onClose={() => closeCorrection()}
+          onSaved={() => closeCorrection(true)}
+          readOnly={historic}
+        />
+      )}
       {decisionOpen && <DecisionPage onClose={closeDecision} readOnly={historic} />}
     </Page>
   )

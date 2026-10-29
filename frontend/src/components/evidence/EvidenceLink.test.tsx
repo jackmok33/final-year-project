@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest'
 import '../../test/domSetup'
 import { documents } from '../../test/fixtures'
 import { renderPage } from '../../test/renderPage'
-import { CorrectionGuidance } from '../assessment/CorrectionGuidance'
 import { EvidenceLink } from './EvidenceLink'
 
 describe('shared evidence links', () => {
@@ -61,24 +60,6 @@ describe('shared evidence links', () => {
       />,
     )
     expect(screen.getByText('transcript.pdf · p.1').closest('a')).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    )
-  })
-})
-
-describe('correction source guidance', () => {
-  it.each([1, 4])('opens a valid page for a %s-page transcript', (pages) => {
-    renderPage(<CorrectionGuidance id="APP-TEST" transcript={{ ...documents[0], pages }} />)
-    expect(screen.getByRole('link', { name: 'Inspect original transcript' })).toHaveAttribute(
-      'href',
-      `/applications/APP-TEST/evidence?document=APP-TEST-transcript&page=${Math.min(2, pages)}`,
-    )
-  })
-
-  it('disables inspection when there is no transcript', () => {
-    renderPage(<CorrectionGuidance id="APP-TEST" />)
-    expect(screen.getByText('Inspect original transcript').closest('a')).toHaveAttribute(
       'aria-disabled',
       'true',
     )

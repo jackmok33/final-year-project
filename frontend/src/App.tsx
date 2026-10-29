@@ -20,9 +20,6 @@ const NewApplicationPage = lazy(() =>
 const AssessmentPage = lazy(() =>
   import('./pages/AssessmentPage').then((m) => ({ default: m.AssessmentPage })),
 )
-const CorrectionPage = lazy(() =>
-  import('./pages/CorrectionPage').then((m) => ({ default: m.CorrectionPage })),
-)
 const DataOperationsPage = lazy(() =>
   import('./pages/DataOperationsPage').then((m) => ({ default: m.DataOperationsPage })),
 )
@@ -50,7 +47,7 @@ export function App() {
             <Route path="/applications/new" element={<NewApplicationPage />} />
             <Route path="/applications/:id" element={<AssessmentPage />} />
             <Route path="/applications/:id/evidence" element={<AssessmentPage />} />
-            <Route path="/applications/:id/correct" element={<CorrectionPage />} />
+            <Route path="/applications/:id/correct" element={<AssessmentPage />} />
             <Route path="/applications/:id/decision" element={<AssessmentPage />} />
             <Route path="/criteria" element={<UploadBatchesPage />} />
           </Route>

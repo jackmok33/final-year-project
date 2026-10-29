@@ -19,6 +19,8 @@ import { programmeIntakeLabel } from '../domain/programmeDisplay'
 import { intakeYears, normalizeIntakeYear, applicationIntakeYear } from '../domain/intakes'
 import { useContent } from '../hooks/useContent'
 import MiniDrawerStyled from '../mantis/layout/MiniDrawerStyled'
+import CustomizedDialog from '../mantis/components/CustomizedDialog'
+import { ChangePasswordForm, type PasswordDraft } from './auth/ChangePasswordForm'
 import { WorkspaceHeader } from './layout/WorkspaceHeader'
 import { WorkspaceNavigation, type NavigationItem } from './layout/WorkspaceNavigation'
 
@@ -28,6 +30,13 @@ export function Layout() {
   const location = useLocation()
   const [params] = useSearchParams()
   const [accountAnchor, setAccountAnchor] = useState<HTMLElement | null>(null)
+  const [passwordOpen, setPasswordOpen] = useState(false)
+  const [passwordDraft, setPasswordDraft] = useState<PasswordDraft>({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  })
+  const [passwordMessage, setPasswordMessage] = useState('')
   const { data: programmeIntakes } = useProgrammeIntakesQuery(undefined, {
     skip: !user?.roles.includes('tutor'),
   })
@@ -129,6 +138,20 @@ export function Layout() {
     dispatch(signOut())
     dispatch(admissionsApi.util.resetApiState())
   }
+  function closePassword() {
+    setPasswordOpen(false)
+    setPasswordDraft({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    setPasswordMessage('')
+  }
+  function submitPassword() {
+    if (passwordDraft.newPassword !== passwordDraft.confirmPassword) {
+      setPasswordMessage(content.passwordMismatch)
+    } else if (passwordDraft.newPassword === passwordDraft.currentPassword) {
+      setPasswordMessage(content.passwordUnchanged)
+    } else {
+      setPasswordMessage(content.passwordUnavailable)
+    }
+  }
   const navigation = (
     <WorkspaceNavigation admin={isAdmin} items={navigationItems} onNavigate={closeNavigation} />
   )
@@ -165,6 +188,10 @@ export function Layout() {
           onOpenAccount={setAccountAnchor}
           onCloseAccount={() => setAccountAnchor(null)}
           onOpenNavigation={() => dispatch(setNavigationOpen(true))}
+          onChangePassword={() => {
+            setAccountAnchor(null)
+            setPasswordOpen(true)
+          }}
           onSignOut={logout}
         />
         <Toolbar aria-hidden="true" sx={{ minHeight: `${headerHeight}px !important` }} />
@@ -183,6 +210,23 @@ export function Layout() {
           />
         </Box>
       </Box>
+      <CustomizedDialog
+        open={passwordOpen}
+        title={content.changePassword}
+        closeLabel={content.closePassword}
+        onClose={closePassword}
+      >
+        <ChangePasswordForm
+          values={passwordDraft}
+          message={passwordMessage}
+          onChange={(field, value) => {
+            setPasswordDraft((draft) => ({ ...draft, [field]: value }))
+            setPasswordMessage('')
+          }}
+          onSubmit={submitPassword}
+          onCancel={closePassword}
+        />
+      </CustomizedDialog>
     </Box>
   )
 }

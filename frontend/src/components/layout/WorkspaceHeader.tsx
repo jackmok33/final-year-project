@@ -1,4 +1,5 @@
 import LogoutOutlined from '@ant-design/icons/LogoutOutlined'
+import LockOutlined from '@ant-design/icons/LockOutlined'
 import MenuUnfoldOutlined from '@ant-design/icons/MenuUnfoldOutlined'
 import { Box, Divider, Menu, MenuItem, Toolbar, Typography } from '@mui/material'
 import { useId } from 'react'
@@ -17,6 +18,7 @@ export function WorkspaceHeader({
   onOpenAccount,
   onCloseAccount,
   onOpenNavigation,
+  onChangePassword,
   onSignOut,
 }: {
   user?: User
@@ -25,6 +27,7 @@ export function WorkspaceHeader({
   onOpenAccount: (anchor: HTMLElement) => void
   onCloseAccount: () => void
   onOpenNavigation: () => void
+  onChangePassword: () => void
   onSignOut: () => void
 }) {
   const content = useContent('workspaceHeader')
@@ -81,8 +84,9 @@ export function WorkspaceHeader({
             </Typography>
           </Box>
           <Divider />
-          <MenuItem component={Link} to="/modules" onClick={onCloseAccount}>
-            {content.allModules}
+          <MenuItem onClick={onChangePassword}>
+            <LockOutlined aria-hidden="true" style={{ marginRight: 8 }} />
+            {content.changePassword}
           </MenuItem>
           {user?.roles.length === 2 && (
             <MenuItem

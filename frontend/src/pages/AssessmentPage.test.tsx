@@ -108,10 +108,18 @@ describe('application review and decision popup', () => {
     renderPage(<AssessmentPage />)
     await userEvent.click(screen.getByRole('tab', { name: 'Review flag' }))
     expect(screen.getByRole('alert')).toHaveTextContent('The transcript needs checking.')
-    expect(screen.getByRole('link', { name: 'Update detail' })).toHaveAttribute(
-      'href',
-      `/applications/${application.id}/correct`,
+    const trigger = screen.getByRole('button', { name: 'Update detail' })
+    await userEvent.click(trigger)
+    const dialog = within(screen.getByRole('dialog', { name: 'Correct extracted fact' }))
+    await userEvent.type(dialog.getByLabelText(/Reason for correction/), 'Unsaved correction')
+    await userEvent.click(dialog.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('tab', { name: 'Review flag' })).toHaveAttribute(
+      'aria-selected',
+      'true',
     )
+    expect(trigger).toHaveFocus()
+    expect(command).not.toHaveBeenCalled()
     expect(screen.queryByText('GRADE_MISMATCH')).not.toBeInTheDocument()
   })
   it.each(['queued', 'running', 'failed'] as const)(
@@ -196,4 +204,61 @@ describe('application review and decision popup', () => {
     expect(screen.getByText('90.0')).toBeInTheDocument()
     expect(screen.queryByText(/Viewing a previous assessment/)).not.toBeInTheDocument()
   })
+})
+
+it('keeps legacy correction links in the review shell and preserves the historic run on cancel', async () => {
+  resetPageMocks()
+  apiMocks.useApplicationQuery.mockReturnValue(
+    queryResult({
+      ...detail,
+      application: { ...application, runs: [{ ...run, id: 'older' }, run] },
+    }),
+  )
+  renderPage(<AssessmentPage />, '/applications/APP-TEST/correct?run=older')
+  expect(screen.getByRole('dialog', { name: 'Correct extracted fact' })).toBeInTheDocument()
+  expect(screen.getByText(/latest assessment before correcting/)).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Close fact correction' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(screen.getByLabelText('Current URL')).toHaveTextContent('run=older')
+  expect(screen.getByRole('tab', { name: 'Review flag' })).toHaveAttribute('aria-selected', 'true')
+  expect(command).not.toHaveBeenCalled()
+})
+
+it('removes the current-run bookmark after saving a correction so the new result can display', async () => {
+  resetPageMocks()
+  const view = renderPage(
+    <AssessmentPage />,
+    `/applications/APP-TEST?tab=flags&correction=edit&run=${run.id}`,
+  )
+  await userEvent.type(screen.getByLabelText(/Reason for correction/), 'Verified transcript')
+  await userEvent.click(screen.getByRole('button', { name: 'Save & re-evaluate' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(screen.getByLabelText('Current URL')).not.toHaveTextContent('run=')
+  expect(screen.getByLabelText('Current URL')).not.toHaveTextContent('correction=')
+  apiMocks.useApplicationQuery.mockReturnValue(
+    queryResult({
+      ...detail,
+      application: { ...application, runs: [run, { ...run, id: 'new-run', overall: 91 }] },
+    }),
+  )
+  view.rerender(<AssessmentPage />)
+  expect(screen.getByText('91.0')).toBeInTheDocument()
+  expect(screen.queryByText(/Viewing a previous assessment/)).not.toBeInTheDocument()
+})
+
+it('preserves document and page context when closing a correction popup', async () => {
+  resetPageMocks()
+  renderPage(
+    <AssessmentPage />,
+    `/applications/APP-TEST/evidence?document=APP-TEST-transcript&page=2&correction=edit`,
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(screen.getByRole('tab', { name: 'View documents' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  expect(screen.getByLabelText('Current URL')).toHaveTextContent(
+    'document=APP-TEST-transcript&page=2',
+  )
 })
