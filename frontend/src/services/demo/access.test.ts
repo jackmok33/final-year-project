@@ -1,3 +1,4 @@
+import { resetDemo } from '../../test/resetDemo'
 import { strToU8, zipSync } from 'fflate'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { authorizedFile, commandDemo, queryDemo, releaseArchive, stageArchive } from '../demo'
@@ -8,7 +9,7 @@ describe('persistent browser demo contract', () => {
   const id = 'APP-2026-0142'
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async (file: File) => ({
@@ -67,7 +68,7 @@ describe('persistent ZIP upload batches', () => {
   }
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async (file: File) => {
@@ -102,7 +103,7 @@ describe('persistent ZIP upload batches', () => {
 describe('private tutor courses', () => {
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   it('does not grant applicant access from forged legacy assignments', async () => {
     const data = (await readDataset())!
@@ -118,8 +119,5 @@ describe('private tutor courses', () => {
     )
     const user = data.users.find((u) => u.id === 'tutor-b')!
     await expect(commandDemo({ op: 'user', user }, 'admin-a')).rejects.toThrow('cannot be assigned')
-    await expect(
-      commandDemo({ op: 'programme', programme: { ...data.programmes[0], id: '' } }, 'admin-a'),
-    ).rejects.toThrow('Tutors add their own courses')
   })
 })

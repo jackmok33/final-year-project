@@ -1,3 +1,4 @@
+import { resetDemo } from '../test/resetDemo'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BatchSummary, Dataset } from '../domain/types'
 import { application, documents, rubric, run } from '../test/fixtures'
@@ -9,7 +10,7 @@ vi.mock('./pdf', () => ({ inspectPdf: vi.fn() }))
 describe('persistent ZIP upload batches', () => {
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   const sampleIds = ['SAMPLE-CSML-01', 'SAMPLE-CSML-02', 'SAMPLE-CSML-03']
   function markLegacySampleUpgrade(data: Dataset) {
@@ -106,7 +107,7 @@ describe('persistent ZIP upload batches', () => {
     },
   )
   it('adopts a completed legacy install without recreating deleted sample applicants', async () => {
-    await commandDemo({ op: 'delete', id: sampleIds[0] }, 'admin-a')
+    await commandDemo({ op: 'deleteApplicant', id: sampleIds[0], confirmed: true }, 'tutor-a')
     const data = (await storage.readDataset())!
     markLegacySampleUpgrade(data)
     const before = structuredClone(data.applications)
@@ -116,7 +117,7 @@ describe('persistent ZIP upload batches', () => {
     expect(await storage.readFile('SAMPLE-CSML-01-transcript')).toBeUndefined()
   })
   it('keeps recorded sample deletions while repairing missing legacy batch metadata', async () => {
-    await commandDemo({ op: 'delete', id: sampleIds[0] }, 'admin-a')
+    await commandDemo({ op: 'deleteApplicant', id: sampleIds[0], confirmed: true }, 'tutor-a')
     const data = (await storage.readDataset())!
     const originalBatch = data.batches!.find(
       (batch) => batch.programmeId === 'programme-1' && batch.source === 'existing',
@@ -173,7 +174,7 @@ describe('persistent ZIP upload batches', () => {
     expect(
       (await storage.readDataset())!.audit.filter((event) => event.id === 'sample-csml-batches-v2'),
     ).toHaveLength(1)
-    await commandDemo({ op: 'delete', id: 'SAMPLE-CSML-01' }, 'admin-a')
+    await commandDemo({ op: 'deleteApplicant', id: 'SAMPLE-CSML-01', confirmed: true }, 'tutor-a')
     await queryDemo({ op: 'accounts' }, null)
     expect((await storage.readDataset())!.applications.some((a) => a.id === 'SAMPLE-CSML-01')).toBe(
       false,

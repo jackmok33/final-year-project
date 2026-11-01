@@ -5,20 +5,10 @@ import { activeUser, applicationFor } from './demo/access'
 import { readQuery } from './demo/queries'
 import { changeApplication } from './demo/applications'
 import { changeSettings } from './demo/settings'
-import { changeDemoData } from './demo/backups'
 import { readFile, writeDataset } from './storage'
 
 export type { UploadReference, Query, Command, CommandResult } from './contracts'
-export {
-  stageArchive,
-  releaseArchive,
-  stageBackup,
-  takeBackup,
-  discardBackup,
-  stageUploads,
-  releaseUploads,
-} from './fileStaging'
-export { validateBackup } from './demo/backups'
+export { stageArchive, releaseArchive, stageUploads, releaseUploads } from './fileStaging'
 
 /** Public demo adapter. All reads/writes share one cross-tab storage lock. */
 export function queryDemo<Q extends Query>(
@@ -36,10 +26,7 @@ export async function authorizedFile(id: string, userId: string | null) {
     if (!doc) throw new Error('Document not found.')
     applicationFor(data, user, doc.applicationId)
     const file = await readFile(id)
-    if (!file)
-      throw new Error(
-        'The original PDF is missing from browser storage. Restore a backup or reset the demo.',
-      )
+    if (!file) throw new Error('The original PDF is missing from browser storage.')
     recordAudit(data, user.id, 'Read original document', id)
     await writeDataset(data)
     return file
@@ -59,20 +46,13 @@ export function commandDemo(command: Command, userId: string | null): Promise<Co
       case 'correct':
       case 'decide':
       case 'deleteApplicant':
-      case 'delete':
         result = await changeApplication(command, context)
         break
       case 'rubric':
       case 'user':
       case 'workspace':
-      case 'programme':
-      case 'model':
         result = changeSettings(command, context)
         break
-      case 'backup':
-      case 'restore':
-      case 'reset':
-        return changeDemoData(command, data, user)
       default:
         throw new Error('Unsupported demo operation.')
     }

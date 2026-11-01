@@ -1,3 +1,4 @@
+import { resetDemo } from '../../test/resetDemo'
 import { strToU8, zipSync } from 'fflate'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Application, BatchSummary, Programme } from '../../domain/types'
@@ -9,7 +10,7 @@ vi.mock('../pdf', () => ({ inspectPdf: vi.fn() }))
 describe('persistent browser demo contract', () => {
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async (file: File) => ({
@@ -95,7 +96,7 @@ describe('persistent ZIP upload batches', () => {
   }
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async (file: File) => {
@@ -110,10 +111,6 @@ describe('persistent ZIP upload batches', () => {
     const offer = data.applications.find((a) => a.id === 'APP-2026-0143')!
     const review = data.applications.find((a) => a.id === 'APP-2026-0142')!
     const otherCourse = data.applications.find((a) => a.id === 'APP-2026-0147')!
-    // This test isolates batch counts; critical evidence guards are tested separately.
-    review.runs.at(-1)!.flags = []
-    otherCourse.runs.at(-1)!.flags = []
-    await storage.writeDataset(data)
     const summaries = () =>
       queryDemo(
         { op: 'batches', programmeId: 'programme-1', intakeYear: '26/27' },
@@ -196,7 +193,7 @@ describe('persistent ZIP upload batches', () => {
 describe('new programme and applicant presentation', () => {
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async () => ({ pages: 1 }))

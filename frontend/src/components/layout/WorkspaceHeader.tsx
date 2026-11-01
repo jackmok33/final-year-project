@@ -91,7 +91,7 @@ export function WorkspaceHeader({
           {user?.roles.length === 2 && (
             <MenuItem
               component={Link}
-              to={admin ? '/modules' : '/admin/health'}
+              to={admin ? '/modules' : '/admin/users'}
               onClick={onCloseAccount}
             >
               {content.switchToWorkspace(admin ? content.tutorWorkspace : content.adminWorkspace)}

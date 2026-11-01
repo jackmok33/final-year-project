@@ -322,8 +322,6 @@
       "localFiles": [
         "components/evidence/DocumentNavigation.tsx",
         "components/workspace/CreateWorkspaceDialog.tsx",
-        "components/admin/RetentionDeletion.tsx",
-        "components/admin/ProgrammeForm.tsx",
         "components/admin/UserForm.tsx",
         "components/assessment/CorrectionForm.tsx",
         "components/assessment/DecisionForm.tsx",

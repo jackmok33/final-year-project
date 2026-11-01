@@ -40,7 +40,7 @@ export function LoginPage() {
     }
     dispatch(admissionsApi.util.resetApiState())
     dispatch(signIn(account.id))
-    navigate(account.roles.includes('tutor') ? '/modules' : '/admin/health')
+    navigate(account.roles.includes('tutor') ? '/modules' : '/admin/users')
   }
   return (
     <Box

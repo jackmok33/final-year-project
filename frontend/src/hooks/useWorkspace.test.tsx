@@ -2,13 +2,23 @@
 import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '../test/domSetup'
-import { otherProgramme, programme, tutor } from '../test/fixtures'
+import { administrator, otherProgramme, programme, tutor } from '../test/fixtures'
 import { apiMocks, queryResult, resetPageMocks, state } from '../test/pageMocks'
 import { useWorkspace } from './useWorkspace'
 vi.mock('../app/api', async () => (await import('../test/pageMocks')).apiMocks)
 vi.mock('./redux', async () => (await import('../test/pageMocks')).reduxMocks)
 beforeEach(resetPageMocks)
 describe('assigned programme selection', () => {
+  it('skips course queries for admin-only accounts and enables them for tutors', () => {
+    apiMocks.useMeQuery.mockReturnValue(queryResult(administrator))
+    const { result, rerender } = renderHook(useWorkspace)
+    expect(apiMocks.useProgrammesQuery).toHaveBeenLastCalledWith(undefined, { skip: true })
+    expect(result.current.programmes).toEqual([])
+    apiMocks.useMeQuery.mockReturnValue(queryResult(tutor))
+    rerender()
+    expect(apiMocks.useProgrammesQuery).toHaveBeenLastCalledWith(undefined, { skip: false })
+    expect(result.current.programme).toEqual(programme)
+  })
   it('keeps intake preferences independent per tutor and module', () => {
     state.ui.intakeByUser[tutor.id] = { [programme.id]: '25/26', [otherProgramme.id]: '2024 / 25' }
     const { result, rerender } = renderHook(useWorkspace)

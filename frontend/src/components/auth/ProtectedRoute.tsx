@@ -17,7 +17,7 @@ export function ProtectedRoute({ admin = false }: { admin?: boolean }) {
   if (isLoading) return <Loading />
   if (error || !user) return <SessionError error={error} />
   if (!(admin ? user.roles.includes('admin') : user.roles.includes('tutor')))
-    return <Navigate to={user.roles.includes('admin') ? '/admin/health' : '/modules'} replace />
+    return <Navigate to={user.roles.includes('admin') ? '/admin/users' : '/modules'} replace />
   return <Outlet />
 }
 

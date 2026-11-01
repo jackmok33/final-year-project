@@ -38,12 +38,14 @@ describe('application review and decision popup', () => {
       'true',
     )
     expect(screen.getByText(run.justification.summary)).toBeInTheDocument()
+    expect(within(screen.getByRole('tabpanel')).queryByRole('link')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('tab', { name: 'Score breakdown' }))
     expect(screen.getByRole('button', { name: /Academic performance/ })).toHaveAttribute(
       'aria-expanded',
       'true',
     )
     expect(screen.getByText('academic evidence supported')).toBeInTheDocument()
+    expect(within(screen.getByRole('tabpanel')).queryByRole('link')).not.toBeInTheDocument()
     expect(screen.queryByText(run.justification.summary)).not.toBeInTheDocument()
   })
   it('opens the decision popup from the summary and returns to the selected tab without saving', async () => {

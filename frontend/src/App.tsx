@@ -20,17 +20,11 @@ const NewApplicationPage = lazy(() =>
 const AssessmentPage = lazy(() =>
   import('./pages/AssessmentPage').then((m) => ({ default: m.AssessmentPage })),
 )
-const DataOperationsPage = lazy(() =>
-  import('./pages/DataOperationsPage').then((m) => ({ default: m.DataOperationsPage })),
+const UsersAccessPage = lazy(() =>
+  import('./pages/UsersAccessPage').then((m) => ({ default: m.UsersAccessPage })),
 )
 const ServiceHealthPage = lazy(() =>
   import('./pages/ServiceHealthPage').then((m) => ({ default: m.ServiceHealthPage })),
-)
-const ProgrammeSettingsPage = lazy(() =>
-  import('./pages/ProgrammeSettingsPage').then((m) => ({ default: m.ProgrammeSettingsPage })),
-)
-const UsersAccessPage = lazy(() =>
-  import('./pages/UsersAccessPage').then((m) => ({ default: m.UsersAccessPage })),
 )
 export function App() {
   const content = useContent('common')
@@ -54,10 +48,12 @@ export function App() {
         </Route>
         <Route element={<ProtectedRoute admin />}>
           <Route element={<Layout />}>
-            <Route path="/admin/health" element={<ServiceHealthPage />} />
+            <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
             <Route path="/admin/users" element={<UsersAccessPage />} />
-            <Route path="/admin/programme" element={<ProgrammeSettingsPage />} />
-            <Route path="/admin/data" element={<DataOperationsPage />} />
+            <Route path="/admin/backup" element={<Navigate to="/admin/users" replace />} />
+            <Route path="/admin/health" element={<ServiceHealthPage />} />
+            <Route path="/admin/programme" element={<Navigate to="/admin/users" replace />} />
+            <Route path="/admin/data" element={<Navigate to="/admin/users" replace />} />
           </Route>
         </Route>
         <Route path="/" element={<Navigate to="/modules" replace />} />

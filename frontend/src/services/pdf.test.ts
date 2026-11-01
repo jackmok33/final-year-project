@@ -1,6 +1,7 @@
+import { MAX_PDF_BYTES } from '../domain/documentLimits'
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { inspectPdf, MAX_FILE_SIZE, openPdf } from './pdf'
+import { inspectPdf, openPdf } from './pdf'
 vi.mock('pdfjs-dist', () => ({ getDocument: vi.fn(), GlobalWorkerOptions: { workerSrc: '' } }))
 const destroy = vi.fn()
 beforeEach(() => {
@@ -30,9 +31,9 @@ describe('PDF upload inspection', () => {
   })
   it('accepts missing MIME types but enforces the exact 20 MB boundary', async () => {
     const file = new File(['%PDF'], 'source.pdf')
-    Object.defineProperty(file, 'size', { value: MAX_FILE_SIZE, configurable: true })
+    Object.defineProperty(file, 'size', { value: MAX_PDF_BYTES, configurable: true })
     await expect(inspectPdf(file)).resolves.toEqual({ pages: 4 })
-    Object.defineProperty(file, 'size', { value: MAX_FILE_SIZE + 1 })
+    Object.defineProperty(file, 'size', { value: MAX_PDF_BYTES + 1 })
     await expect(inspectPdf(file)).rejects.toThrow('20 MB')
   })
   it.each([100, 101])('handles the %s-page limit and releases the PDF task', async (pages) => {

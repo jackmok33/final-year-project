@@ -19,7 +19,7 @@ describe('Mantis sign-in', () => {
   })
   it.each([
     ['tutor', tutor, '/modules'],
-    ['admin', administrator, '/admin/health'],
+    ['admin', administrator, '/admin/users'],
   ] as const)('signs in a %s and clears cached data', async (_role, account, destination) => {
     apiMocks.useAccountsQuery.mockReturnValue(queryResult([account]))
     renderPage(<LoginPage />, '/login', '/login')

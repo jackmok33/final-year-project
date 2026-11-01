@@ -1,14 +1,7 @@
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-import {
-  isValidDocumentPageCount,
-  isValidPdfSize,
-  MAX_DOCUMENT_PAGES,
-  MAX_PDF_BYTES,
-} from '../domain/documentLimits'
+import { isValidDocumentPageCount, isValidPdfSize } from '../domain/documentLimits'
 GlobalWorkerOptions.workerSrc = workerUrl
-export const MAX_FILE_SIZE = MAX_PDF_BYTES
-export const MAX_PAGES = MAX_DOCUMENT_PAGES
 export async function openPdf(blob: Blob): Promise<PDFDocumentProxy> {
   const data = await blob.arrayBuffer()
   const task = getDocument({ data, useSystemFonts: true })

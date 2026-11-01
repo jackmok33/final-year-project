@@ -2,11 +2,13 @@ import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Command, Query, QueryResult } from '../services/contracts'
 import { admissionsService } from '../services/admissions'
+import { probeBackendHealth, type BackendHealthReport } from '../services/backendHealth'
 import { application, detail, programme, rubric, tutor } from '../test/fixtures'
 import { admissionsApi } from './api'
 vi.mock('../services/admissions', () => ({
   admissionsService: { query: vi.fn(), command: vi.fn(), originalDocument: vi.fn() },
 }))
+vi.mock('../services/backendHealth', () => ({ probeBackendHealth: vi.fn() }))
 const makeStore = () =>
   configureStore({
     reducer: {
@@ -17,13 +19,58 @@ const makeStore = () =>
   })
 beforeEach(() => vi.resetAllMocks())
 type QueryCase = [
-  endpoint: keyof Omit<typeof admissionsApi.endpoints, 'command'>,
+  endpoint: keyof Omit<typeof admissionsApi.endpoints, 'command' | 'backendHealth'>,
   arg: string | { programmeId: string; intakeYear: string } | undefined,
   query: Query,
   result: QueryResult,
 ]
 
 describe('RTK Query service adapter', () => {
+  it.each<BackendHealthReport>([
+    { state: 'not-configured', checkedAt: '2026-11-01T12:00:00Z' },
+    { state: 'unavailable', error: 'HTTP 503', checkedAt: '2026-11-01T12:00:00Z' },
+    {
+      state: 'available',
+      checkedAt: '2026-11-01T12:00:00Z',
+      health: {
+        status: 'ok',
+        mode: 'mock',
+        service: 'ucl-application-review-api',
+        database: 'not configured',
+        inference: 'not configured',
+      },
+    },
+  ])('probes backend status outside the browser dataset lock: $state', async (report) => {
+    const store = makeStore()
+    vi.mocked(probeBackendHealth).mockResolvedValue(report)
+    const request = store.dispatch(admissionsApi.endpoints.backendHealth.initiate())
+    expect(await request.unwrap()).toEqual(report)
+    expect(probeBackendHealth).toHaveBeenCalledExactlyOnceWith(expect.any(AbortSignal))
+    expect(admissionsService.query).not.toHaveBeenCalled()
+    expect(admissionsService.command).not.toHaveBeenCalled()
+    request.unsubscribe()
+    store.dispatch(admissionsApi.util.resetApiState())
+  })
+
+  it('passes RTK Query cancellation to the backend health request', async () => {
+    const store = makeStore()
+    vi.mocked(probeBackendHealth).mockImplementation(
+      (signal) =>
+        new Promise((resolve) => {
+          signal?.addEventListener('abort', () => {
+            resolve({ state: 'unavailable', checkedAt: '', error: 'cancelled' })
+          })
+        }),
+    )
+    const request = store.dispatch(admissionsApi.endpoints.backendHealth.initiate())
+    const signal = vi.mocked(probeBackendHealth).mock.calls[0][0]
+    request.abort()
+    expect(signal?.aborted).toBe(true)
+    await expect(request.unwrap()).rejects.toMatchObject({ name: 'AbortError' })
+    request.unsubscribe()
+    store.dispatch(admissionsApi.util.resetApiState())
+  })
+
   it.each<QueryCase>([
     ['accounts', undefined, { op: 'accounts' }, [tutor]],
     ['me', undefined, { op: 'me' }, tutor],
@@ -71,13 +118,6 @@ describe('RTK Query service adapter', () => {
       { rubrics: [rubric], activeId: rubric.id },
     ],
     ['users', undefined, { op: 'users' }, [tutor]],
-    [
-      'health',
-      undefined,
-      { op: 'health' },
-      { modelAvailable: false, failed: 1, queued: 0, logs: [] },
-    ],
-    ['audit', undefined, { op: 'audit' }, []],
   ])('maps %s queries with the signed-in user', async (endpoint, arg, query, result) => {
     const store = makeStore()
     vi.mocked(admissionsService.query).mockResolvedValue(result)
@@ -101,18 +141,12 @@ describe('RTK Query service adapter', () => {
     'decide',
     'rubric',
     'user',
-    'programme',
     'workspace',
-    'model',
-    'delete',
     'deleteApplicant',
-    'backup',
-    'restore',
-    'reset',
   ])('routes %s to mutations', async (op) => {
     const store = makeStore()
     vi.mocked(admissionsService.command).mockResolvedValue({ id: 'created' })
-    const args = { op, ...(op === 'programme' ? { programme } : {}) } as Command
+    const args = { op } as Command
     expect(await store.dispatch(admissionsApi.endpoints.command.initiate(args)).unwrap()).toEqual({
       id: 'created',
     })
@@ -129,7 +163,9 @@ describe('RTK Query service adapter', () => {
     })
     vi.mocked(admissionsService.command).mockRejectedValue('unexpected')
     await expect(
-      store.dispatch(admissionsApi.endpoints.command.initiate({ op: 'reset' })).unwrap(),
+      store
+        .dispatch(admissionsApi.endpoints.command.initiate({ op: 'evaluate', id: application.id }))
+        .unwrap(),
     ).rejects.toMatchObject({ data: 'unexpected' })
     store.dispatch(admissionsApi.util.resetApiState())
   })

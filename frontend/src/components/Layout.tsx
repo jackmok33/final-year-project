@@ -1,7 +1,5 @@
-import DashboardOutlined from '@ant-design/icons/DashboardOutlined'
 import TeamOutlined from '@ant-design/icons/TeamOutlined'
-import SettingOutlined from '@ant-design/icons/SettingOutlined'
-import DatabaseOutlined from '@ant-design/icons/DatabaseOutlined'
+import HeartOutlined from '@ant-design/icons/HeartOutlined'
 import { Box, Drawer, Toolbar } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation, useMatch, useSearchParams } from 'react-router-dom'
@@ -88,13 +86,6 @@ export function Layout() {
     intakeYear
   const adminItems: NavigationItem[] = [
     {
-      id: '/admin/health',
-      label: content.serviceHealth,
-      path: '/admin/health',
-      icon: <DashboardOutlined aria-hidden="true" />,
-      selected: location.pathname === '/admin/health',
-    },
-    {
       id: '/admin/users',
       label: content.usersAccess,
       path: '/admin/users',
@@ -102,18 +93,11 @@ export function Layout() {
       selected: location.pathname === '/admin/users',
     },
     {
-      id: '/admin/programme',
-      label: content.programmeSettings,
-      path: '/admin/programme',
-      icon: <SettingOutlined aria-hidden="true" />,
-      selected: location.pathname === '/admin/programme',
-    },
-    {
-      id: '/admin/data',
-      label: content.dataOperations,
-      path: '/admin/data',
-      icon: <DatabaseOutlined aria-hidden="true" />,
-      selected: location.pathname === '/admin/data',
+      id: '/admin/health',
+      label: content.serviceHealth,
+      path: '/admin/health',
+      icon: <HeartOutlined aria-hidden="true" />,
+      selected: location.pathname === '/admin/health',
     },
   ]
   const navigationItems = isAdmin

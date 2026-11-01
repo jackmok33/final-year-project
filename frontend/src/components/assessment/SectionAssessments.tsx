@@ -1,17 +1,8 @@
 import { Accordion, AccordionDetails, AccordionSummary, Stack, Typography } from '@mui/material'
-import type { AssessmentRun, DocumentRecord } from '../../domain/types'
+import type { AssessmentRun } from '../../domain/types'
 import { useContent } from '../../hooks/useContent'
-import { EvidenceLink } from '../evidence/EvidenceLink'
 
-export function SectionAssessments({
-  run,
-  documents,
-  id,
-}: {
-  run: AssessmentRun
-  documents: DocumentRecord[]
-  id: string
-}) {
+export function SectionAssessments({ run }: { run: AssessmentRun }) {
   const content = useContent('sectionAssessments')
   return (
     <Stack>
@@ -31,17 +22,10 @@ export function SectionAssessments({
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={1.5}>
-              <Typography>{section.explanation}</Typography>
+              <Typography sx={{ lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+                {section.explanation}
+              </Typography>
               <Typography color="text.secondary">{section.uncertainty}</Typography>
-              {section.citations.map((citation, index) => (
-                <EvidenceLink
-                  key={index}
-                  applicationId={id}
-                  citation={citation}
-                  document={documents.find((doc) => doc.id === citation.documentId)}
-                  runId={run.id}
-                />
-              ))}
             </Stack>
           </AccordionDetails>
         </Accordion>

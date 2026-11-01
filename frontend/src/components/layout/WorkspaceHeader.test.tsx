@@ -32,7 +32,7 @@ describe('WorkspaceHeader', () => {
       expect(onChangePassword).toHaveBeenCalledOnce()
       expect(screen.getByRole('menuitem', { name: /Switch to/ })).toHaveAttribute(
         'href',
-        '/admin/health',
+        '/admin/users',
       )
       await userEvent.click(screen.getByRole('menuitem', { name: 'Logout' }))
       expect(onSignOut).toHaveBeenCalledOnce()

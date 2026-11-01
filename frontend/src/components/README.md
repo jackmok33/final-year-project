@@ -34,9 +34,9 @@ another shared state helper.
 | `batches/`      | ZIP drop area, numbered batch table and outcome analytics                        |
 | `applications/` | Search/filter/sort toolbar, applicant table and PDF submission form              |
 | `assessment/`   | Summary, evidence groups, flags, score accordions, correction and decision forms |
-| `evidence/`     | Original PDF navigation, rendering and validated source links                    |
+| `evidence/`     | Original PDF navigation and rendering, including legacy source bookmarks         |
 | `criteria/`     | Controlled active criteria fields and save actions                               |
-| `admin/`        | Existing account/programme controls, health and browser-data maintenance         |
+| `admin/`        | User account table and form                                                      |
 
 `ModulesPage` queries owned programmes and available intakes and controls creation.
 `ModuleCards` renders only direct intake links. The obsolete management page, its
@@ -53,6 +53,20 @@ shortcut. `Layout` owns the temporary password draft and validation;
 `auth/ChangePasswordForm` renders controlled fields in the shared Mantis dialog.
 No password is persisted/transmitted or claimed to have changed while real
 authentication remains unimplemented.
+
+Administration has Users and Service health. `UsersAccessPage` owns account
+queries and success feedback; a keyed editor owns each create/edit draft and uses
+the existing Mantis CustomizedDialog. `AccountsTable` and `UserForm` are controlled,
+without course queries/props or the removed UserPermissions panel. Busy saves
+disable edits/dismissal, cancelled drafts reset, and mounted guards prevent late
+saves from closing a replacement draft. Ownership and last-admin checks remain in
+the service. `ServiceHealthPage` reads the
+real HTTP probe through RTK Query and composes a Mantis MainCard with status and
+reported service details; refresh/loading/error state stays in the page. Programme/
+old data pages, deletion/reset controls and simulated maintenance components were
+removed with their tests/content. Backup/restore UI and its browser preview adapter
+are also removed. Legacy programme/data/backup routes redirect to Users under the
+existing permission guards; stored records and PDFs remain unchanged.
 
 `UploadBatchesPage` owns the selected URL tab, upload draft, archive staging,
 queries, pagination and whole-course CSV export. Its private controller is keyed
@@ -90,7 +104,7 @@ and CSV exports use these same current values. Pending is not a saved radio opti
 `domain/applicationSummary.ts` provides current-decision counts for applicant
 queues, intake metrics, analytics and batch rows; each caller supplies its own
 scope. `domain/documentLimits.ts` shares PDF size/page validation between forms,
-PDF parsing, ZIP import and backup validation. Stateful async completion guards
+PDF parsing and ZIP import. Stateful async completion guards
 belong in `hooks/useIsMounted.ts`; resource cleanup still runs after navigation.
 
 `AssessmentPage` owns queries, tab navigation, URL-backed correction/decision-popup state and
@@ -105,12 +119,22 @@ shell. Current query data avoids showing
 the previous applicant's PDF or form. Historic runs disable mutation actions.
 
 `RecommendationSummary` renders only score, AI and tutor decision. `RecommendationPanel`
-renders the explanation, source links and supplied evidence groups. `EvidenceSummary`
-renders supplied evidence groups without extraction. `ReviewFlags` renders Mantis
+renders the explanation and supplied evidence groups. `EvidenceSummary`
+renders supplied evidence groups without extraction. Why this recommendation and
+Evidence summary use Mantis MainCard's prominent section headers; evidence groups
+use smaller headings inside a two-column grid of MainCards, following supplied
+group order instead of separate fixed academic/project columns. `ReviewFlags` renders Mantis
 alerts and a controlled correction action. `SectionAssessments` renders section
-accordions and validated `EvidenceLink` sources. The unused `RunHistory` panel and
-its old `Rationale` rendering path were removed. The recommendation still displays
-its justification and source-page links.
+accordions with scores, explanations and uncertainty. Neither section renders PDF
+shortcuts; original files are accessed through View documents. The unused
+`EvidenceLink` component, its content and tests were removed. Stored citations and
+validated legacy document bookmarks remain supported by EvidencePage.
+
+For recognised short mock text, AssessmentPage supplies a display-only run from
+`services/assessmentNarrative.ts` using the run's own criteria version. Summary
+scores, flags, decisions and original-document logic continue using the raw run.
+RecommendationPanel and SectionAssessments preserve paragraph breaks in supplied
+text, including future detailed evaluator output. No saved assessment is rewritten.
 
 `DecisionPage` owns the decision query/mutation, keyed draft and optional note.
 The supplied-source `mantis/components/CustomizedDialog` renders the decision,
@@ -122,7 +146,8 @@ tab without saving. Saving disables edits and dismissal; errors retain the draft
 Historical deep links show a read-only notice instead of the form. An unmounted
 popup cannot navigate after an in-flight save completes.
 No override reason, acknowledgement checkbox or extra save dialog exists. The
-service still enforces active ownership, current run and critical-evidence rules.
+service still enforces active ownership, current/available assessment and allowed
+outcome rules. Review flags remain visible as guidance and do not block tutor decisions.
 Original recommendations and legacy decisions remain separate stored records.
 
 `CorrectionPage` now renders only within the review dialog, with no standalone
@@ -154,24 +179,24 @@ Avoid aliases/wrappers that merely rename every MUI primitive.
 
 `common.tsx` supplies Page, Card, status/error/loading and confirmation
 patterns. `SummaryCards` supplies values to Mantis statistics cards. `files.ts`
-contains download/display helpers. `EvidenceLink` centralises citation identity,
-page validation and encoded navigation. Confirmations remain for delete/reset/
-restore. Keyboard focus, explicit labels and table overflow stay accessible.
+contains download/display helpers. EvidencePage validates document/page references
+and owns original-file navigation. Applicant deletion retains confirmation.
+Keyboard focus, explicit labels and table overflow stay accessible.
 
 Domain rules, persistence, permissions, extraction boundaries, validation and audit
 records belong in `src/domain/` and `src/services/`; shared Redux and RTK Query in
 `src/app/`. Reuse meaningful patterns without introducing a generic table engine
 that hides different feature behaviour.
 
-The pre-commit cleanup removes obsolete content entries, the unused deletion-preview
-service query and the frontend HTTP health probe. The backend health route remains
-available; no screen monitors it. Assessment readiness is shared in `domain/types.ts`
+The pre-commit cleanup removes obsolete content entries and the unused deletion-preview
+service query. Service health uses a separate read-only HTTP probe; the old simulated
+health controls remain absent. Assessment readiness is shared in `domain/types.ts`
 so queues, summaries, evidence fixtures and decision forms agree about unfinished
 results. Section panels accept only the values they render. Domain-specific
 components still compose Mantis controls and should not be removed just because
 Mantis now supplies their visual foundation.
 
 The structural follow-up removes the unexposed course-deletion service command
-and its obsolete tests. Backup/ownership invariants stay covered in the active
+and its obsolete tests. Persistence/ownership invariants stay covered in the active
 service suites. See [service structure](../services/README.md) for the demo adapter's
 internal responsibilities and transaction boundaries.

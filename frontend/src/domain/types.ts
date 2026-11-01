@@ -182,19 +182,6 @@ export interface BatchSummary extends UploadBatch {
   conditionalCount?: number
   unconditionalCount?: number
 }
-export interface DemoHealth {
-  modelAvailable: boolean
-  failed: number
-  queued: number
-  logs: { jobId: string; category: string }[]
-}
-export interface Backup {
-  format: 'ucl-admissions-demo'
-  version: 2
-  createdAt: string
-  dataset: Dataset
-  files: { id: string; base64: string; hash: string }[]
-}
 export function latestRun(app: Application) {
   return app.runs.at(-1)
 }

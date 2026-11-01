@@ -65,11 +65,11 @@ boundary rather than sending a reset email. The footer links describe the protot
 | ------------- | ---------------------- | ------------------------------------------------------------------------------ |
 | Jack          | tutor@demo.ucl.local   | Owns the three example programmes; reviews applicants and edits their criteria |
 | Tutor B       | tutor.b@demo.ucl.local | Starts without programmes; can create private programmes                       |
-| Administrator | admin@demo.ucl.local   | Accounts, existing programme metadata, simulated health and data maintenance   |
+| Administrator | admin@demo.ucl.local   | User accounts and service health                                               |
 
-Administrator permission alone grants no applicant, PDF, decision or criteria
-access. Both UI and demo-service commands enforce active tutor ownership. These
-browser controls are not real server authentication.
+Administrators cannot open applicant review, view individual PDFs or record
+decisions. Those routes and commands require active tutor ownership.
+These browser controls are not real server authentication.
 
 ## Programme and intake workflow
 
@@ -92,8 +92,8 @@ and independent example criteria.
 
 Programme cards open intake workspaces directly, without settings buttons or a
 separate course management/deletion page. Existing programmes and their records
-remain saved. Administrators can still edit existing metadata but cannot transfer
-ownership, assign access or create courses.
+remain saved. Tutors manage their courses; the admin interface has no course
+settings, ownership transfer, access assignment or course creation controls.
 
 Available intakes include the configured year, previous two years and populated
 legacy years. Selection is remembered per account/programme across refreshes.
@@ -189,13 +189,27 @@ are preserved; this display mapping does not implement a new admissions policy.
 
 The review has a compact score/AI/decision summary and four Mantis tabs:
 
-- **AI recommendation:** justification, source-page links and a two-column evidence
+- **AI recommendation:** justification and a two-column evidence
   summary for English, education, references, transcript, publications, projects
   and work experience.
 - **Review flag:** actionable evidence alerts; Update detail opens a correction
   popup with a source page and reason, keeping the review tab in place.
-- **Score breakdown:** expandable section scores, explanations and citations.
+- **Score breakdown:** expandable section scores, explanations and uncertainty.
 - **View documents:** original PDF selection, page navigation and download.
+
+Recommendation and section-score summaries have no PDF shortcuts. Use View
+documents to inspect originals; stored citations and existing document bookmarks
+remain supported.
+The recommendation tab separates Why this recommendation and Evidence summary
+with larger Mantis section headers. Evidence categories use individual cards in
+a two-column desktop layout, with smaller subheadings and consistent spacing.
+
+The five core synthetic examples include longer recommendation and section-score
+explanations covering supporting evidence, limitations, weighting and why the
+outcome follows. Existing short mock text is expanded for display using its
+original criteria version; saved assessments and scores are preserved. These are
+predefined examples, not output from live AI. Uploaded records and historical
+bookmarks do not receive invented explanations.
 
 The green **Decision** button in the summary opens a **Record decision** popup
 with Conditional, Unconditional or Reject and an optional note. Cancel, the close
@@ -210,8 +224,8 @@ edits and dismissal. Old `/correct` links open the popup within the review shell
 historic-run links remain read-only.
 
 These are the only choices accepted by new decision commands. Saving is direct,
-without a review checkbox, override reason or extra confirmation dialog. Critical
-unresolved evidence blocks every final decision. The AI recommendation is stored
+without a review checkbox, override reason or extra confirmation dialog. Review
+flags remain visible as guidance and do not block any tutor outcome. The AI recommendation is stored
 separately and can still be Offer, Further review or Reject under the unchanged
 mock evaluator contract. Historical generic Offer/Further review decisions remain
 readable and are never silently converted to a different outcome.
@@ -247,19 +261,36 @@ picker or restore-old-settings action. Saving still keeps previous criteria
 internally so assessments retain the settings they used; no stored versions,
 results or decisions are deleted by the UI simplification.
 
-## Persistence, backup and boundaries
+## Persistence and boundaries
 
 Versioned IndexedDB stores records and original PDF blobs outside Redux. Session
 identity and programme/intake choices use sessionStorage. Refresh preserves work
 and recovers interrupted simulated evaluations. Existing version-1/version-2
-backups and ownership/intake/batch upgrades remain supported without a data reset.
+browser records and ownership/intake/batch upgrades remain supported without a data reset.
 
-The administrator's Data operations exports/restores the browser dataset, including
-PDFs and all review history. Backup restore validates structure, hashes and
-references before a confirmation to replace data; the backup cap is 100 MB.
-Confirmed reset restores the original nine applications and three courses.
-Storage errors are visible, and failed writes abort atomically. Downloaded backups
-are separate from deleted browser records.
+## Administration
+
+Admin login opens **Users**. The sidebar has **Users** and **Service health**.
+The account table shows name/email, readable role labels and active status. New
+account and Edit open a Mantis dialog with name, email, role and active status;
+cancel discards the draft and save errors keep it for retry. The last active
+administrator cannot be deactivated or lose the admin role. Deactivation preserves
+course ownership and attribution; account deletion is not exposed.
+
+**Service health** (`/admin/health`) performs a read-only `GET /health` against
+`VITE_API_BASE_URL`, with a ten-second timeout and a manual Refresh status action.
+It shows Available only after validating the response. Missing configuration,
+connection failures and invalid responses remain explicit; no simulated status is
+substituted. The current API reports mock assessment mode and unconfigured database/
+inference integrations. This check does not probe PostgreSQL or the model itself.
+
+Browser backup/restore, simulated service controls, programme settings, applicant
+deletion, maintenance logs and reset controls are removed from the admin interface.
+Old `/admin/programme`, `/admin/data` and `/admin/backup` URLs redirect to Users.
+Removing these screens does not change existing records or PDFs. Their obsolete
+service commands and archive helpers are also removed. Fixture reset lives only
+in test utilities; server database backups will be an operational concern when
+persistence is integrated.
 
 `src/app/` owns Redux and RTK Query; `src/domain/` owns models and deterministic
 rules; `src/services/` owns storage, fixtures, permissions, imports and evaluation.
@@ -271,7 +302,6 @@ Pages own screen logic and compose controlled components. Copy lives in matching
 RTK Query and document consumers. `services/contracts.ts` holds typed requests and
 read models; `fileStaging.ts` keeps temporary files outside Redux. A future HTTP
 adapter can implement that interface without changing screen-level handlers.
-Browser backup previews remain explicitly local in `services/browserBackups.ts`.
 See the [service guide](src/services/README.md#future-fastapi-integration) for the
 integration boundary and remaining work.
 
@@ -282,7 +312,7 @@ not silently fall back or save partial corrections. The HTTP response contract
 and independent five-table PostgreSQL foundation are unchanged by this redesign.
 
 Real authentication, upload APIs, extraction, inference, PostgreSQL-backed HTTP
-routes, live health monitoring and deployment remain future work.
+routes, database/model health checks and deployment remain future work.
 
 Current-decision summaries and PDF limits are shared domain helpers; pages retain
 their own filtering, drafts and mutation logic. Upload drafts reset when account,

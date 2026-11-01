@@ -1,10 +1,16 @@
-import { isTutorOutcome, type Application, type Dataset, type Programme } from '../../domain/types'
+import {
+  isAssessmentReady,
+  isTutorOutcome,
+  type Application,
+  type Dataset,
+  type Programme,
+} from '../../domain/types'
 import { assignExistingBatches } from '../../domain/batches'
 import { applicationIntakeYear, normalizeIntakeYear } from '../../domain/intakes'
 import { isWithinApplicationPageLimit } from '../../domain/documentLimits'
 import { evaluateApplication } from '../evaluation'
 import { sha256 } from '../storage'
-import { requireAdmin, requireTutor, applicationFor, latestReadyRun } from './access'
+import { requireTutor, applicationFor, latestReadyRun } from './access'
 import { archives, uploads } from '../fileStaging'
 import { recordAudit } from './runtime'
 import type { Command, CommandContext, CommandResult } from './contracts'
@@ -25,7 +31,7 @@ function selectedIntake(data: Dataset, programme: Programme, year = programme.ye
 type ApplicationCommand = Extract<
   Command,
   {
-    op: 'importBatch' | 'create' | 'evaluate' | 'correct' | 'decide' | 'deleteApplicant' | 'delete'
+    op: 'importBatch' | 'create' | 'evaluate' | 'correct' | 'decide' | 'deleteApplicant'
   }
 >
 
@@ -203,9 +209,9 @@ export async function changeApplication(
     case 'decide': {
       const app = applicationFor(data, user, command.id)
       const run = latestReadyRun(app, command.runId)
+      if (!isAssessmentReady(run))
+        throw new Error('Review the latest successful run before saving this change.')
       if (!isTutorOutcome(command.outcome)) throw new Error('Select a valid outcome.')
-      if (run.flags.some((f) => f.critical))
-        throw new Error('Resolve critical review flags before a final decision.')
       const previous = app.decisions.at(-1)
       if (
         previous?.runId === run.id &&
@@ -225,13 +231,9 @@ export async function changeApplication(
       recordAudit(data, user.id, 'Record tutor decision', app.id)
       break
     }
-    case 'deleteApplicant':
-    case 'delete': {
-      if (command.op === 'delete') requireAdmin(user)
-      else {
-        if (!command.confirmed) throw new Error('Confirm application deletion before continuing.')
-        applicationFor(data, user, command.id)
-      }
+    case 'deleteApplicant': {
+      if (!command.confirmed) throw new Error('Confirm application deletion before continuing.')
+      applicationFor(data, user, command.id)
       const app = data.applications.find((a) => a.id === command.id)
       if (!app) throw new Error('Application not found.')
       removed.push(...app.documentIds)

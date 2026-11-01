@@ -16,7 +16,6 @@ describe('DecisionForm', () => {
         setOutcome={vi.fn()}
         reason=""
         setReason={setReason}
-        critical={false}
         disabled={false}
         record={record}
       />,
@@ -37,7 +36,6 @@ describe('DecisionForm', () => {
         setOutcome={vi.fn()}
         reason=""
         setReason={vi.fn()}
-        critical
         disabled
         record={record}
         error="Save failed"
@@ -49,7 +47,7 @@ describe('DecisionForm', () => {
     expect(record).not.toHaveBeenCalled()
     expect(screen.getByText('Save failed')).toBeInTheDocument()
   })
-  it('allows cancelling even when critical evidence blocks the decision', async () => {
+  it('allows cancelling when saving a decision is unavailable', async () => {
     const record = vi.fn()
     const onCancel = vi.fn()
     renderPage(
@@ -58,7 +56,6 @@ describe('DecisionForm', () => {
         setOutcome={vi.fn()}
         reason=""
         setReason={vi.fn()}
-        critical
         disabled
         record={record}
         onCancel={onCancel}
@@ -80,7 +77,6 @@ describe('DecisionForm', () => {
         setOutcome={setOutcome}
         reason="Save this note"
         setReason={setReason}
-        critical={false}
         disabled={false}
         record={record}
         onCancel={onCancel}
