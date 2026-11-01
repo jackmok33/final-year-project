@@ -6,6 +6,63 @@ async function reEvaluate(page: Page) {
   await page.getByRole('button', { name: 'Re-run AI evaluation', exact: true }).click()
 }
 
+test('administrator service health checks the API and recovers after a connection failure', async ({
+  page,
+}, info) => {
+  await page.goto('/login')
+  await page.getByRole('textbox', { name: 'Email', exact: true }).fill('admin@demo.ucl.local')
+  await page.getByLabel('Password', { exact: true }).fill('demo')
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click()
+  await expect(page.locator('main h1')).toHaveText('Users')
+
+  const healthUrl = 'http://127.0.0.1:8001/api/v1/health'
+  const responsePromise = page.waitForResponse(
+    (response) => response.url() === healthUrl && response.request().method() === 'GET',
+  )
+  await page.getByRole('link', { name: 'Service health', exact: true }).click()
+  const response = await responsePromise
+  expect(response.status()).toBe(200)
+  expect(await response.json()).toMatchObject({ status: 'ok', mode: 'mock' })
+  await expect(page.locator('main h1')).toHaveText('Service health')
+  await expect(page.getByText('Available', { exact: true })).toBeVisible()
+  await expect(page.getByText('Mock', { exact: true })).toBeVisible()
+  await expect(page.getByText('Database connection', { exact: true })).toBeVisible()
+  await expect(page.getByText('AI inference', { exact: true })).toBeVisible()
+  await expect(page.getByText('Not configured', { exact: true })).toHaveCount(2)
+  await expect(page.getByText(/^Last checked:/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Refresh status', exact: true })).toBeEnabled()
+  await page.evaluate(() => document.fonts.ready)
+  await page.locator('body').evaluate((element) =>
+    element
+      .getAnimations({ subtree: true })
+      .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+      .forEach((animation) => animation.finish()),
+  )
+  const accessibility = await new AxeBuilder({ page }).analyze()
+  expect(
+    accessibility.violations.filter((v) => ['critical', 'serious'].includes(v.impact ?? '')),
+  ).toEqual([])
+  await page.screenshot({ path: info.outputPath('admin-health-connected.png'), fullPage: true })
+
+  await page.route(healthUrl, (route) => route.abort())
+  await page.getByRole('button', { name: 'Refresh status', exact: true }).click()
+  await expect(page.getByText('Unavailable', { exact: true })).toBeVisible()
+  await expect(page.getByText('Available', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('alert')).toBeVisible()
+
+  await page.unroute(healthUrl)
+  const recovery = page.waitForResponse(healthUrl)
+  await page.getByRole('button', { name: 'Refresh status', exact: true }).click()
+  expect((await recovery).status()).toBe(200)
+  await expect(page.getByText('Available', { exact: true })).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+
+  await page.goto('/applications/APP-2026-0142')
+  await expect(page).toHaveURL('/admin/users')
+  await expect(page.locator('main h1')).toHaveText('Users')
+  await expect(page.getByRole('region', { name: 'Application review' })).toHaveCount(0)
+})
+
 for (const viewport of [
   { name: 'desktop', width: 1440, height: 1000 },
   { name: 'mobile', width: 390, height: 844 },
@@ -48,13 +105,17 @@ for (const viewport of [
       results.violations.filter((v) => ['critical', 'serious'].includes(v.impact ?? '')),
     ).toEqual([])
 
-    // The backend's citation opens the same original PDF and page used in the browser demo.
-    await page
-      .getByRole('link', { name: /Transcript.pdf.*p\.2/ })
-      .first()
-      .click()
-    await expect(page).toHaveURL(/document=APP-2026-0143-transcript.*page=2/)
-    await page.goBack()
+    // Results keep their evidence data while original PDFs are opened from View documents.
+    await expect(page.getByRole('tabpanel').getByRole('link')).toHaveCount(0)
+    await page.getByRole('tab', { name: 'Score breakdown', exact: true }).click()
+    await expect(page.getByRole('tabpanel').getByRole('link')).toHaveCount(0)
+    await page.getByRole('tab', { name: 'View documents', exact: true }).click()
+    await expect(page.getByRole('combobox', { name: 'Original document', exact: true })).toHaveText(
+      'Transcript.pdf',
+    )
+    await expect(page.getByText('Page 2 of 4', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Download original', exact: true })).toBeVisible()
+    await page.getByRole('tab', { name: 'AI recommendation', exact: true }).click()
     await page.route('http://127.0.0.1:8001/api/v1/mock/assessments', (route) => route.abort())
     await reEvaluate(page)
     await expect(page.getByText(/Cannot reach the FastAPI/)).toBeVisible()

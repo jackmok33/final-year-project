@@ -24,7 +24,7 @@ describe('EvidenceSummary', () => {
   })
   it('does not invent facts for an empty evidence summary', () => {
     renderPage(<EvidenceSummary groups={[]} />)
-    expect(screen.getByRole('heading', { name: 'Evidence summary' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Evidence summary', level: 2 })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 3 })).not.toBeInTheDocument()
   })
 })

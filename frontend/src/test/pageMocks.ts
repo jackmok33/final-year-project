@@ -16,7 +16,7 @@ export const queryResult = (data?: unknown) => ({
   isLoading: false,
   error: undefined as unknown,
 })
-export const unwrap = vi.fn<() => Promise<{ id?: string; backupId?: string }>>()
+export const unwrap = vi.fn<() => Promise<{ id?: string }>>()
 export const command = vi.fn(() => ({ unwrap }))
 export const mutation = { isLoading: false, error: undefined as unknown }
 export const apiMocks = {
@@ -31,8 +31,7 @@ export const apiMocks = {
   useProgrammeIntakesQuery: vi.fn(),
   useRubricsQuery: vi.fn(),
   useUsersQuery: vi.fn(),
-  useHealthQuery: vi.fn(),
-  useAuditQuery: vi.fn(),
+  useBackendHealthQuery: vi.fn(),
   useCommandMutation: vi.fn(() => [command, mutation]),
 }
 export const workspaceMock = vi.fn()
@@ -70,15 +69,11 @@ export function resetPageMocks() {
   apiMocks.useProgrammesQuery.mockReturnValue(queryResult([programme, otherProgramme]))
   apiMocks.useRubricsQuery.mockReturnValue(queryResult({ rubrics: [rubric], activeId: rubric.id }))
   apiMocks.useUsersQuery.mockReturnValue(queryResult([tutor, administrator]))
-  apiMocks.useHealthQuery.mockReturnValue(
-    queryResult({
-      modelAvailable: false,
-      failed: 1,
-      queued: 0,
-      logs: [{ jobId: 'JOB-1', category: 'MODEL_UNAVAILABLE' }],
-    }),
-  )
-  apiMocks.useAuditQuery.mockReturnValue(queryResult([]))
+  apiMocks.useBackendHealthQuery.mockReturnValue({
+    ...queryResult({ state: 'not-configured', checkedAt: '2026-11-01T12:00:00Z' }),
+    isFetching: false,
+    refetch: vi.fn(),
+  })
   workspaceMock.mockReturnValue({
     user: tutor,
     programme,

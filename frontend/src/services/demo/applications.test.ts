@@ -1,3 +1,4 @@
+import { resetDemo } from '../../test/resetDemo'
 import { strToU8, zipSync } from 'fflate'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Application, BatchSummary, Dataset, UploadBatch } from '../../domain/types'
@@ -10,10 +11,7 @@ import {
   releaseArchive,
   releaseUploads,
   stageArchive,
-  stageBackup,
   stageUploads,
-  takeBackup,
-  validateBackup,
 } from '../demo'
 import { inspectPdf } from '../pdf'
 import * as storage from '../storage'
@@ -23,7 +21,7 @@ describe('persistent browser demo contract', () => {
   const id = 'APP-2026-0142'
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async (file: File) => ({
@@ -107,23 +105,16 @@ describe('persistent browser demo contract', () => {
         'tutor-a',
       ),
     ).rejects.toThrow('page')
-    await expect(
-      commandDemo(
-        { op: 'decide', id, runId: run.id, outcome: 'Unconditional', reason: '' },
-        'tutor-a',
-      ),
-    ).rejects.toThrow('critical')
-    const offer = data.applications[1]
     const cmd = {
       op: 'decide',
-      id: offer.id,
-      runId: offer.runs[0].id,
+      id,
+      runId: run.id,
       outcome: 'Reject',
       reason: '',
     } as const
     await commandDemo(cmd, 'tutor-a')
     await commandDemo(cmd, 'tutor-a')
-    expect((await readDataset())!.applications[1].decisions).toHaveLength(1)
+    expect((await readDataset())!.applications.find((a) => a.id === id)!.decisions).toHaveLength(1)
   })
   it.each([
     ['APP-2026-0143', 'Reject', ''],
@@ -222,7 +213,7 @@ describe('service mutation validation and failure atomicity', () => {
   let data: Dataset
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
     data = (await readDataset())!
   })
   beforeEach(() => {
@@ -251,17 +242,19 @@ describe('service mutation validation and failure atomicity', () => {
   })
   it('retries failed seeded cases after service recovery and records operational audit events', async () => {
     const failed = data.applications.find((a) => a.fixture === 'failed')!
-    await commandDemo({ op: 'model', available: true }, 'admin-a')
+    data.modelAvailable = true
+    await writeDataset(data)
     await commandDemo({ op: 'evaluate', id: failed.id }, 'tutor-a')
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(Date.now() + 5000)
     try {
-      const health = await queryDemo({ op: 'health' }, 'admin-a')
-      expect(health).toMatchObject({ modelAvailable: true, queued: 0, failed: 0 })
-      expect(await queryDemo({ op: 'audit' }, 'admin-a')).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ action: 'Change simulated service availability' }),
-        ]),
+      await queryDemo({ op: 'application', id: failed.id }, 'tutor-a')
+      const saved = (await readDataset())!
+      const completed = saved.applications.find((a) => a.id === failed.id)!.runs.at(-1)!
+      expect(completed.status).toBe('awaiting review')
+      expect(completed.error).toBeUndefined()
+      expect(saved.audit).toContainEqual(
+        expect.objectContaining({ action: 'Start simulated evaluation', target: failed.id }),
       )
     } finally {
       vi.useRealTimers()
@@ -304,7 +297,7 @@ describe('persistent ZIP upload batches', () => {
   }
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async (file: File) => {
@@ -386,12 +379,12 @@ describe('persistent ZIP upload batches', () => {
 describe('persistent module intakes', () => {
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async () => ({ pages: 1 }))
   })
-  it('stores the selected intake, separates its queue, and preserves it through backup/restore', async () => {
+  it('stores the selected intake, separates its queue, and preserves original PDFs', async () => {
     const refs = stageUploads([
       {
         type: 'transcript',
@@ -423,11 +416,7 @@ describe('persistent module intakes', () => {
       expect(current).toHaveLength(8)
       const fileId = older[0].documentIds[0]
       const bytes = await (await readFile(fileId))!.arrayBuffer()
-      const { backupId } = await commandDemo({ op: 'backup' }, 'admin-a')
-      const backup = takeBackup(backupId!)!
-      await validateBackup(backup)
-      await commandDemo({ op: 'reset' }, 'admin-a')
-      await commandDemo({ op: 'restore', backupId: stageBackup(backup) }, 'admin-a')
+      await queryDemo({ op: 'application', id: id! }, 'tutor-a')
       expect((await readDataset())!.applications.find((a) => a.id === id)!.intakeYear).toBe(
         '2025 / 26',
       )
@@ -471,54 +460,82 @@ describe('persistent module intakes', () => {
 describe('new tutor decisions and batch actions', () => {
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async () => ({ pages: 1 }))
   })
   it.each(['Conditional', 'Unconditional', 'Reject'] as const)(
-    'persists and backs up %s without changing the AI recommendation',
+    'persists %s despite critical flags without changing assessment evidence',
     async (outcome) => {
-      const before = (await readDataset())!.applications.find((a) => a.id === 'APP-2026-0143')!
+      const before = (await readDataset())!.applications.find((a) => a.id === 'APP-2026-0142')!
+      expect(before.runs.at(-1)!.flags.some((flag) => flag.critical)).toBe(true)
       await commandDemo(
         { op: 'decide', id: before.id, runId: before.runs.at(-1)!.id, outcome, reason: '' },
         'tutor-a',
       )
-      const backup = await commandDemo({ op: 'backup' }, 'admin-a')
-      const restored = await validateBackup(takeBackup(backup.backupId!)!)
-      const saved = restored.dataset.applications.find((a) => a.id === before.id)!
+      const persisted = (await readDataset())!.applications.find((a) => a.id === before.id)!
+      expect(persisted.decisions.at(-1)).toMatchObject({ outcome, actor: 'tutor-a' })
+      expect(persisted.runs).toEqual(before.runs)
+      expect(persisted.corrections).toEqual(before.corrections)
+      const reloaded = await queryDemo({ op: 'application', id: before.id }, 'tutor-a')
+      const saved = reloaded.application
       expect(saved.decisions.at(-1)).toMatchObject({
         outcome,
         recommendation: before.runs.at(-1)!.recommendation,
       })
       expect(saved.runs).toEqual(before.runs)
+      expect(saved.corrections).toEqual(before.corrections)
     },
   )
-  it('rejects obsolete choices and critical-evidence decisions without writes', async () => {
-    const before = (await readDataset())!
-    const ready = before.applications.find((a) => a.id === 'APP-2026-0143')!
-    await expect(
-      commandDemo(
-        {
-          op: 'decide',
-          id: ready.id,
-          runId: ready.runs[0].id,
-          outcome: 'Offer',
-          reason: '',
-        } as unknown as Command,
-        'tutor-a',
-      ),
-    ).rejects.toThrow('valid outcome')
-    const flagged = before.applications.find((a) => a.id === 'APP-2026-0142')!
-    for (const outcome of ['Conditional', 'Unconditional', 'Reject'] as const)
+  it.each(['Offer', 'Further review'])(
+    'rejects obsolete choice %s without writes even when review flags are present',
+    async (outcome) => {
+      const before = (await readDataset())!
+      const ready = before.applications.find((a) => a.id === 'APP-2026-0142')!
       await expect(
         commandDemo(
-          { op: 'decide', id: flagged.id, runId: flagged.runs[0].id, outcome, reason: '' },
+          {
+            op: 'decide',
+            id: ready.id,
+            runId: ready.runs[0].id,
+            outcome,
+            reason: '',
+          } as unknown as Command,
           'tutor-a',
         ),
-      ).rejects.toThrow('critical')
-    expect(await readDataset()).toEqual(before)
-  })
+      ).rejects.toThrow('valid outcome')
+      expect(await readDataset()).toEqual(before)
+    },
+  )
+  it.each(['queued', 'running', 'failed', 'unavailable'] as const)(
+    'rejects a %s assessment without writes while ordinary review flags remain advisory',
+    async (status) => {
+      const data = (await readDataset())!
+      const target = data.applications.find((a) => a.id === 'APP-2026-0142')!
+      const run = target.runs.at(-1)!
+      if (status === 'unavailable') {
+        run.flags.push({
+          code: 'BACKEND_UNAVAILABLE',
+          message: 'Assessment unavailable.',
+          critical: true,
+        })
+      } else {
+        run.status = status
+        run.startedAt = new Date(Date.now() + (status === 'queued' ? 60_000 : -1_000)).toISOString()
+        run.finishAt = new Date(Date.now() + 120_000).toISOString()
+      }
+      await writeDataset(data)
+      for (const outcome of ['Conditional', 'Unconditional', 'Reject'] as const)
+        await expect(
+          commandDemo(
+            { op: 'decide', id: target.id, runId: target.runs.at(-1)!.id, outcome, reason: '' },
+            'tutor-a',
+          ),
+        ).rejects.toThrow('latest successful run')
+      expect(await readDataset()).toEqual(data)
+    },
+  )
   it('requires owner access and confirmation before deleting one applicant and its PDFs', async () => {
     const before = (await readDataset())!
     const target = before.applications.find((a) => a.id === 'APP-2026-0143')!

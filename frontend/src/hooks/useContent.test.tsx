@@ -32,14 +32,6 @@ describe('shared content hook', () => {
     expect(result.current.scoreValue(null)).toBe('—')
   })
 
-  it('preserves missing values and line breaks in operational messages', () => {
-    const { result } = renderHook(() => useContent('serviceHealthPage'))
-    expect(result.current.redactedLog('JOB-1', 'MODEL_UNAVAILABLE')).toBe(
-      'Job: JOB-1\nCategory: MODEL_UNAVAILABLE\nSource: simulated local-model fixture\nApplicant content: excluded',
-    )
-    expect(result.current.redactedLog()).toContain('Job: \nCategory: \n')
-  })
-
   it('formats criteria and course counts without exposing placeholder values', () => {
     const { result } = renderHook(() => useContent('criteriaFields'))
     expect(result.current.totalLabel(100, false)).toBe('100% · Valid')

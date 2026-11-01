@@ -32,7 +32,7 @@ function guard(admin = false) {
         </Route>
         <Route path="/login" element={<p>Sign-in destination</p>} />
         <Route path="/modules" element={<p>Tutor destination</p>} />
-        <Route path="/admin/health" element={<p>Admin destination</p>} />
+        <Route path="/admin/users" element={<p>Admin destination</p>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -157,8 +157,15 @@ describe('module sidebar', () => {
       programmes: [programme, otherProgramme],
       programme,
     })
-    renderPage(<Layout />, '/admin/health', '*')
-    expect(screen.getByRole('link', { name: 'Users & access' })).toBeInTheDocument()
+    renderPage(<Layout />, '/admin/users', '*')
+    expect(screen.getByRole('link', { name: 'Users' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Service health' })).toHaveAttribute(
+      'href',
+      '/admin/health',
+    )
+    expect(screen.getByRole('link', { name: 'UCL' })).toHaveAttribute('href', '/admin/users')
+    for (const name of ['Backup & restore', 'Programme settings', 'Data operations'])
+      expect(screen.queryByRole('link', { name })).not.toBeInTheDocument()
     await userEvent.click(await screen.findByRole('button', { name: 'Account menu' }))
     expect(screen.getByRole('menuitem', { name: 'Switch to tutor workspace' })).toHaveAttribute(
       'href',

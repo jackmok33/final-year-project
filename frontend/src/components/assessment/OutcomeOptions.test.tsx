@@ -9,7 +9,7 @@ import { OutcomeOptions } from './OutcomeOptions'
 describe('OutcomeOptions', () => {
   it('offers exactly the three final outcomes and forwards the chosen value', async () => {
     const setOutcome = vi.fn()
-    renderPage(<OutcomeOptions outcome="Unconditional" setOutcome={setOutcome} critical={false} />)
+    renderPage(<OutcomeOptions outcome="Unconditional" setOutcome={setOutcome} />)
     expect(screen.getAllByRole('radio').map((radio) => radio.getAttribute('value'))).toEqual([
       'Unconditional',
       'Conditional',
@@ -19,18 +19,9 @@ describe('OutcomeOptions', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Conditional' }))
     expect(setOutcome).toHaveBeenCalledWith('Conditional')
   })
-  it('blocks every final outcome when evidence is critical', async () => {
-    const setOutcome = vi.fn()
-    renderPage(<OutcomeOptions outcome="Reject" setOutcome={setOutcome} critical />)
-    for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
-    screen.getByRole('radio', { name: 'Conditional' }).click()
-    expect(setOutcome).not.toHaveBeenCalled()
-  })
   it('blocks changes while the enclosing decision form is saving', () => {
     const setOutcome = vi.fn()
-    renderPage(
-      <OutcomeOptions outcome="Conditional" setOutcome={setOutcome} critical={false} disabled />,
-    )
+    renderPage(<OutcomeOptions outcome="Conditional" setOutcome={setOutcome} disabled />)
     for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
     screen.getByRole('radio', { name: 'Reject' }).click()
     expect(setOutcome).not.toHaveBeenCalled()

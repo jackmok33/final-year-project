@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Stack, TextField } from '@mui/material'
+import { Box, Button, Stack, TextField } from '@mui/material'
 import type { TutorOutcome } from '../../domain/types'
 import { useContent } from '../../hooks/useContent'
 import { ErrorNotice } from '../common'
@@ -10,7 +10,6 @@ export function DecisionForm({
   reason,
   setReason,
   error,
-  critical,
   disabled,
   record,
   onCancel,
@@ -21,7 +20,6 @@ export function DecisionForm({
   reason: string
   setReason: (reason: string) => void
   error?: unknown
-  critical: boolean
   disabled: boolean
   record: () => void
   onCancel?: () => void
@@ -38,13 +36,7 @@ export function DecisionForm({
       sx={{ maxWidth: 700 }}
     >
       <Stack spacing={2.5}>
-        {critical && <Alert severity="warning">{content.criticalWarning}</Alert>}
-        <OutcomeOptions
-          outcome={outcome}
-          setOutcome={setOutcome}
-          critical={critical}
-          disabled={saving}
-        />
+        <OutcomeOptions outcome={outcome} setOutcome={setOutcome} disabled={saving} />
         <TextField
           placeholder={content.reviewNote}
           multiline

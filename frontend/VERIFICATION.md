@@ -1,9 +1,188 @@
-# Frontend verification — 29 October 2026
+# Frontend verification — 1 November 2026
 
-This snapshot covers the account menu and correction popup changes, following the
-frontend quality refactor and supplied Mantis integration. Earlier snapshots remain
+This snapshot covers the Users/Service health admin workspace and earlier tutor review
+changes. Earlier snapshots remain
 below. Startup and reproducible commands are in the
 [frontend guide](README.md#checks).
+
+## Final PR review and dead-code cleanup — 1 November
+
+The final admin interface contains Users and Service health. Removed features now
+also have their service paths removed: browser backup/restore/reset, simulated
+health/audit queries, model toggles, admin programme editing and generic data
+deletion. Backup archive types/staging/validation, module-code validation and unused
+PDF constant aliases are removed with their obsolete tests. Fixture setup is shared
+in `src/test/resetDemo.ts`, outside the production entry graph. Active permissions,
+uploads, original-PDF storage, saved-record migrations, ownership, audit tombstones,
+assessment history and HTTP evaluation transactions remain covered.
+
+All 733 tests across 102 companion files pass with one coverage worker. Coverage:
+98.54% lines, 97.34% statements, 97.77% functions and 93.21% branches. TypeScript,
+standard/e2e production builds, ESLint, Prettier, test structure and whitespace pass.
+All 17 standalone production-browser workflows and all three FastAPI browser
+workflows pass, including axe checks, advisory flags, correction/decision dialogs,
+criteria edits, ZIP atomicity, CSV escaping, health loss/recovery and legacy redirects.
+Original PDF hashes and records remain intact after removed-route visits. Current
+admin screenshots were visually inspected.
+
+The runtime audit found 199 reachable modules among 201 source modules; only the
+two type-only contract modules sit outside the runtime entry graph. There are no
+orphan runtime modules, import cycles, unused registered content fields or unused
+direct runtime dependencies. The dynamic PDF fixture import remains required.
+All 62 supplied Mantis source/asset hashes and five layout-reference hashes/consumer
+paths verify. Independent tutor, admin and service-cleanup reviews found no
+actionable issues. Backend unit/Ruff/PostgreSQL suites were not rerun; unrelated
+backend and planning changes are excluded from this frontend PR.
+
+## Browser backup/restore UI removal — 1 November
+
+The admin interface now has Users and Service health. BackupRestorePage,
+BackupRecovery, their content/companions and the unused browserBackups preview
+adapter are removed. Old `/admin/backup` and `/admin/data` links redirect to Users
+under the admin guard. Existing records/PDFs and internal saved-format compatibility
+helpers are preserved; no database migrations or HTTP contracts changed.
+
+All 53 focused tests across five companions pass, covering routes, navigation,
+content, users and health. Test structure verifies 104 remaining companions.
+TypeScript, standard/e2e production builds, ESLint, Prettier and whitespace pass.
+Both affected standalone browser workflows pass with axe checks, account persistence,
+last-admin protection and legacy redirects. They confirm the backup controls are
+absent and application/document records plus every original PDF ID, size and SHA-256
+remain unchanged across removed-route visits. Full coverage and FastAPI/backend/
+PostgreSQL suites were not rerun for this UI removal; prior results are below.
+
+## Read-only service health — 1 November
+
+The admin sidebar now has Users, Service health and Backup & restore. Users remains
+the landing screen. ServiceHealthPage uses the supplied Mantis MainCard and theme
+controls; the read-only RTK Query probe calls the actual configured FastAPI health
+endpoint outside the browser dataset lock. It validates the response, supports a
+ten-second timeout/cancellation and reports missing configuration or failure
+without substituting simulated health. Refresh replaces old results and keeps
+the last-check timestamp. Database/model connectivity is not claimed: the scaffold
+reports mock mode and unconfigured integrations. No backend schema or routes changed.
+
+All 795 unit/component/service tests across 107 companion files pass with one
+worker. Coverage is 98.51% lines, 97.27% statements, 98.02% functions and 93.10%
+branches. TypeScript, standard/e2e production builds, ESLint, Prettier, companion
+structure and whitespace checks pass.
+
+All three FastAPI browser workflows pass, including real health GET, loss/recovery
+of connectivity, truthful dependency status, admin-only access and axe checks.
+Both focused standalone workflows pass for desktop routes/accessibility and admin
+accounts/backup/restore, including absent health configuration. Connected and
+unconfigured screenshots were visually checked. The independent code review found
+no actionable issues. Backend unit/Ruff/PostgreSQL checks were not rerun.
+The full standalone browser suite was last run for the admin simplification below;
+this health follow-up reran the two affected standalone workflows.
+
+## Admin MVP simplification — 31 October
+
+Administration now has only Users and Backup & restore. Admin login, the logo and
+dual-role switching lead to Users. The full-width account table shows identity,
+human role labels, status and Edit; create/edit use the existing Mantis dialog.
+The owned-course readout/programme queries and unused UserPermissions panel are
+removed. Admin-only workspace hooks skip course queries. Draft cancellation,
+busy dismissal/input guards, late-save handling and success feedback are covered.
+
+BackupRestorePage replaces DataOperationsPage and keeps export, staged validation,
+explicit restore confirmation and in-flight reference cleanup. Health/programme
+screens, deletion/reset controls and maintenance components were removed with
+their content and companions. Legacy URLs redirect under admin guards. Internal
+demo commands, ownership/last-admin protection, saved records/PDFs and backup
+compatibility remain intact; no database or HTTP contract changes are included.
+
+All 767 unit/component/service tests across 105 companion files pass with one
+worker. Coverage is 98.49% lines, 97.23% statements, 97.99% functions and 92.96%
+branches. TypeScript, standard/e2e production builds, ESLint, Prettier, naming and
+whitespace checks pass. All 17 standalone production-browser workflows pass,
+including last-admin rejection, account persistence, confirmed/cancelled restore,
+PDF/history preservation and old admin redirects. Users/backup screenshots and axe
+audits were checked. All 67 original Mantis source/layout hashes and remaining
+consumer paths verify; the import audit found no unreachable runtime modules.
+
+FastAPI browser checks were last run for the detailed-narrative change below;
+backend unit/Ruff/PostgreSQL checks were not rerun. Existing unrelated backend
+and planning changes remain outside this frontend work.
+
+## Detailed mock explanations — 31 October
+
+The five core synthetic cases now display fuller recommendation and academic/CV/
+statement narratives. The text explains document-supported strengths, missing
+detail, the distinction between degree marks and section scores, and weighting
+under the assessment's own criteria version. Existing canned strings remain the
+first paragraphs; longer text uses readable paragraph spacing in the Mantis panels.
+
+The new assessmentNarrative service returns a display-only clone and never writes
+to storage. It checks recognised current fixtures, a matching valid rubric and
+score consistency. Uploads, unknown/custom evaluator text, unavailable/historical
+results and missing sections remain untouched. No employer, publication or grade
+claims beyond the bundled source facts are introduced. Original scores, flags,
+citations, runs, decisions and HTTP responses are preserved.
+
+All 63 focused tests across five companion files pass (24 narrative tests and
+39 page/component/route tests). Test structure checks 116 companions. TypeScript,
+standard/e2e builds, ESLint, Prettier and whitespace checks pass. The standalone
+review browser workflow checks detailed text in every section and unchanged stored
+runs; both FastAPI browser workflows also pass. Recommendation/score screenshots
+were visually inspected. Full unit/coverage, full standalone browser and backend/
+PostgreSQL unit checks were not rerun for this presentation change.
+
+## Advisory review flags — 31 October
+
+Review flags no longer block Conditional, Unconditional or Reject. The decision
+page/form/outcome controls have no critical-flag props, veto or blocking warning;
+the demo command also removes that veto. Flags, original assessments and AI
+recommendations remain unchanged. Ownership, current-run, available-assessment,
+allowed-outcome and busy-save checks remain; no override reason or confirmation
+is added.
+
+All 117 focused tests across ten companion files pass: 18 decision-UI tests,
+53 service/access/transaction tests and 46 assessment/domain tests. They cover
+flagged decisions, durable storage/backup, unchanged evidence, duplicate decisions
+and unavailable/current-run/role restrictions. TypeScript, standard/e2e builds,
+lint, formatting, test structure and whitespace checks pass. Four targeted
+production-browser workflows pass for all three flagged decisions and refresh,
+optional corrections/history, role access and the revised review interface.
+
+Full unit/coverage, the full standalone browser suite and backend/PostgreSQL checks
+were not rerun. No backend endpoint, schema or saved-data migration changes are
+included; AI recommendation routing remains unchanged.
+
+## Recommendation layout — 31 October
+
+Why this recommendation and Evidence summary now use supplied Mantis MainCard
+section headers, larger than the body and category text. Each evidence category
+has a smaller semantic heading in its own MainCard. The desktop grid follows
+supplied group order across two columns instead of splitting fixed categories
+into uneven columns. Spacing and text line height are consistent; narrow screens
+retain one column. No facts, scores, controls or PDF shortcuts were added.
+
+All 19 focused tests across RecommendationPanel, EvidenceSummary and AssessmentPage
+pass. Test structure, TypeScript/standard and e2e production builds, ESLint,
+Prettier and whitespace checks pass. The standalone production-browser review
+workflow passes with axe audits, and its recommendation screenshot was visually
+inspected. Full unit/coverage and backend browser/unit/PostgreSQL checks were not
+rerun for this layout-only change; prior validation remains below.
+
+## Recommendation and score PDF shortcuts — 31 October
+
+RecommendationPanel and SectionAssessments now render explanations and evidence/
+score text without PDF links. Their document/application navigation props and the
+unused EvidenceLink component, copy and tests were removed. Stored citations,
+HTTP response contracts, original PDFs and legacy document/page bookmarks remain
+unchanged. Originals are accessed through View documents.
+
+All 53 focused tests across seven companion files pass, covering both summaries,
+assessment tabs, document navigation, legacy reference validation and shared copy/
+controls. Test structure passes with 115 companion files. TypeScript/production
+and e2e builds, ESLint, Prettier and whitespace checks pass. The standalone review
+workflow and both FastAPI browser workflows pass, checking shortcut absence and
+manual document access. The recommendation and score screenshots were inspected.
+
+Full unit/coverage and standalone browser suites and backend/PostgreSQL unit checks
+were not rerun for this presentation change. Earlier results retain their original
+dates and scope below.
 
 ## Account menu and correction popup — 29 October
 

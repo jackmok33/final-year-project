@@ -1,10 +1,8 @@
 import { workspaceNavigationContent } from './layout/WorkspaceNavigation.content'
 
 export const layoutContent = {
+  usersAccess: 'Users',
   serviceHealth: 'Service health',
-  usersAccess: 'Users & access',
-  programmeSettings: 'Programme settings',
-  dataOperations: 'Data operations',
   skipToMainContent: 'Skip to main content',
   workspaceNavigation: workspaceNavigationContent.workspaceNavigation,
   changePassword: 'Change password',

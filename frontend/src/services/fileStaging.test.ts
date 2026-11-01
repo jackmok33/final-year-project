@@ -1,22 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import type { Backup } from '../domain/types'
-import { dataset } from '../test/fixtures'
 import {
   archives,
-  backups,
-  discardBackup,
   releaseArchive,
   releaseUploads,
   stageArchive,
-  stageBackup,
   stageUploads,
-  takeBackup,
   uploads,
 } from './fileStaging'
 
 afterEach(() => {
   archives.clear()
-  backups.clear()
   uploads.clear()
 })
 
@@ -48,21 +41,5 @@ describe('temporary file references', () => {
     releaseArchive(first)
     expect(archives.has(first)).toBe(false)
     expect(archives.get(second)).toBe(file)
-  })
-
-  it('consumes backups once and can discard an abandoned restore', () => {
-    const backup: Backup = {
-      format: 'ucl-admissions-demo',
-      version: 2,
-      createdAt: '2026-10-29T10:00:00Z',
-      dataset,
-      files: [],
-    }
-    const exported = stageBackup(backup)
-    expect(takeBackup(exported)).toBe(backup)
-    expect(takeBackup(exported)).toBeUndefined()
-    const abandoned = stageBackup(backup)
-    discardBackup(abandoned)
-    expect(takeBackup(abandoned)).toBeUndefined()
   })
 })

@@ -1,17 +1,23 @@
 import type { ContentValue } from '../../formatText'
+import type { User } from '../../../domain/types'
+import { userFormContent } from './UserForm.content'
 
 export const accountsTableContent = {
   accounts: 'Accounts',
-  demoAccounts: 'Demo accounts',
+  tableLabel: 'User accounts',
   user: 'User',
   role: 'Role',
-  programmeAccess: 'Owned courses',
-  state: 'State',
-  noTutorAccess: 'No courses',
+  state: 'Status',
+  actions: 'Actions',
+  empty: 'No accounts found.',
+  roleLabel: (roles: User['roles']) =>
+    roles.includes('tutor') && roles.includes('admin')
+      ? userFormContent.tutorAdministrator
+      : roles.includes('admin')
+        ? userFormContent.administrator
+        : userFormContent.admissionsTutor,
   active: 'Active',
   inactive: 'Inactive',
   edit: 'Edit',
   editLabel: (name: ContentValue) => `Edit ${String(name)}`,
-  permissionNotice:
-    'Administrator permission alone does not grant applicant-document access, rubric publication or admissions decisions.',
 } as const

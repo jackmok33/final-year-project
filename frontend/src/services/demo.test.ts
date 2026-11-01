@@ -1,23 +1,16 @@
+import { resetDemo } from '../test/resetDemo'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Dataset } from '../domain/types'
-import type { Command } from './demo'
-import {
-  authorizedFile,
-  commandDemo,
-  queryDemo,
-  stageBackup,
-  stageUploads,
-  takeBackup,
-  validateBackup,
-} from './demo'
+import type { Command, Query } from './demo'
+import { authorizedFile, commandDemo, queryDemo, stageUploads } from './demo'
 import { inspectPdf } from './pdf'
 import { simulateRun } from './seed'
-import { readDataset, writeDataset } from './storage'
+import { readDataset, readFile, writeDataset } from './storage'
 vi.mock('./pdf', () => ({ inspectPdf: vi.fn() }))
 describe('persistent browser demo contract', () => {
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async (file: File) => ({
@@ -48,17 +41,14 @@ describe('persistent browser demo contract', () => {
     const app = (await readDataset())!.applications.find((a) => a.id === created.id)!
     expect(app.programmeId).toBe(result.id)
     expect(app.runs[0].rubricId).toBe(data.activeRubricIds[result.id!])
-    const exported = await commandDemo({ op: 'backup' }, 'admin-a')
-    expect((await validateBackup(takeBackup(exported.backupId!)!)).dataset.programmes).toHaveLength(
-      5,
-    )
+    expect((await readDataset())!.programmes).toHaveLength(5)
   })
 })
 describe('service mutation validation and failure atomicity', () => {
   let data: Dataset
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
     data = (await readDataset())!
   })
   beforeEach(() => {
@@ -112,30 +102,6 @@ describe('service mutation validation and failure atomicity', () => {
       'admin-a',
     ],
     [
-      'blank programme name',
-      () => ({ op: 'programme', programme: { ...data.programmes[0], name: '' } }),
-      'admin-a',
-    ],
-    [
-      'invalid module code',
-      () => ({ op: 'programme', programme: { ...data.programmes[0], code: 'COMP 0003' } }),
-      'admin-a',
-    ],
-    [
-      'duplicate programme code',
-      () => ({
-        op: 'programme',
-        programme: { ...data.programmes[0], code: data.programmes[1].code.toLowerCase() },
-      }),
-      'admin-a',
-    ],
-    [
-      'missing programme',
-      () => ({ op: 'programme', programme: { ...data.programmes[0], id: 'missing' } }),
-      'admin-a',
-    ],
-    ['missing deletion target', () => ({ op: 'delete', id: 'missing' }), 'admin-a'],
-    [
       'invalid criteria weights',
       () => ({
         op: 'rubric',
@@ -147,20 +113,37 @@ describe('service mutation validation and failure atomicity', () => {
     await expect(commandDemo(makeCommand() as Command, actor)).rejects.toThrow()
     expect(await readDataset()).toEqual(data)
   })
-  it('rejects missing originals for downloads and backups', async () => {
+  it.each(['backup', 'restore', 'reset', 'programme', 'model', 'delete'])(
+    'rejects the retired %s command without changing saved data',
+    async (op) => {
+      await expect(commandDemo({ op } as unknown as Command, 'admin-a')).rejects.toThrow(
+        'Unsupported demo operation',
+      )
+      expect(await readDataset()).toEqual(data)
+    },
+  )
+  it.each(['health', 'audit'])(
+    'rejects the retired %s query without changing saved data',
+    async (op) => {
+      await expect(queryDemo({ op } as unknown as Query, 'admin-a')).rejects.toThrow(
+        'Unsupported application query',
+      )
+      expect(await readDataset()).toEqual(data)
+    },
+  )
+  it('rejects missing originals for downloads', async () => {
     await expect(authorizedFile('missing', 'tutor-a')).rejects.toThrow('Document not found')
     await writeDataset(data, {}, [data.documents[0].id])
     await expect(authorizedFile(data.documents[0].id, 'tutor-a')).rejects.toThrow(
       'missing from browser storage',
     )
-    await expect(commandDemo({ op: 'backup' }, 'admin-a')).rejects.toThrow('missing or changed')
   })
 })
 describe('HTTP evaluation transactions', () => {
   beforeEach(async () => {
     vi.stubEnv('VITE_API_BASE_URL', '')
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
     vi.stubEnv('VITE_API_BASE_URL', 'http://127.0.0.1:8000/api/v1')
   })
   afterEach(() => {
@@ -188,9 +171,11 @@ describe('HTTP evaluation transactions', () => {
       expect(await readDataset()).toEqual(before)
     }
   })
-  it('retains backend runs, original history and PDF references across reload and backup/restore', async () => {
+  it('retains backend runs, original history and PDF bytes across reload', async () => {
     const data = (await readDataset())!
     const app = data.applications[0]
+    const fileId = app.documentIds[0]
+    const originalBytes = await (await readFile(fileId))!.arrayBuffer()
     const run = {
       ...simulateRun(
         app,
@@ -210,12 +195,8 @@ describe('HTTP evaluation transactions', () => {
     expect(reloaded.application.runs).toHaveLength(2)
     expect(reloaded.application.runs[0]).toEqual(app.runs[0])
     expect(reloaded.application.runs[1]).toEqual(run)
-    const { backupId } = await commandDemo({ op: 'backup' }, 'admin-a')
-    const backup = takeBackup(backupId!)!
-    expect(backup.files).toHaveLength(data.documents.length)
-    await commandDemo({ op: 'reset' }, 'admin-a')
-    await commandDemo({ op: 'restore', backupId: stageBackup(backup) }, 'admin-a')
-    expect((await readDataset())!.applications[0].runs[1]).toEqual(run)
+    expect(reloaded.application.documentIds).toEqual(app.documentIds)
+    expect(await (await readFile(fileId))!.arrayBuffer()).toEqual(originalBytes)
   })
   it('checks tutor permissions before sending any request', async () => {
     const fetchMock = vi.fn()

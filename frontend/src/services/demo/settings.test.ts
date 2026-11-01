@@ -1,6 +1,7 @@
+import { resetDemo } from '../../test/resetDemo'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Dataset, Programme, Rubric, User } from '../../domain/types'
-import { commandDemo, queryDemo, stageBackup, takeBackup, validateBackup } from '../demo'
+import { commandDemo, queryDemo } from '../demo'
 import { inspectPdf } from '../pdf'
 import { readDataset, writeDataset } from '../storage'
 vi.mock('../pdf', () => ({ inspectPdf: vi.fn() }))
@@ -8,7 +9,7 @@ describe('persistent browser demo contract', () => {
   const id = 'APP-2026-0142'
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async (file: File) => ({
@@ -80,19 +81,7 @@ describe('persistent browser demo contract', () => {
     expect((await queryDemo({ op: 'programmes' }, 'tutor-b')) as Programme[]).toContainEqual(
       programme,
     )
-    const exported = await commandDemo({ op: 'backup' }, 'admin-a')
-    const backup = takeBackup(exported.backupId!)!
-    await validateBackup(backup)
-    await commandDemo({ op: 'reset' }, 'admin-a')
-    expect(
-      ((await queryDemo({ op: 'programmes' }, 'tutor-b')) as Programme[]).some(
-        (p) => p.id === workspaceId,
-      ),
-    ).toBe(false)
-    await commandDemo({ op: 'restore', backupId: stageBackup(backup) }, 'admin-a')
-    expect((await queryDemo({ op: 'programmes' }, 'tutor-b')) as Programme[]).toContainEqual(
-      programme,
-    )
+    expect((await readDataset())!.programmes).toContainEqual(programme)
   })
   it('validates course names and access without changing the dataset', async () => {
     const before = (await readDataset())!
@@ -212,7 +201,7 @@ describe('service mutation validation and failure atomicity', () => {
   let data: Dataset
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
     data = (await readDataset())!
   })
   beforeEach(() => {
@@ -231,12 +220,12 @@ describe('service mutation validation and failure atomicity', () => {
 describe('persistent module intakes', () => {
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async () => ({ pages: 1 }))
   })
-  it('preserves descriptive legacy intake labels through module metadata edits and backup', async () => {
+  it('preserves descriptive legacy intake labels across subsequent loads', async () => {
     const data = (await readDataset())!
     data.programmes[0].year = 'Legacy intake'
     delete data.applications[0].batchId
@@ -246,8 +235,6 @@ describe('persistent module intakes', () => {
     const saved = (await readDataset())!
     saved.programmes[0].year = '2027 / 28'
     await writeDataset(saved)
-    const { backupId } = await commandDemo({ op: 'backup' }, 'admin-a')
-    await validateBackup(takeBackup(backupId!)!)
     expect(
       await queryDemo(
         { op: 'applications', programmeId: 'programme-1', intakeYear: 'Legacy intake' },
@@ -259,7 +246,7 @@ describe('persistent module intakes', () => {
 describe('private tutor courses', () => {
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   it('preserves ownership through deactivation and role changes without exposing courses to an admin', async () => {
     const owner = (await queryDemo({ op: 'me' }, 'tutor-a')) as User

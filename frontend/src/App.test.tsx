@@ -27,9 +27,11 @@ describe('routed screens and lazy imports', () => {
     ['/applications/APP-TEST/decision', 'CSML 26/27'],
     ['/criteria', 'CSML 26/27'],
     ['/admin/health', 'Service health'],
-    ['/admin/users', 'Users & access'],
-    ['/admin/programme', 'Programme settings'],
-    ['/admin/data', 'Data operations'],
+    ['/admin/users', 'Users'],
+    ['/admin/programme', 'Users'],
+    ['/admin/data', 'Users'],
+    ['/admin/backup', 'Users'],
+    ['/admin', 'Users'],
   ])('loads %s through the appropriate guard', async (url, title) => {
     if (url.startsWith('/admin')) apiMocks.useMeQuery.mockReturnValue(queryResult(administrator))
     render(
@@ -77,10 +79,17 @@ describe('routed screens and lazy imports', () => {
           <App />
         </MemoryRouter>,
       )
-      expect(
-        await screen.findByRole('heading', { name: 'Service health', level: 1 }),
-      ).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: 'Users', level: 1 })).toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'APP-TEST' })).not.toBeInTheDocument()
     },
   )
+  it('keeps the backend health screen behind the administrator guard', async () => {
+    render(
+      <MemoryRouter initialEntries={['/admin/health']}>
+        <App />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByRole('heading', { name: 'Programme', level: 1 })).toBeInTheDocument()
+    expect(apiMocks.useBackendHealthQuery).not.toHaveBeenCalled()
+  })
 })

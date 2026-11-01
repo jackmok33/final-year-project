@@ -1,19 +1,58 @@
-import { useContent } from '../hooks/useContent'
-import { Button } from '@mui/material'
+import { Alert, Button } from '@mui/material'
 import { useState } from 'react'
-import { useCommandMutation, useProgrammesQuery, useUsersQuery } from '../app/api'
+import { useCommandMutation, useUsersQuery } from '../app/api'
 import { AccountsTable } from '../components/admin/AccountsTable'
 import { UserForm } from '../components/admin/UserForm'
-import { ErrorNotice, Loading, Page, TwoColumns } from '../components/common'
-import type { Programme, User } from '../domain/types'
+import { ErrorNotice, Loading, Page } from '../components/common'
+import type { User } from '../domain/types'
+import { useContent } from '../hooks/useContent'
+import { useIsMounted } from '../hooks/useIsMounted'
+import CustomizedDialog from '../mantis/components/CustomizedDialog'
 
 export function UsersAccessPage() {
   const content = useContent('usersAccessPage')
-  const { data: users, isLoading, error } = useUsersQuery()
-  const { data: programmes } = useProgrammesQuery()
-  const [editing, setEditing] = useState<string | null>(null)
+  const { currentData: users, isLoading, error } = useUsersQuery()
+  const [editing, setEditing] = useState<User | null>(null)
+  const [notice, setNotice] = useState('')
   if (isLoading) return <Loading />
-  const blank: User = {
+  function open(user: User) {
+    setEditing(user)
+    setNotice('')
+  }
+  return (
+    <Page
+      title={content.usersAccess}
+      subtitle={content.subtitle}
+      actions={
+        <Button variant="contained" onClick={() => open(emptyAccount())} disabled={!users}>
+          {content.newAccount}
+        </Button>
+      }
+    >
+      <ErrorNotice error={error} />
+      {notice && (
+        <Alert severity="success" role="status">
+          {notice}
+        </Alert>
+      )}
+      {users && <AccountsTable users={users} onEdit={open} />}
+      {editing && (
+        <AccountEditor
+          key={editing.id || 'new'}
+          user={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
+            setNotice(content.accountSaved)
+          }}
+        />
+      )}
+    </Page>
+  )
+}
+
+function emptyAccount(): User {
+  return {
     id: '',
     name: '',
     email: '',
@@ -22,56 +61,33 @@ export function UsersAccessPage() {
     canPublishCriteria: false,
     active: true,
   }
-  const selected = users?.find((u) => u.id === editing) ?? blank
-  return (
-    <Page
-      title={content.usersAccess}
-      subtitle={content.subtitle}
-      actions={
-        <Button variant="contained" onClick={() => setEditing(null)}>
-          {content.newAccount}
-        </Button>
-      }
-    >
-      <ErrorNotice error={error} />
-      <TwoColumns>
-        <AccountsTable users={users} programmes={programmes} setEditing={setEditing} />
-        {programmes && (
-          <AccountEditor
-            key={editing ?? 'new'}
-            user={selected}
-            programmes={programmes}
-            onDone={() => setEditing(null)}
-          />
-        )}
-      </TwoColumns>
-    </Page>
-  )
 }
 
-// Keep the draft tied to the selected record/version without moving page logic into UI components.
+// Closing or selecting another account unmounts this keyed draft.
 function AccountEditor({
   user,
-  programmes,
-  onDone,
+  onClose,
+  onSaved,
 }: {
   user: User
-  programmes: Programme[]
-  onDone: () => void
+  onClose: () => void
+  onSaved: () => void
 }) {
   const content = useContent('usersAccessPage')
   const [form, setForm] = useState<User>(structuredClone(user))
   const [command, mutation] = useCommandMutation()
-  const [message, setMessage] = useState('')
+  const isMounted = useIsMounted()
   const role = form.roles.length === 2 ? 'both' : form.roles[0]
   async function save() {
+    if (mutation.isLoading) return
     try {
-      await command({ op: 'user', user: form }).unwrap()
-      setMessage(content.accountAndPermissionsSaved)
-      if (form.id) onDone()
-      else setForm({ ...user })
+      await command({
+        op: 'user',
+        user: { ...form, name: form.name.trim(), email: form.email.trim().toLowerCase() },
+      }).unwrap()
+      if (isMounted()) onSaved()
     } catch {
-      setMessage('')
+      /* The mutation error remains visible beside the unchanged draft. */
     }
   }
   function setRole(role: 'both' | 'tutor' | 'admin') {
@@ -79,15 +95,23 @@ function AccountEditor({
   }
 
   return (
-    <UserForm
-      form={form}
-      programmes={programmes}
-      setForm={setForm}
-      mutation={mutation}
-      message={message}
-      role={role}
-      setRole={setRole}
-      save={save}
-    />
+    <CustomizedDialog
+      open
+      title={user.id ? content.editAccount : content.createAccount}
+      closeLabel={content.closeAccount}
+      onClose={onClose}
+      busy={mutation.isLoading}
+    >
+      <UserForm
+        form={form}
+        setForm={setForm}
+        saving={mutation.isLoading}
+        error={mutation.error}
+        role={role}
+        setRole={setRole}
+        save={save}
+        cancel={onClose}
+      />
+    </CustomizedDialog>
   )
 }

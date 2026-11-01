@@ -1,6 +1,6 @@
 # Project context for agents
 
-Last reviewed: 29 October 2026. Applies to this project and its subdirectories.
+Last reviewed: 1 November 2026. Applies to this project and its subdirectories.
 Read this guide before editing, then inspect the relevant source. Newer user
 instructions take precedence. Keep this file focused on current conventions;
 verification history belongs in the maintained guides below.
@@ -83,27 +83,25 @@ Paths here are relative to `frontend/src/`:
 - `services/contracts.ts`: transport-neutral requests and named read models,
   including `ApplicationDetail`, `AccountSummary`, `ProgrammeIntake`,
   `RubricCollection` and `QueryResults`. It has no IndexedDB/React dependency.
-- `services/fileStaging.ts`: temporary File/ZIP/backup references outside Redux.
+- `services/fileStaging.ts`: temporary PDF/ZIP references outside Redux.
   Callers release them after completion/failure, including after navigation.
 - `services/errors.ts`: shared local/RTK/HTTP error normalisation. Do not load API
   initialisation into a visual component merely to format an error.
-- `services/browserBackups.ts`: validated local restore previews (reference/counts).
-  This is a browser-demo facility, not a server backup API.
 - `services/demo.ts` and `services/demo/`: browser implementation, permission checks,
   migration/recovery, cross-tab lock and atomic record/PDF transactions. Preserve
-  existing compatibility exports, saved-data upgrades and failure atomicity.
+  existing saved-data upgrades, attribution and failure atomicity.
 - `services/backend.ts` validates unknown mock HTTP results in named groups and
   normalises nullable optional fields on a copy; `evaluation.ts` selects evaluator.
 - `domain/applicationSummary.ts` counts current classified decisions. Callers own
   programme/intake/batch scoping. `domain/documentLimits.ts` owns PDF size/page rules
-  shared by forms, parsing, ZIP import and backup validation.
+  shared by forms, parsing and ZIP import.
 
 A future HTTP adapter implements `AdmissionsService` and is selected in
 `admissions.ts`; screens retain their handlers. Resolve staged files in that
 adapter and validate/map server responses to the shared contracts. The command
-union is not an existing REST API specification. Browser backup/reset/model
-commands need explicit handling. Real server authentication/permissions must not
-trust the demo `userId` argument or frontend guards.
+union is not an existing REST API specification. Obsolete browser backup/restore,
+reset, model-toggle and admin programme-management commands are removed. Real server
+authentication/permissions must not trust the demo `userId` argument or frontend guards.
 
 ## Interface and routes
 
@@ -136,7 +134,29 @@ evidence concerns and destructive-operation consequences.
 Tutor routes: `/login`, `/modules`, `/batches`, `/batches/:batchId`, `/applications`
 (legacy intake queue), `/applications/new`, `/applications/:id`, plus its
 `/evidence`, `/correct` and `/decision` paths, and `/criteria`.
-Admin routes: `/admin/health`, `/admin/users`, `/admin/programme`, `/admin/data`.
+Admin routes: `/admin/users` and `/admin/health`. Admin-only login, the logo and role
+switching open Users. Legacy `/admin/programme`, `/admin/data` and `/admin/backup`
+links redirect to Users under admin guards.
+
+Admin MVP has user management and read-only service health.
+Users shows a full-width Mantis table with name/email, role, status and Edit, plus New account.
+Create/edit use the shared Mantis dialog and page-owned keyed drafts; cancellation
+discards the draft, busy saves block edits/dismissal, and late completion cannot
+close another draft. Keep last-active-admin checks, deactivation and attribution.
+No course-access column/assignment panel or programme query is needed for admin-only
+accounts. Backup/restore page/components/content and the browser preview adapter
+are removed, together with obsolete backup/restore commands and staging helpers.
+Existing records, PDFs and their migrations remain. Seed reset is a test-only helper.
+ServiceHealthPage uses `useBackendHealthQuery`
+and `services/backendHealth.ts` to probe configured FastAPI `/health`, validating
+the response with cancellation/ten-second timeout. It bypasses demo dataset locks;
+show missing configuration/failures honestly, without the legacy simulated health
+query or model toggles. The endpoint reports mock mode and unconfigured database/
+inference; it does not verify PostgreSQL/model connectivity. Programme settings,
+applicant deletion, maintenance logs and reset have no admin UI. Obsolete programme/
+model/delete/backup/restore/reset commands and simulated health/audit queries are
+removed. Keep recordAudit and stored audit/model fields used by current workflows
+and migrations; never reset saved data to simplify UI.
 
 - Login uses email and any nonempty prototype password (for example `demo`). It
   matches active existing accounts; passwords are neither authenticated nor saved.
@@ -169,6 +189,13 @@ Admin routes: `/admin/health`, `/admin/users`, `/admin/programme`, `/admin/data`
   to the underlying tab/document context without saving. Busy saves block edits/
   dismissal; failures retain the draft. Old `/decision` and `?tab=decision` links
   open the popup; historical links show a read-only notice instead of a form.
+- Recommendation and section-score summaries show no PDF shortcut links. Use
+  View documents for originals. The unused EvidenceLink component/content/tests
+  are removed; preserve stored citations, backend contracts and validated legacy
+  document/page bookmarks.
+  Recommendation sections use MainCard's larger headers for Why this recommendation
+  and Evidence summary. Evidence categories use smaller headings and MainCards in
+  a two-column desktop grid, preserving supplied order rather than fixed columns.
 - Review flag's Update detail opens a correction popup using the same Mantis
   dialog. No standalone correction page layout remains; legacy `/correct` links
   open the popup in the assessment shell. Cancel preserves the underlying tab,
@@ -188,13 +215,14 @@ Admin routes: `/admin/health`, `/admin/users`, `/admin/programme`, `/admin/data`
 
 - Each course has one tutor owner. Active tutor role plus `Programme.createdBy`
   grants access. `User.programmeIds` is a rebuilt compatibility projection, never
-  independent authority. Admin permission alone grants no applicant/PDF/decision
-  or criteria access. Preserve both UI and service checks.
+  independent authority. Admin permission alone grants no applicant review,
+  individual-document viewing, decisions or criteria access. Preserve
+  both UI and service checks for normal tutor records.
 - Tutors create private courses with trimmed 1–100-character names, preserving
   case, punctuation and Unicode. Reject duplicates owned by the same tutor ignoring
   case; other tutors may use the same name. Generate internal codes for model/CSV
-  compatibility. Admins edit existing metadata/accounts, not ownership/assignments
-  or new courses. Deactivation/role removal preserves attribution and ownership.
+  compatibility. Admins manage accounts and inspect service health, not course ownership/
+  assignments or creation. Deactivation/role removal preserves attribution and ownership.
 - AI display values are Unconditional, Conditional, Reject, or a neutral dash for
   unavailable results. The approved prototype projection maps raw AI Offer to
   Unconditional and Further review to Conditional. Preserve the raw result,
@@ -205,9 +233,11 @@ Admin routes: `/admin/health`, `/admin/users`, `/admin/programme`, `/admin/data`
   an explicit current classified decision exists. Do not guess a tutor's offer type.
   Counts/analytics/CSV use shared projections; only current classified decisions
   contribute to offers/resolved totals. AI recommendations are separate records.
-- All final tutor outcomes are blocked by unresolved critical evidence. There is
-  no override reason, acknowledgement checkbox or extra save-confirmation dialog.
-  Keep confirmations for applicant/data deletion, reset and restore.
+- Review flags, including critical flags, are advisory for tutor decisions. They
+  do not disable outcomes or prevent recording a decision; keep the flags and AI
+  recommendation intact. Preserve active ownership and current/available assessment
+  checks. There is no override reason, acknowledgement checkbox or extra save-confirmation dialog.
+  Keep confirmation for applicant deletion; do not reintroduce removed admin maintenance UI.
 - Corrections require a reason and valid source reference, preserve the original
   fact and create a new run. Prefill the selected run's extracted grade, including
   zero. Course owners can tune numeric criteria; validate weights/thresholds,
@@ -218,13 +248,19 @@ Admin routes: `/admin/health`, `/admin/users`, `/admin/programme`, `/admin/data`
   scores or explanations. New uploads get no invented identities, evidence or
   assessment. Known synthetic presentation fixtures never apply to uploaded cases.
   Use `currentData` to avoid showing another record during query transitions.
+- `services/assessmentNarrative.ts` expands recognised short mock text for current
+  core examples (APP-2026-0142–0146) into a display-only clone, preserving originals
+  as first paragraphs. Use the rubric matching `run.rubricId` and consistent scores;
+  never rewrite saved runs/HTTP responses or apply it to uploads, unknown/custom
+  evaluator text, unavailable results, historical bookmarks or unassessed sections.
+  Paragraph rendering supports richer future evaluator output without new schemas.
 - NewApplicationPage keys drafts by account/programme/intake/batch. Late PDF
   validation/create callbacks cannot update or navigate a different screen.
 
 ## Storage, uploads and compatibility
 
-Never reset browser data to make a UI change or screenshot match. Dataset/backup
-schema v2 supports v1 migration; IndexedDB schema version is separate. Preserve IDs,
+Never reset browser data to make a UI change or screenshot match. Dataset schema
+v2 supports v1 migration; IndexedDB schema version is separate. Preserve IDs,
 PDF bytes, runs, corrections, tutor decisions and criteria versions. Session identity
 and per-account programme/intake selection use sessionStorage. Recover interrupted
 simulated evaluations using stored deadlines rather than disposable timers.
@@ -232,7 +268,7 @@ simulated evaluations using stored deadlines rather than disposable timers.
 Ownership migration preserves an explicit owner, otherwise uses the creation-audit
 actor, then an assigned active tutor, then an assigned inactive tutor. Rebuild
 compatibility lists from ownership; genuinely unassigned metadata stays unowned.
-Backup validation works on a clone and applies the same upgrades.
+Existing browser records still receive the same saved-data upgrades.
 
 Sample defaults must survive fresh and older browser profiles without recreating
 user-deleted/edited courses or batches. Honour deletion audits/tombstones and ID/
@@ -255,10 +291,6 @@ batches/eight applicants; do not overwrite user data to restore those counts.
 - Keep blobs/staged references outside Redux and release references in `finally`.
   PDF.js is locally bundled; clean up loading/render tasks on errors, page changes
   and unmount. Validate document/run/page citations and encode navigation parameters.
-- Backups include browser records, originals and history. Validate structure,
-  references and hashes before atomic replacement; retain an active administrator.
-  Browser backup size cap is 100 MiB. Release abandoned/cancelled restore previews,
-  but retain confirmed in-flight references until the command completes.
 - Intake/batch fields are additive v2 data. Populate missing legacy intake once
   from the programme year; retain valid descriptive legacy year labels. Scope
   queues/uploads by course and intake, and batch when applicable. Criteria apply
@@ -275,7 +307,8 @@ grade/model state and read-only criteria context; no applicant names, tutor note
 or PDF bytes. Uploaded PDFs remain unassessed. HTTP failures must not silently
 fall back or save partial runs/corrections. Keep `evaluationSource: 'fastapi-mock'`
 and raw Offer/Further review/Reject responses. The mock API is not authentication,
-a persistent job service or document/decision access. Admin health is simulated.
+a persistent job service or document/decision access. Service health is a real
+read-only HTTP check; simulated service controls remain internal demo facilities.
 
 The five domain tables are users, programmes, programme_memberships, applications
 and documents. SQLAlchemy models in `backend/app/models/` are separate from
@@ -344,14 +377,17 @@ with installed backend dependencies. Backend checks from `backend/` are
 `python -m pytest -q`, `ruff check .` and `ruff format --check .`; PostgreSQL tests
 add `--run-postgres` only after the dedicated database safeguards are satisfied.
 
-Last completed frontend verification (29 October, account/correction popups): 759
-tests across 116 companions; 98.30% lines, 96.97% statements, 97.81% functions and
-92.64% branches. TypeScript/production builds, lint/format and four focused browser
-workflows with axe/focus checks passed. Earlier that day the quality refactor passed
-all 16 standalone and both FastAPI browser workflows and verified 228 reachable
-production modules without runtime cycles. Those broader browser/import audits
-and backend unit/Ruff/PostgreSQL checks were not rerun for the popup changes.
-These are dated results, not a substitute for checks after edits.
+Latest frontend verification (1 November, final PR cleanup): 733 tests across 102
+companions pass; coverage is 98.54% lines, 97.34% statements, 97.77% functions and
+93.21% branches. Standard/e2e builds, lint/format, structure and whitespace pass.
+All 17 standalone and three FastAPI browser workflows pass with axe, permissions,
+health recovery, uploads, correction/decision/criteria flows and PDF hash checks.
+The runtime audit verified 199 reachable modules with no orphan runtime files or
+cycles; two type-only contracts are outside that graph. All direct runtime
+dependencies and registered content fields have consumers. All 67 original Mantis
+source/layout hashes and consumer paths verify. Independent reviews found no
+actionable issues. Backend unit/Ruff/PostgreSQL suites were not rerun. See the
+verification guide for dated history and limits.
 
 Origin is `https://github.com/jackmok33/final-year-project.git`. Inspect current
 branch, status and remote state before committing; use `codex/` branches by default.

@@ -80,22 +80,7 @@ export function readQuery(data: Dataset, query: Query, userId: string | null): Q
     case 'users':
       requireAdmin(user)
       return data.users
-    case 'health':
-      requireAdmin(user)
-      return {
-        modelAvailable: data.modelAvailable,
-        failed: data.applications.filter((a) => a.runs.at(-1)?.status === 'failed').length,
-        queued: data.applications.filter((a) =>
-          ['queued', 'running'].includes(a.runs.at(-1)?.status ?? ''),
-        ).length,
-        logs: data.applications.flatMap((a) =>
-          a.runs
-            .filter((r) => r.error)
-            .map((r) => ({ jobId: `JOB-${r.id.slice(0, 8)}`, category: r.error! })),
-        ),
-      }
-    case 'audit':
-      requireAdmin(user)
-      return data.audit
+    default:
+      throw new Error('Unsupported application query.')
   }
 }

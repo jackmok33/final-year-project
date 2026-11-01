@@ -9,8 +9,8 @@ pages/AssessmentPage.test.tsx
 components/assessment/DecisionForm.tsx
 components/assessment/DecisionForm.test.tsx
 
-services/demo/backups.ts
-services/demo/backups.test.ts
+services/demo/settings.ts
+services/demo/settings.test.ts
 ```
 
 Every application page, component, hook and runtime module has a companion.
@@ -39,6 +39,10 @@ compatibility checks live in `app/theme.test.tsx`.
 `src/test/` contains shared fixtures, mocks, rendering and environment setup,
 not feature suites. `e2e/*.spec.ts` intentionally describes full user workflows
 that span multiple source files.
+
+`resetDemo.ts` seeds isolated test fixtures directly through the storage/runtime
+helpers. Fixture reset is not an application command. Keep it under `src/test/`
+and never import it from production code.
 
 Run from `frontend/`:
 

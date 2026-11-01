@@ -1,65 +1,47 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import '../../test/domSetup'
-import { documents, run } from '../../test/fixtures'
+import { run } from '../../test/fixtures'
+import { renderPage } from '../../test/renderPage'
 import { SectionAssessments } from './SectionAssessments'
-describe('section evidence references', () => {
-  it('disables invalid or missing source references just as the recommendation does', async () => {
-    const sections = [
-      {
-        ...run.sections[0],
-        citations: [
-          { documentId: documents[0].id, page: 0, claim: 'Invalid' },
-          { documentId: 'missing', page: 1, claim: 'Missing' },
-        ],
-      },
-    ]
-    render(
-      <MemoryRouter>
-        <SectionAssessments run={{ ...run, sections }} documents={documents} id="APP-TEST" />
-      </MemoryRouter>,
-    )
-    expect(screen.getByRole('button', { name: /Academic performance/ })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    )
-    expect(screen.getByText('transcript.pdf · p.0').closest('a')).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    )
-    expect(screen.getByText('Unsupported source reference').closest('a')).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    )
+
+describe('SectionAssessments', () => {
+  it('shows section scores and explanations without PDF shortcuts', async () => {
+    renderPage(<SectionAssessments run={run} />)
+    const academic = screen.getByRole('button', { name: /Academic performance/ })
+    expect(academic).toHaveAttribute('aria-expanded', 'true')
+    expect(academic).toHaveTextContent('Score: 88/100')
+    expect(screen.getByText(run.sections[0].explanation)).toBeVisible()
+    expect(screen.getAllByText(run.sections[0].uncertainty)[0]).toBeVisible()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    await userEvent.click(academic)
+    expect(academic).toHaveAttribute('aria-expanded', 'false')
+    const experience = screen.getByRole('button', { name: /CV.*experience/ })
+    await userEvent.click(experience)
+    expect(experience).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText(run.sections[1].explanation)).toBeVisible()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
-  it('encodes document/run identities so source links cannot change the query parameters', async () => {
-    const document = { ...documents[0], id: 'source&extra=wrong' }
-    const sourceRun = {
-      ...run,
-      id: 'run&extra=wrong',
-      sections: [
-        {
-          ...run.sections[0],
-          score: null,
-          citations: [{ documentId: document.id, page: 2, claim: 'Synthetic citation' }],
-        },
-      ],
-    }
-    render(
-      <MemoryRouter>
-        <SectionAssessments run={sourceRun} documents={[document]} id="APP-TEST" />
-      </MemoryRouter>,
-    )
-    expect(screen.getByRole('button', { name: /Academic performance/ })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    )
-    expect(screen.getByRole('link', { name: 'transcript.pdf · p.2' })).toHaveAttribute(
-      'href',
-      `/applications/APP-TEST/evidence?document=${encodeURIComponent(document.id)}&page=2&run=${encodeURIComponent(sourceRun.id)}`,
+  it('keeps scores unavailable when missing and omits invalid citation shortcuts', () => {
+    renderPage(
+      <SectionAssessments
+        run={{
+          ...run,
+          sections: [
+            {
+              ...run.sections[0],
+              score: null,
+              citations: [{ documentId: 'missing', page: 0, claim: 'Unsupported source' }],
+            },
+          ],
+        }}
+      />,
     )
     expect(screen.getByText('Score unavailable')).toBeInTheDocument()
+    expect(screen.getByText(run.sections[0].explanation)).toBeVisible()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.queryByText('Unsupported source reference')).not.toBeInTheDocument()
   })
 })

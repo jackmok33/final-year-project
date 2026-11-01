@@ -1,12 +1,9 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import '../test/domSetup'
-import { documents, run } from '../test/fixtures'
 import { Confirm, ErrorNotice, Status } from './common'
-import { EvidenceLink } from './evidence/EvidenceLink'
 import { FilePicker } from './FilePicker'
 
 describe('shared accessible controls', () => {
@@ -84,49 +81,4 @@ describe('shared accessible controls', () => {
     expect(onSelect.mock.calls).toEqual([[file], [file]])
     expect(input).toHaveValue('')
   })
-})
-describe('recommendation evidence links', () => {
-  const show = (sourceRun = run, sourceDocuments = documents) =>
-    render(
-      <MemoryRouter>
-        <EvidenceLink
-          applicationId="APP-TEST"
-          citation={sourceRun.justification.citations[0]}
-          document={sourceDocuments.find(
-            (document) => document.id === sourceRun.justification.citations[0].documentId,
-          )}
-          runId={sourceRun.id}
-        />
-      </MemoryRouter>,
-    )
-  it('links an exact source page and run', () => {
-    show()
-    expect(screen.getByRole('link', { name: 'transcript.pdf · p.2' })).toHaveAttribute(
-      'href',
-      `/applications/APP-TEST/evidence?document=${documents[0].id}&page=2&run=${run.id}`,
-    )
-  })
-  it('disables citations whose document is missing', () => {
-    show(run, [])
-    expect(screen.getByText('Unsupported source reference').closest('a')).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    )
-  })
-  it.each([0, -1, 1.5, NaN, Infinity, 5])(
-    'disables invalid page %s rather than treating it as evidence',
-    (page) => {
-      show({
-        ...run,
-        justification: {
-          ...run.justification,
-          citations: [{ ...run.justification.citations[0], page }],
-        },
-      })
-      expect(screen.getByText(/transcript.pdf · p\./).closest('a')).toHaveAttribute(
-        'aria-disabled',
-        'true',
-      )
-    },
-  )
 })

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
+import { dataset } from './helpers/dataset'
 
 async function login(page: Page, email = 'tutor@demo.ucl.local') {
   await page.goto('/login')
@@ -103,6 +104,9 @@ test('redesigned programme, batch, review tabs and decision popup match the expo
     await expect(cells.nth(7)).toHaveText(/^(Unconditional|Conditional|Reject|Pending)$/)
   }
   await page.getByRole('link', { name: 'View Carson Darrin', exact: true }).click()
+  const storedRuns = (await dataset(page)).applications.find(
+    (app) => app.id === 'APP-2026-0142',
+  )!.runs
   const summary = page.getByRole('region', { name: 'Application review' })
   await expect(summary.getByText('Conditional', { exact: true })).toBeVisible()
   await expect(summary.getByText('Pending', { exact: true })).toBeVisible()
@@ -123,6 +127,29 @@ test('redesigned programme, batch, review tabs and decision popup match the expo
   ]) {
     await page.getByRole('tab', { name: label, exact: true }).click()
     await expect(page.getByRole('tabpanel')).toBeVisible()
+    if (file === 'recommendation' || file === 'scores')
+      await expect(page.getByRole('tabpanel').getByRole('link')).toHaveCount(0)
+    if (file === 'recommendation') {
+      const rationale = page
+        .getByRole('tabpanel')
+        .getByText(/Further review is required because the extracted final grade/)
+      await expect(rationale).toBeVisible()
+      expect((await rationale.textContent())!.length).toBeGreaterThan(600)
+    }
+    if (file === 'scores') {
+      for (const [section, originalText] of [
+        ['Academic performance', 'Relevant modules are strong;'],
+        ['CV & experience', 'Relevant project and internship experience'],
+        ['Personal statement', 'Motivation is stated;'],
+      ]) {
+        const toggle = page.getByRole('button', { name: new RegExp(section) })
+        if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click()
+        const explanation = page.getByRole('tabpanel').getByText(originalText, { exact: false })
+        await expect(explanation).toBeVisible()
+        expect((await explanation.textContent())!.length).toBeGreaterThan(500)
+        if (section !== 'Academic performance') await toggle.click()
+      }
+    }
     if (file === 'documents') await expect(page.getByText('Loading PDF page…')).toBeHidden()
     await expect(page.getByRole('button', { name: 'Assessment history', exact: true })).toHaveCount(
       0,
@@ -130,12 +157,16 @@ test('redesigned programme, batch, review tabs and decision popup match the expo
     await audit(page)
     await page.screenshot({ path: info.outputPath(`${file}.png`), fullPage: true })
   }
+  expect(
+    (await dataset(page)).applications.find((app) => app.id === 'APP-2026-0142')!.runs,
+  ).toEqual(storedRuns)
   const decisionButton = page.getByRole('button', { name: 'Decision', exact: true })
   await decisionButton.click()
   const dialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
   await expect(dialog).toBeVisible()
   await expect(dialog.getByRole('radio')).toHaveCount(3)
-  for (const radio of await dialog.getByRole('radio').all()) await expect(radio).toBeDisabled()
+  for (const radio of await dialog.getByRole('radio').all()) await expect(radio).toBeEnabled()
+  await expect(dialog.getByRole('button', { name: 'Record decision', exact: true })).toBeEnabled()
   await audit(page)
   await page.screenshot({ path: info.outputPath('decision-popup.png'), fullPage: true })
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()

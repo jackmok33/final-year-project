@@ -93,26 +93,44 @@ describe('tutor decision page', () => {
     expect(screen.getByText('Decision failed')).toBeInTheDocument()
     expect(screen.getByLabelText('Review note (optional)')).toHaveValue('Keep this note.')
   })
-  it('blocks all final outcomes while critical evidence remains unresolved', () => {
-    apiMocks.useApplicationQuery.mockReturnValue(
-      queryResult({
-        ...detail,
-        application: {
-          ...application,
-          runs: [
-            { ...run, flags: [{ code: 'MISSING', message: 'Missing evidence', critical: true }] },
-          ],
-        },
-      }),
-    )
-    renderPage(<DecisionPage />, '/applications/APP-TEST/decision')
-    for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Record decision' })).toBeDisabled()
-  })
+  it.each(['Conditional', 'Unconditional', 'Reject'] as const)(
+    'records %s while critical review flags remain unresolved',
+    async (outcome) => {
+      apiMocks.useApplicationQuery.mockReturnValue(
+        queryResult({
+          ...detail,
+          application: {
+            ...application,
+            runs: [
+              { ...run, flags: [{ code: 'MISSING', message: 'Missing evidence', critical: true }] },
+            ],
+          },
+        }),
+      )
+      const close = vi.fn()
+      renderPage(<DecisionPage onClose={close} />, '/applications/APP-TEST/decision')
+      for (const radio of screen.getAllByRole('radio')) expect(radio).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Record decision' })).toBeEnabled()
+      expect(screen.queryByText(/Resolve them before recording/)).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('radio', { name: outcome }))
+      await userEvent.click(screen.getByRole('button', { name: 'Record decision' }))
+      expect(command).toHaveBeenCalledExactlyOnceWith({
+        op: 'decide',
+        id: application.id,
+        runId: run.id,
+        outcome,
+        reason: '',
+      })
+      await waitFor(() => expect(close).toHaveBeenCalledOnce())
+    },
+  )
   it('prevents duplicate submissions and requires a completed assessment', () => {
     mutation.isLoading = true
     const view = renderPage(<DecisionPage />, '/applications/APP-TEST/decision')
     expect(screen.getByRole('button', { name: 'Record decision' })).toBeDisabled()
+    for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Close decision' })).toBeDisabled()
     apiMocks.useApplicationQuery.mockReturnValue(
       queryResult({ ...detail, application: { ...application, runs: [] } }),
     )

@@ -11,13 +11,14 @@ import { ErrorNotice, Loading, Page } from '../components/common'
 import TabsCard from '../mantis/components/TabsCard'
 import MainCard from '../mantis/components/MainCard'
 import { applicantEvidence, applicantProfile } from '../services/applicantPresentation'
+import { presentAssessment } from '../services/assessmentNarrative'
 import { programmeIntakeLabel } from '../domain/programmeDisplay'
 import {
   isAssessmentReady,
   latestDecision,
   latestRun,
   type Application,
-  type DocumentRecord,
+  type Rubric,
 } from '../domain/types'
 import { useContent } from '../hooks/useContent'
 import { EvidencePage } from './EvidencePage'
@@ -32,7 +33,7 @@ export function AssessmentPage() {
     <AssessmentReview
       key={data.application.id}
       app={data.application}
-      documents={data.documents}
+      rubrics={data.rubrics}
       queryError={error}
     />
   )
@@ -40,11 +41,11 @@ export function AssessmentPage() {
 
 function AssessmentReview({
   app,
-  documents,
+  rubrics,
   queryError,
 }: {
   app: Application
-  documents: DocumentRecord[]
+  rubrics: Rubric[]
   queryError?: unknown
 }) {
   const content = useContent('assessmentPage')
@@ -58,6 +59,14 @@ function AssessmentReview({
   const latest = latestRun(app)
   const run = app.runs.find((r) => r.id === params.get('run')) ?? latest
   const historic = run !== latest
+  const displayRun =
+    run && !historic
+      ? presentAssessment(
+          app,
+          run,
+          rubrics.find((rubric) => rubric.id === run.rubricId),
+        )
+      : run
   const busy = ['queued', 'running'].includes(latest?.status ?? '')
   const assessed = isAssessmentReady(run)
   const canCorrect = Boolean(assessed && !historic && !busy && run?.extractedGrade !== null)
@@ -213,9 +222,7 @@ function AssessmentReview({
             label: content.aiRecommendation,
             content: (
               <RecommendationPanel
-                applicationId={app.id}
-                run={assessed ? run : undefined}
-                documents={documents}
+                run={assessed ? displayRun : undefined}
                 groups={run ? applicantEvidence(app, run) : []}
               />
             ),
@@ -237,7 +244,7 @@ function AssessmentReview({
             content:
               assessed && run ? (
                 <Box sx={{ p: 3 }}>
-                  <SectionAssessments run={run} documents={documents} id={app.id} />
+                  <SectionAssessments run={displayRun ?? run} />
                 </Box>
               ) : (
                 <Box sx={{ p: 4 }}>{content.noEvidence}</Box>

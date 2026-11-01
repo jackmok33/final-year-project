@@ -2,6 +2,7 @@ import { createApi, type BaseQueryFn } from '@reduxjs/toolkit/query/react'
 import type { Command, CommandResult, Query, QueryResults } from '../services/contracts'
 import { admissionsService } from '../services/admissions'
 import { errorMessage } from '../services/errors'
+import { probeBackendHealth, type BackendHealthReport } from '../services/backendHealth'
 
 export interface ApiError {
   status: string
@@ -72,13 +73,8 @@ export const admissionsApi = createApi({
       query: () => ({ kind: 'query', query: { op: 'users' } }),
       providesTags: ['Dataset'],
     }),
-    health: builder.query<QueryResults['health'], void>({
-      query: () => ({ kind: 'query', query: { op: 'health' } }),
-      providesTags: ['Dataset'],
-    }),
-    audit: builder.query<QueryResults['audit'], void>({
-      query: () => ({ kind: 'query', query: { op: 'audit' } }),
-      providesTags: ['Dataset'],
+    backendHealth: builder.query<BackendHealthReport, void>({
+      queryFn: async (_arg, api) => ({ data: await probeBackendHealth(api.signal) }),
     }),
     command: builder.mutation<CommandResult, Command>({
       query: (args) => ({ kind: 'command', command: args }),
@@ -97,7 +93,6 @@ export const {
   useProgrammeIntakesQuery,
   useRubricsQuery,
   useUsersQuery,
-  useHealthQuery,
-  useAuditQuery,
+  useBackendHealthQuery,
   useCommandMutation,
 } = admissionsApi

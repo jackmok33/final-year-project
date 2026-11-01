@@ -1,7 +1,6 @@
 import type { Dataset, Programme, Rubric } from '../../domain/types'
 import { criteriaChanged, validateRubric } from '../../domain/rules'
 import { normalizeCourseName } from '../../domain/courseName'
-import { normalizeModuleCode } from '../../domain/moduleCode'
 import { baseRubric } from '../seed'
 import { requireAdmin, requireTutor } from './access'
 import { recordAudit } from './runtime'
@@ -19,10 +18,7 @@ function addProgrammeWithCriteria(data: Dataset, programme: Programme) {
   data.activeRubricIds[programme.id] = rubric.id
 }
 
-type SettingsCommand = Extract<
-  Command,
-  { op: 'rubric' | 'user' | 'workspace' | 'programme' | 'model' }
->
+type SettingsCommand = Extract<Command, { op: 'rubric' | 'user' | 'workspace' }>
 
 export function changeSettings(
   command: SettingsCommand,
@@ -136,31 +132,6 @@ export function changeSettings(
       result = { id }
       break
     }
-    case 'programme': {
-      requireAdmin(user)
-      const edited = { ...command.programme }
-      if (!edited.id) throw new Error('Tutors add their own courses from the Courses page.')
-      // Metadata editing cannot claim or transfer ownership.
-      delete edited.createdBy
-      if (!edited.name.trim() || !edited.code.trim() || !edited.year.trim())
-        throw new Error('Programme name, code and academic year are required.')
-      const code = normalizeModuleCode(edited.code)
-      if (!code) throw new Error('Enter a valid module code.')
-      edited.code = code
-      if (data.programmes.some((p) => p.id !== edited.id && p.code.trim().toUpperCase() === code))
-        throw new Error('This programme code is already configured.')
-      const index = data.programmes.findIndex((p) => p.id === edited.id)
-      if (edited.id && index < 0) throw new Error('Programme not found.')
-      data.programmes[index] = { ...edited, createdBy: data.programmes[index].createdBy }
-      recordAudit(data, user.id, 'Save programme metadata', edited.id)
-      result = { id: edited.id }
-      break
-    }
-    case 'model':
-      requireAdmin(user)
-      data.modelAvailable = command.available
-      recordAudit(data, user.id, 'Change simulated service availability', 'demo-model')
-      break
   }
   return result
 }

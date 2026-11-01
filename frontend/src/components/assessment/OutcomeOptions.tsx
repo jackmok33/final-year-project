@@ -6,12 +6,10 @@ import MainCard from '../../mantis/components/MainCard'
 export function OutcomeOptions({
   outcome,
   setOutcome,
-  critical,
   disabled = false,
 }: {
   outcome: TutorOutcome
   setOutcome: (outcome: TutorOutcome) => void
-  critical: boolean
   disabled?: boolean
 }) {
   const content = useContent('outcomeOptions')
@@ -37,7 +35,7 @@ export function OutcomeOptions({
             value={o}
             control={<Radio />}
             label={content.outcomeLabels[o]}
-            disabled={critical || disabled}
+            disabled={disabled}
           />
           <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
             {content.hints[o]}

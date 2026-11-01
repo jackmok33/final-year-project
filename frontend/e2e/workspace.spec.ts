@@ -18,9 +18,7 @@ async function login(page: Page, role = 'tutor-a') {
     )
   await page.getByLabel('Password', { exact: true }).fill('demo')
   await page.getByRole('button', { name: 'Sign In', exact: true }).click()
-  await expect(page.locator('main h1')).toHaveText(
-    role === 'admin-a' ? 'Service health' : 'Programme',
-  )
+  await expect(page.locator('main h1')).toHaveText(role === 'admin-a' ? 'Users' : 'Programme')
 }
 async function intake(page: Page, label = 'CSML 26/27') {
   await page.goto('/modules')
@@ -39,6 +37,40 @@ async function pdf(pages = 1) {
   const document = await PDFDocument.create()
   for (let i = 0; i < pages; i++) document.addPage([595, 842])
   return Buffer.from(await document.save())
+}
+async function storedPdfHashes(page: Page) {
+  return page.evaluate(async () => {
+    const { keys, files } = await new Promise<{ keys: IDBValidKey[]; files: Blob[] }>(
+      (resolve, reject) => {
+        const request = indexedDB.open('ucl-admissions-demo', 1)
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+          const db = request.result
+          const transaction = db.transaction('files')
+          const store = transaction.objectStore('files')
+          const keys = store.getAllKeys()
+          const files = store.getAll()
+          transaction.onerror = () => {
+            db.close()
+            reject(transaction.error)
+          }
+          transaction.oncomplete = () => {
+            db.close()
+            resolve({ keys: keys.result, files: files.result })
+          }
+        }
+      },
+    )
+    return Promise.all(
+      files.map(async (file, index) => ({
+        id: String(keys[index]),
+        size: file.size,
+        sha256: [...new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))]
+          .map((byte) => byte.toString(16).padStart(2, '0'))
+          .join(''),
+      })),
+    )
+  })
 }
 async function audit(page: Page) {
   await page.evaluate(() => document.fonts.ready)
@@ -63,7 +95,7 @@ async function createProgramme(page: Page, name: string) {
   await expect(page).toHaveURL(/\/batches\?programme=/)
 }
 
-test('desktop routes and the unchanged administrator screens remain accessible', async ({
+test('desktop routes and the simplified administrator screens remain accessible', async ({
   page,
 }, info) => {
   await login(page)
@@ -87,7 +119,7 @@ test('desktop routes and the unchanged administrator screens remain accessible',
   }
   await signOut(page)
   await login(page, 'admin-a')
-  for (const path of ['/admin/health', '/admin/users', '/admin/programme', '/admin/data']) {
+  for (const path of ['/admin/users', '/admin/health']) {
     await page.goto(path)
     await expect(page.locator('main h1')).toBeVisible()
     await audit(page)
@@ -195,14 +227,15 @@ test('search, status filters, score sorting and bounded pagination work on appli
   await expect(page.getByRole('spinbutton', { name: 'Go to', exact: true })).toHaveValue('1')
 })
 
-test('the three final tutor outcomes save directly and persist separately from the recommendation', async ({
+test('all three tutor outcomes save with review flags and leave the assessment unchanged', async ({
   page,
 }) => {
   await login(page)
-  const original = (await dataset(page)).applications.find((a) => a.id === 'APP-2026-0143')!.runs
+  const original = (await dataset(page)).applications.find((a) => a.id === 'APP-2026-0142')!.runs
+  expect(original.at(-1)!.flags.some((flag) => flag.critical)).toBe(true)
   for (const url of [
-    '/applications/APP-2026-0143/decision',
-    '/applications/APP-2026-0143?tab=decision',
+    '/applications/APP-2026-0142/decision',
+    '/applications/APP-2026-0142?tab=decision',
   ]) {
     await page.goto(url)
     const dialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
@@ -216,7 +249,7 @@ test('the three final tutor outcomes save directly and persist separately from t
     )
   }
   for (const outcome of ['Conditional', 'Unconditional', 'Reject']) {
-    await page.goto('/applications/APP-2026-0143')
+    await page.goto('/applications/APP-2026-0142')
     await page.getByRole('button', { name: 'Decision', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
     await expect(dialog.getByRole('radio')).toHaveCount(3)
@@ -224,17 +257,19 @@ test('the three final tutor outcomes save directly and persist separately from t
     await dialog.getByRole('radio', { name: outcome, exact: true }).check()
     await dialog.getByRole('button', { name: 'Record decision', exact: true }).click()
     await expect(dialog).toHaveCount(0)
-    await expect(page).toHaveURL(/\/applications\/APP-2026-0143$/)
+    await expect(page).toHaveURL(/\/applications\/APP-2026-0142$/)
     expect(
-      (await dataset(page)).applications.find((a) => a.id === 'APP-2026-0143')!.decisions.at(-1)
+      (await dataset(page)).applications.find((a) => a.id === 'APP-2026-0142')!.decisions.at(-1)
         ?.outcome,
     ).toBe(outcome)
     await expect(page.getByRole('dialog')).toHaveCount(0)
   }
   await page.reload()
-  const saved = (await dataset(page)).applications.find((a) => a.id === 'APP-2026-0143')!
+  const saved = (await dataset(page)).applications.find((a) => a.id === 'APP-2026-0142')!
   expect(saved.runs).toEqual(original)
   expect(saved.decisions.at(-1)?.outcome).toBe('Reject')
+  await page.getByRole('tab', { name: 'Review flag', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText(original.at(-1)!.flags[0].message)
 })
 
 test('flag correction popup preserves review context and original facts while creating a run', async ({
@@ -242,12 +277,12 @@ test('flag correction popup preserves review context and original facts while cr
 }, info) => {
   await login(page)
   await page.goto('/applications/APP-2026-0142/decision')
-  const blockedDialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
-  await expect(blockedDialog).toBeVisible()
-  for (const radio of await blockedDialog.getByRole('radio').all())
-    await expect(radio).toBeDisabled()
-  await blockedDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
-  await expect(blockedDialog).toHaveCount(0)
+  const preCorrectionDialog = page.getByRole('dialog', { name: 'Record decision', exact: true })
+  await expect(preCorrectionDialog).toBeVisible()
+  for (const radio of await preCorrectionDialog.getByRole('radio').all())
+    await expect(radio).toBeEnabled()
+  await preCorrectionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(preCorrectionDialog).toHaveCount(0)
   await page.getByRole('tab', { name: 'Review flag', exact: true }).click()
   const updateDetail = page.getByRole('button', { name: 'Update detail', exact: true })
   await updateDetail.click()
@@ -449,7 +484,7 @@ test('course-owner and administrator access checks survive direct links and sign
   await signOut(page)
   await login(page, 'admin-a')
   await page.goto('/applications/APP-2026-0142')
-  await expect(page.locator('main h1')).toHaveText('Service health')
+  await expect(page.locator('main h1')).toHaveText('Users')
 })
 
 test('programme cards have no management shortcut and old management links return to the programme list', async ({
@@ -537,46 +572,65 @@ test('keyboard users can select review tabs and open navigation on a small scree
     page.getByRole('link', { name: 'Open course CSML 26/27', exact: true }),
   ).toBeVisible()
 })
-test('admin account/programme editing, deletion, backup restore and reset persist', async ({
+test('admin users and service health remain functional without obsolete tools', async ({
   page,
-}) => {
+}, info) => {
   await login(page, 'admin-a')
-  await page.goto('/admin/programme')
-  await page.getByRole('textbox', { name: 'Course code', exact: true }).fill('COMP0009')
-  await page.getByRole('button', { name: 'Save programme' }).click()
-  await expect(page.getByRole('status')).toContainText('Programme metadata saved')
+  const navigation = page.getByRole('navigation', { name: 'Workspace navigation' })
+  await expect(navigation.getByRole('link', { name: 'Users', exact: true })).toBeVisible()
+  await expect(navigation.getByRole('link', { name: 'Service health', exact: true })).toBeVisible()
+  for (const label of ['Backup & restore', 'Programme settings', 'Data operations'])
+    await expect(navigation.getByRole('link', { name: label, exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'New account', exact: true }).click()
+  const create = page.getByRole('dialog', { name: 'Create account', exact: true })
+  await create.getByLabel(/^Name/).fill('New tutor')
+  await create.getByLabel(/^Email/).fill('new@demo.ucl.local')
+  await create.getByRole('button', { name: 'Create account', exact: true }).click()
+  await expect(create).toHaveCount(0)
+  await page.getByRole('button', { name: 'Edit New tutor', exact: true }).click()
+  const edit = page.getByRole('dialog', { name: 'Edit account', exact: true })
+  await edit.getByRole('switch', { name: 'Account active', exact: true }).uncheck()
+  await edit.getByRole('button', { name: 'Save account', exact: true }).click()
+  await expect(edit).toHaveCount(0)
+  await expect(page.getByRole('row', { name: /New tutor/ })).toContainText('Inactive')
+  const administrator = (await dataset(page)).users.find((user) => user.id === 'admin-a')!
+  await page.getByRole('button', { name: `Edit ${administrator.name}`, exact: true }).click()
+  await edit.getByRole('switch', { name: 'Account active', exact: true }).uncheck()
+  await edit.getByRole('button', { name: 'Save account', exact: true }).click()
+  await expect(edit.getByRole('alert')).toContainText(/active administrator/i)
+  expect((await dataset(page)).users.find((user) => user.id === 'admin-a')!.active).toBe(true)
+  await edit.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await audit(page)
+  await page.screenshot({ path: info.outputPath('admin-users.png'), fullPage: true })
+  await expect(page.getByRole('button', { name: 'Reset demo dataset', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Create backup', exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('Import backup', { exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('Application identifier')).toHaveCount(0)
   await page.reload()
-  await expect(page.getByRole('textbox', { name: 'Course code', exact: true })).toHaveValue(
-    'COMP0009',
-  )
-  await page.goto('/admin/users')
-  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Demo new tutor')
-  await page.getByLabel('Demo email').fill('new@demo.ucl.local')
-  await page.getByRole('button', { name: 'Create account', exact: true }).click()
-  await expect(page.getByRole('cell', { name: /^Demo new tutor/ })).toBeVisible()
-  await page.getByRole('button', { name: 'Edit Demo new tutor', exact: true }).click()
-  await page.getByRole('switch', { name: 'Account active' }).uncheck()
-  await page.getByRole('button', { name: 'Save account' }).click()
-  await expect(page.getByRole('row', { name: /Demo new tutor/ })).toContainText('Inactive')
-  await page.goto('/admin/data')
-  const downloaded = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Create backup', exact: true }).click()
-  const download = await downloaded
-  const path = await download.path()
-  expect(path).toBeTruthy()
-  await page.getByLabel('Application identifier').fill('APP-2026-0142')
-  await page.getByRole('button', { name: 'Review deletion impact' }).click()
-  await page.getByRole('button', { name: 'Confirm', exact: true }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'were deleted' })).toBeVisible()
-  await page.getByLabel('Import demo backup').setInputFiles(path!)
-  await expect(page.getByRole('dialog')).toBeVisible()
-  await page.getByRole('button', { name: 'Confirm', exact: true }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'Browser demo restored' })).toBeVisible()
-  await page.getByRole('button', { name: 'Reset demo dataset' }).click()
-  await page.getByRole('button', { name: 'Confirm', exact: true }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'reset to the original' })).toBeVisible()
-  await page.goto('/admin/programme')
-  await expect(page.getByRole('textbox', { name: 'Course code', exact: true })).toHaveValue(
-    'COMP0001',
-  )
+  await expect(page.getByRole('row', { name: /New tutor/ })).toContainText('Inactive')
+  await navigation.getByRole('link', { name: 'Service health', exact: true }).click()
+  await expect(page.locator('main h1')).toHaveText('Service health')
+  await expect(page.getByText('Not configured', { exact: true })).toBeVisible()
+  await expect(page.getByRole('alert')).toContainText('No backend service has been configured.')
+  await page.getByRole('button', { name: 'Refresh status', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('No backend service has been configured.')
+  await audit(page)
+  await page.screenshot({
+    path: info.outputPath('admin-health-not-configured.png'),
+    fullPage: true,
+  })
+  const beforeRemovedRoutes = await dataset(page)
+  const originalPdfHashes = await storedPdfHashes(page)
+  expect(originalPdfHashes.length).toBeGreaterThan(0)
+  for (const legacy of ['/admin/programme', '/admin/data', '/admin/backup']) {
+    await page.goto(legacy)
+    await expect(page).toHaveURL('/admin/users')
+    await expect(page.locator('main h1')).toHaveText('Users')
+    await expect(page.getByRole('button', { name: 'Create backup', exact: true })).toHaveCount(0)
+    await expect(page.getByLabel('Import backup', { exact: true })).toHaveCount(0)
+  }
+  const preserved = await dataset(page)
+  expect(preserved.applications).toEqual(beforeRemovedRoutes.applications)
+  expect(preserved.documents).toEqual(beforeRemovedRoutes.documents)
+  expect(await storedPdfHashes(page)).toEqual(originalPdfHashes)
 })

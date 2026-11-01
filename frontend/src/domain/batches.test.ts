@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { application, dataset, programme, run } from '../test/fixtures'
-import {
-  assignExistingBatches,
-  batchApplications,
-  batchSummaries,
-  numberBatches,
-  validBatches,
-} from './batches'
+import { assignExistingBatches, batchApplications, batchSummaries, numberBatches } from './batches'
 import type { UploadBatch } from './types'
 
 const batch: UploadBatch = {
@@ -40,7 +34,6 @@ describe('batches', () => {
     expect(data.applications[0]).toEqual({ ...original, batchId: data.batches![0].id })
     assignExistingBatches(data)
     expect(data).toEqual(grouped)
-    expect(validBatches(data)).toBe(true)
   })
   it('excludes other courses and counts only current classified decisions', () => {
     const decided = {
@@ -70,15 +63,5 @@ describe('batches', () => {
       conditionalCount: 1,
       pendingReviewCount: 1,
     })
-  })
-  it('rejects duplicate metadata and dangling batch references', () => {
-    expect(validBatches({ ...dataset, batches: [batch, batch] })).toBe(false)
-    expect(
-      validBatches({
-        ...dataset,
-        batches: [],
-        applications: [{ ...application, batchId: batch.id }],
-      }),
-    ).toBe(false)
   })
 })

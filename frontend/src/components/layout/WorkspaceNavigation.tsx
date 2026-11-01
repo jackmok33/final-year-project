@@ -40,7 +40,7 @@ export function WorkspaceNavigation({
       >
         <MuiLink
           component={Link}
-          to={admin ? '/admin/health' : '/modules'}
+          to={admin ? '/admin/users' : '/modules'}
           onClick={onNavigate}
           sx={{ display: 'inline-flex' }}
         >

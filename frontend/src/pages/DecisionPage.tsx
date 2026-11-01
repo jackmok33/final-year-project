@@ -23,13 +23,12 @@ export function DecisionPage({
   const navigate = useNavigate()
   const isMounted = useIsMounted()
   const run = data && latestRun(data.application)
-  const critical = run?.flags.some((flag) => flag.critical) ?? false
   function close() {
     if (onClose) onClose()
     else navigate(`/applications/${encodeURIComponent(id)}`)
   }
   async function save(outcome: TutorOutcome, reason: string) {
-    if (!run || !isAssessmentReady(run) || readOnly || critical || mutation.isLoading) return
+    if (!run || !isAssessmentReady(run) || readOnly || mutation.isLoading) return
     try {
       await command({ op: 'decide', id, runId: run.id, outcome, reason }).unwrap()
       if (isMounted()) close()
@@ -58,7 +57,6 @@ export function DecisionPage({
       ) : (
         <DecisionEditor
           key={`${data.application.id}:${run.id}`}
-          critical={critical}
           saving={mutation.isLoading}
           error={mutation.error ?? error}
           save={(outcome, reason) => void save(outcome, reason)}
@@ -70,13 +68,11 @@ export function DecisionPage({
 }
 
 function DecisionEditor({
-  critical,
   saving,
   error,
   save,
   cancel,
 }: {
-  critical: boolean
   saving: boolean
   error?: unknown
   save: (outcome: TutorOutcome, reason: string) => void
@@ -91,8 +87,7 @@ function DecisionEditor({
       reason={reason}
       setReason={setReason}
       error={error}
-      critical={critical}
-      disabled={saving || critical}
+      disabled={saving}
       saving={saving}
       onCancel={cancel}
       record={() => save(outcome, reason)}

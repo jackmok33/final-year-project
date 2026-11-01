@@ -1,6 +1,7 @@
+import { resetDemo } from '../test/resetDemo'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { dataset, programme, rubric, tutor } from '../test/fixtures'
-import { commandDemo, queryDemo } from './demo'
+import { queryDemo } from './demo'
 import { assignCourseOwners, migrateDataset, renameExampleCourses } from './migration'
 import { inspectPdf } from './pdf'
 import { firstProgramme, secondProgramme, thirdProgramme, thirdRubric } from './seed'
@@ -9,7 +10,7 @@ vi.mock('./pdf', () => ({ inspectPdf: vi.fn() }))
 describe('persistent module intakes', () => {
   beforeEach(async () => {
     await queryDemo({ op: 'accounts' }, null)
-    await commandDemo({ op: 'reset' }, 'admin-a')
+    await resetDemo()
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async () => ({ pages: 1 }))
