@@ -8,6 +8,7 @@ import type {
   Rubric,
   SectionScore,
 } from '../domain/types'
+import { coreDocumentTypes } from '../domain/types'
 
 export function backendUrl() {
   return (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '')
@@ -192,11 +193,25 @@ export async function evaluateBackend(
   grade: number | null,
   modelAvailable: boolean,
 ): Promise<AssessmentRun> {
+  if ((rubric.weights.references ?? 0) > 0)
+    throw new Error(
+      'The FastAPI mock supports three scored sections. Reference assessment requires the future document-evaluation backend; the saved assessment has not been changed.',
+    )
   const { id, version, weights, rejectBelow, offerFrom, margin, mandatoryRule } = rubric
   const response = await requestAssessment({
     applicationId: app.id,
-    criteria: { id, version, weights, rejectBelow, offerFrom, margin, mandatoryRule },
-    documents: docs.map(({ id, type, pages }) => ({ id, type, pages })),
+    criteria: {
+      id,
+      version,
+      weights: { academic: weights.academic, cv: weights.cv, statement: weights.statement },
+      rejectBelow,
+      offerFrom,
+      margin,
+      mandatoryRule,
+    },
+    documents: docs
+      .filter(({ type }) => coreDocumentTypes.some((key) => key === type))
+      .map(({ id, type, pages }) => ({ id, type, pages })),
     grade,
     modelAvailable,
     parentRunId: app.runs.at(-1)?.id ?? null,

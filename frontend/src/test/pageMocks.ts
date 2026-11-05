@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 import {
-  application,
+  applicationListItem,
   detail,
   otherProgramme,
   programme,
@@ -16,7 +16,7 @@ export const queryResult = (data?: unknown) => ({
   isLoading: false,
   error: undefined as unknown,
 })
-export const unwrap = vi.fn<() => Promise<{ id?: string }>>()
+export const unwrap = vi.fn<() => Promise<{ id?: string; batchId?: string }>>()
 export const command = vi.fn(() => ({ unwrap }))
 export const mutation = { isLoading: false, error: undefined as unknown }
 export const apiMocks = {
@@ -61,7 +61,7 @@ export function resetPageMocks() {
   mutation.error = undefined
   apiMocks.useAccountsQuery.mockReturnValue(queryResult([tutor, administrator]))
   apiMocks.useMeQuery.mockReturnValue(queryResult(tutor))
-  apiMocks.useApplicationsQuery.mockReturnValue(queryResult([application]))
+  apiMocks.useApplicationsQuery.mockReturnValue(queryResult([applicationListItem]))
   apiMocks.useBatchesQuery.mockReturnValue(queryResult([]))
   apiMocks.useBatchQuery.mockReturnValue(queryResult())
   apiMocks.useApplicationQuery.mockReturnValue(queryResult(structuredClone(detail)))

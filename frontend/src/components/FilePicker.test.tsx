@@ -7,6 +7,24 @@ import { renderPage } from '../test/renderPage'
 import { FilePicker } from './FilePicker'
 
 describe('FilePicker', () => {
+  it('forwards all selected files and clears the multiple input for retry', async () => {
+    const onSelectMany = vi.fn()
+    renderPage(
+      <FilePicker
+        label="Add references"
+        inputLabel="Reference PDFs"
+        accept=".pdf"
+        onSelectMany={onSelectMany}
+      />,
+    )
+    const input = screen.getByLabelText('Reference PDFs')
+    const files = ['academic.pdf', 'professional.pdf'].map(
+      (name) => new File(['pdf'], name, { type: 'application/pdf' }),
+    )
+    await userEvent.upload(input, files)
+    expect(onSelectMany).toHaveBeenCalledWith(files)
+    expect(input).toHaveValue('')
+  })
   it('returns the selected file and allows selecting it again', async () => {
     const onSelect = vi.fn()
     renderPage(

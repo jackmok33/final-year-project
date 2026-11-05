@@ -1,7 +1,14 @@
-import ArrowLeftOutlined from '@ant-design/icons/ArrowLeftOutlined'
-import { Alert, Box, Button, Typography } from '@mui/material'
+import { Alert, Box, Typography } from '@mui/material'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import {
+  PROGRAMMES_PATH,
+  applicationsPath,
+  intakePath,
+  intakeYearFromSegment,
+  matchesRouteScope,
+  newApplicationPath,
+} from '../app/paths'
 import { useApplicationsQuery, useBatchQuery, useCommandMutation } from '../app/api'
 import { useWorkspace } from '../hooks/useWorkspace'
 import { ApplicationFilters } from '../components/applications/ApplicationFilters'
@@ -18,7 +25,7 @@ import TablePagination from '../mantis/components/TablePagination'
 import { applicantProfile } from '../services/applicantPresentation'
 import { programmeIntakeLabel } from '../domain/programmeDisplay'
 import {
-  applicationState,
+  applicantReadiness,
   aiRecommendation,
   assessmentScore,
   currentDecision,
@@ -26,7 +33,7 @@ import {
   latestRun,
   type Application,
 } from '../domain/types'
-import { applicationIntakeYear, normalizeIntakeYear } from '../domain/intakes'
+import { applicationIntakeYear, intakeYears, normalizeIntakeYear } from '../domain/intakes'
 import { batchApplications } from '../domain/batches'
 import { summarizeApplications } from '../domain/applicationSummary'
 import { useContent } from '../hooks/useContent'
@@ -35,14 +42,32 @@ import { usePagination } from '../hooks/usePagination'
 export function ApplicationsPage() {
   const content = useContent('applicationsPage')
   const workspace = useWorkspace()
-  const { batchId } = useParams()
+  const params = useParams()
+  const { batchId } = params
   const batchQuery = useBatchQuery(batchId ?? '', { skip: !batchId })
   const batch = batchQuery.currentData
   const programme = batchId
     ? workspace.programmes.find((p) => p.id === batch?.programmeId)
-    : workspace.programme
+    : params.programmeId
+      ? workspace.programmes.find((p) => p.id === params.programmeId)
+      : workspace.programme
+  const year =
+    batch?.intakeYear ??
+    intakeYearFromSegment(params.intake) ??
+    normalizeIntakeYear(workspace.intakeYear ?? programme?.year ?? '') ??
+    workspace.intakeYear ??
+    programme?.year ??
+    ''
+  const scopeMatches = Boolean(
+    programme &&
+    matchesRouteScope(params, {
+      programmeId: programme.id,
+      intakeYear: year,
+      batchId: batch?.id,
+    }),
+  )
   const applications = useApplicationsQuery(programme?.id ?? '', {
-    skip: !programme,
+    skip: !scopeMatches,
     pollingInterval: 1000,
   })
   const [status, setStatus] = useState('all')
@@ -50,12 +75,6 @@ export function ApplicationsPage() {
   const [sort, setSort] = useState<ApplicantSort>({ column: 'submittedAt', direction: 'desc' })
   const [deleting, setDeleting] = useState<Application>()
   const [command, mutation] = useCommandMutation()
-  const year =
-    batch?.intakeYear ??
-    normalizeIntakeYear(workspace.intakeYear ?? programme?.year ?? '') ??
-    workspace.intakeYear ??
-    programme?.year ??
-    ''
   const scoped = (
     batch
       ? batchApplications(batch, applications.currentData ?? [])
@@ -70,7 +89,7 @@ export function ApplicationsPage() {
       case 'studentId':
         return profile.studentId
       case 'state':
-        return content.workflowLabels[applicationState(application)]
+        return content.readinessLabels[applicantReadiness(application.documentTypes)]
       case 'university':
         return profile.university || null
       case 'score':
@@ -87,7 +106,7 @@ export function ApplicationsPage() {
     .map((application, index) => ({ application, index, profile: applicantProfile(application) }))
     .filter(
       (row) =>
-        (status === 'all' || applicationState(row.application) === status) &&
+        (status === 'all' || applicantReadiness(row.application.documentTypes) === status) &&
         `${row.profile.name} ${row.profile.studentId} ${row.application.id}`
           .toLowerCase()
           .includes(search.toLowerCase()),
@@ -109,9 +128,16 @@ export function ApplicationsPage() {
   if (workspace.isLoading || applications.isLoading || (batchId && batchQuery.isLoading))
     return <Loading />
   if (workspace.error) return <ErrorNotice error={workspace.error} />
-  if (batchId && (!batch || !programme))
+  if (batchId && (batchQuery.error || !batch || batch.id !== batchId || !programme))
     return <ErrorNotice error={batchQuery.error ?? content.batchUnavailable} />
+  if (params.programmeId && !scopeMatches) return <ErrorNotice error={content.scopeUnavailable} />
   if (!programme) return <Alert severity="info">{content.noWorkspaceMessage}</Alert>
+  if (
+    params.intake &&
+    !normalizeIntakeYear(year) &&
+    !intakeYears(programme, applications.currentData ?? []).includes(year)
+  )
+    return <ErrorNotice error={content.scopeUnavailable} />
   const summary = summarizeApplications(scoped)
   function filter(change: () => void) {
     pagination.resetPage()
@@ -136,18 +162,19 @@ export function ApplicationsPage() {
   }
   return (
     <Page
-      title={programmeIntakeLabel(programme, year)}
-      actions={
-        <Button component={Link} to="/batches" startIcon={<ArrowLeftOutlined aria-hidden="true" />}>
-          {content.back}
-        </Button>
-      }
+      title={batch ? content.batchName(batch.sequence) : content.applicants}
+      breadcrumbs={[
+        { title: content.programmes, to: PROGRAMMES_PATH },
+        {
+          title: programmeIntakeLabel(programme, year),
+          to: intakePath({ programmeId: programme.id, intakeYear: year }),
+        },
+        {
+          title: batch ? content.batchName(batch.sequence) : content.applicants,
+          to: applicationsPath({ programmeId: programme.id, intakeYear: year, batchId: batch?.id }),
+        },
+      ]}
     >
-      {batch && (
-        <Typography variant="h2" component="h2" color="text.secondary">
-          {content.batchName(batch.sequence)}
-        </Typography>
-      )}
       <ErrorNotice error={applications.error} />
       {applications.currentData && (
         <SummaryCards
@@ -167,14 +194,15 @@ export function ApplicationsPage() {
             setSearch={(value) => filter(() => setSearch(value))}
             setStatus={(value) => filter(() => setStatus(value))}
             setSort={(value) => filter(() => setSort(value))}
-            addPath={
-              batchId
-                ? `/applications/new?${new URLSearchParams({ batch: batchId })}`
-                : '/applications/new'
-            }
+            addPath={newApplicationPath({
+              programmeId: programme.id,
+              intakeYear: year,
+              batchId: batch?.id,
+            })}
           />
         </Box>
         <ApplicationTable
+          scope={{ programmeId: programme.id, intakeYear: year }}
           rows={rows.slice(pagination.startIndex, pagination.endIndex)}
           sort={sort}
           onSort={toggleSort}

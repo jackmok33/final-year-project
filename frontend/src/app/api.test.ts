@@ -3,7 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Command, Query, QueryResult } from '../services/contracts'
 import { admissionsService } from '../services/admissions'
 import { probeBackendHealth, type BackendHealthReport } from '../services/backendHealth'
-import { application, detail, programme, rubric, tutor } from '../test/fixtures'
+import {
+  application,
+  applicationListItem,
+  detail,
+  programme,
+  rubric,
+  tutor,
+} from '../test/fixtures'
 import { admissionsApi } from './api'
 vi.mock('../services/admissions', () => ({
   admissionsService: { query: vi.fn(), command: vi.fn(), originalDocument: vi.fn() },
@@ -101,7 +108,7 @@ describe('RTK Query service adapter', () => {
       'applications',
       programme.id,
       { op: 'applications', programmeId: programme.id },
-      [application],
+      [applicationListItem],
     ],
     ['application', application.id, { op: 'application', id: application.id }, detail],
     ['programmes', undefined, { op: 'programmes' }, [programme]],
@@ -171,7 +178,7 @@ describe('RTK Query service adapter', () => {
   })
   it('reuses cached queries and refetches active queries after a mutation', async () => {
     const store = makeStore()
-    vi.mocked(admissionsService.query).mockResolvedValue([application])
+    vi.mocked(admissionsService.query).mockResolvedValue([applicationListItem])
     vi.mocked(admissionsService.command).mockResolvedValue({})
     const request = store.dispatch(admissionsApi.endpoints.applications.initiate(programme.id))
     await request.unwrap()

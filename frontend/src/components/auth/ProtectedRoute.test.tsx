@@ -23,7 +23,7 @@ function show(admin = false) {
             <Route path="/private" element={<p>Protected content</p>} />
           </Route>
           <Route path="/login" element={<p>Sign in destination</p>} />
-          <Route path="/modules" element={<p>Tutor destination</p>} />
+          <Route path="/programmes" element={<p>Tutor destination</p>} />
           <Route path="/admin/users" element={<p>Admin destination</p>} />
         </Routes>
       </MemoryRouter>

@@ -11,6 +11,46 @@ const sections = (values: (number | null)[]): SectionScore[] =>
     citations: [],
   }))
 describe('illustrative scoring rules', () => {
+  const fourCriteria = {
+    ...baseRubric,
+    weights: { academic: 40, cv: 25, statement: 25, references: 10 },
+  }
+  const reference: SectionScore = {
+    key: 'references',
+    score: 80,
+    explanation: 'Supported observations',
+    uncertainty: 'Review source',
+    citations: [],
+  }
+  it('includes the fourth weighted section and refuses to invent a missing reference score', () => {
+    expect(validateRubric(fourCriteria)).toBeNull()
+    expect(aggregate([...sections([90, 80, 70]), reference], fourCriteria, false).overall).toBe(
+      81.5,
+    )
+    expect(aggregate(sections([90, 80, 70]), fourCriteria, false)).toMatchObject({
+      overall: null,
+      recommendation: 'Further review',
+    })
+    expect(
+      aggregate([...sections([90, 80, 70]), { ...reference, score: null }], fourCriteria, false)
+        .overall,
+    ).toBeNull()
+  })
+  it('preserves legacy and zero-weight totals without treating unavailable references as zero', () => {
+    const values = [...sections([84, 76, 69.6]), { ...reference, score: null }]
+    expect(aggregate(values, baseRubric, false).overall).toBe(78.4)
+    expect(
+      aggregate(values, { ...baseRubric, weights: { ...baseRubric.weights, references: 0 } }, false)
+        .overall,
+    ).toBe(78.4)
+    expect(values.at(-1)!.score).toBeNull()
+    expect(
+      aggregate([...sections([90, 80, 70]), sections([90, 80, 70])[0]], baseRubric, false).overall,
+    ).toBeNull()
+    expect(
+      validateRubric({ ...fourCriteria, weights: { ...fourCriteria.weights, references: NaN } }),
+    ).toContain('100%')
+  })
   it('matches the approved example without confusing score and outcome', () => {
     expect(aggregate(sections([84, 76, 69.6]), baseRubric, true)).toMatchObject({
       overall: 78.4,

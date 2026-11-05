@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '../test/domSetup'
-import { administrator, otherProgramme, programme, tutor } from '../test/fixtures'
+import { administrator, application, otherProgramme, programme, tutor } from '../test/fixtures'
 import {
   apiMocks,
   dispatch,
@@ -31,7 +31,7 @@ function guard(admin = false) {
           <Route path="/secure" element={<p>Protected content</p>} />
         </Route>
         <Route path="/login" element={<p>Sign-in destination</p>} />
-        <Route path="/modules" element={<p>Tutor destination</p>} />
+        <Route path="/programmes" element={<p>Tutor destination</p>} />
         <Route path="/admin/users" element={<p>Admin destination</p>} />
       </Routes>
     </MemoryRouter>,
@@ -81,14 +81,14 @@ describe('module sidebar', () => {
   it('lists assigned modules with role and sign out, without the previous workspace controls', async () => {
     renderPage(<Layout />, '/applications', '*')
     expect(screen.getByRole('img', { name: 'UCL' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'UCL' })).toHaveAttribute('href', '/modules')
-    expect(screen.queryByText('Application Review Workspace')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'UCL' })).toHaveAttribute('href', '/programmes')
+    expect(screen.queryByText('Admission Review System')).not.toBeInTheDocument()
     expect(screen.getByText('Programme', { exact: true })).toBeInTheDocument()
     expect(screen.queryByText('Demo environment')).not.toBeInTheDocument()
     expect(screen.queryByText('Modules', { exact: true })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open course CSML 26/27' })).toHaveAttribute(
       'href',
-      '/batches?programme=programme-1&intake=2026+%2F+27',
+      '/programmes/programme-1/intakes/2026-27',
     )
     expect(
       screen.getByRole('link', {
@@ -107,7 +107,7 @@ describe('module sidebar', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'session/signOut' })
     expect(dispatch).toHaveBeenCalledWith({ type: 'api/reset' })
   })
-  it('opens the intake selection page when a sidebar module is clicked and closes navigation', async () => {
+  it('opens the canonical intake workspace when a sidebar programme is clicked and closes navigation', async () => {
     renderPage(<Layout />, '/applications', '*')
     await userEvent.click(
       screen.getByRole('link', {
@@ -115,7 +115,7 @@ describe('module sidebar', () => {
       }),
     )
     expect(screen.getByLabelText('Current URL')).toHaveTextContent(
-      '/batches?programme=programme-2&intake=2026+%2F+27',
+      '/programmes/programme-2/intakes/2026-27',
     )
     expect(dispatch).toHaveBeenCalledWith({ type: 'ui/setNavigationOpen', payload: false })
     expect(screen.getByRole('link', { name: 'Skip to main content' })).toHaveAttribute(
@@ -144,11 +144,74 @@ describe('module sidebar', () => {
       payload: { userId: tutor.id, programmeId: otherProgramme.id, intakeYear: '2025 / 26' },
     })
   })
+  it('selects the authorised programme, intake and sidebar item from a canonical applicant deep link', () => {
+    apiMocks.useApplicationQuery.mockReturnValue(
+      queryResult({ application: { ...application, intakeYear: '2025 / 26', batchId: 'batch-1' } }),
+    )
+    apiMocks.useBatchQuery.mockReturnValue(
+      queryResult({ id: 'batch-1', programmeId: programme.id, intakeYear: '2025 / 26' }),
+    )
+    renderPage(
+      <Layout />,
+      '/programmes/programme-1/intakes/2025-26/batches/batch-1/applications/APP-TEST/evidence?run=old&doc=source&page=2',
+      '*',
+    )
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'ui/selectProgramme',
+      payload: { userId: tutor.id, programmeId: programme.id, intakeYear: '2025 / 26' },
+    })
+    expect(screen.getByRole('link', { name: 'Open course CSML 25/26' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(apiMocks.useApplicationQuery).toHaveBeenCalledWith('APP-TEST', { skip: false })
+  })
+  it.each(['', '/applications/new'])(
+    'selects an authorised canonical batch context for %s without reading a new applicant',
+    (suffix) => {
+      apiMocks.useApplicationQuery.mockReturnValue(queryResult())
+      apiMocks.useBatchQuery.mockReturnValue(
+        queryResult({ id: 'batch-1', programmeId: otherProgramme.id, intakeYear: '2025 / 26' }),
+      )
+      renderPage(
+        <Layout />,
+        `/programmes/programme-2/intakes/2025-26/batches/batch-1${suffix}`,
+        '*',
+      )
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'ui/selectProgramme',
+        payload: { userId: tutor.id, programmeId: otherProgramme.id, intakeYear: '2025 / 26' },
+      })
+      expect(apiMocks.useApplicationQuery).toHaveBeenCalledWith(suffix ? 'new' : '', { skip: true })
+    },
+  )
+  it.each([
+    '/programmes/programme-2/intakes/2025-26/batches/batch-1/applications/APP-TEST',
+    '/programmes/programme-1/intakes/2024-25/batches/batch-1/applications/APP-TEST',
+    '/programmes/programme-1/intakes/2025-26/batches/other-batch/applications/APP-TEST',
+    '/programmes/programme-1/intakes/2025-26/applications/APP-TEST',
+    '/programmes/forbidden/intakes/2025-26/batches/batch-1/applications/APP-TEST',
+    '/programmes/programme-1/intakes/~invalid!/batches/batch-1/applications/APP-TEST?intake=2025+%2F+26',
+  ])('does not change remembered selection for forged canonical ancestry: %s', (url) => {
+    apiMocks.useApplicationQuery.mockReturnValue(
+      queryResult({ application: { ...application, intakeYear: '2025 / 26', batchId: 'batch-1' } }),
+    )
+    apiMocks.useBatchQuery.mockReturnValue(
+      queryResult({ id: 'batch-1', programmeId: programme.id, intakeYear: '2025 / 26' }),
+    )
+    renderPage(<Layout />, url, '*')
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'ui/selectProgramme' }),
+    )
+    expect(
+      screen.getAllByRole('link').filter((link) => link.getAttribute('aria-current') === 'page'),
+    ).toHaveLength(0)
+  })
   it('does not select another module while viewing module cards or unauthorised application data', () => {
     apiMocks.useApplicationQuery.mockReturnValue(
       queryResult({ application: { programmeId: 'unassigned' } }),
     )
-    renderPage(<Layout />, '/modules', '*')
+    renderPage(<Layout />, '/programmes', '*')
     expect(dispatch).not.toHaveBeenCalled()
   })
   it('keeps administration navigation and the dual-role switch separate', async () => {
@@ -169,7 +232,7 @@ describe('module sidebar', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Account menu' }))
     expect(screen.getByRole('menuitem', { name: 'Switch to tutor workspace' })).toHaveAttribute(
       'href',
-      '/modules',
+      '/programmes',
     )
     expect(screen.queryByRole('link', { name: 'Open course CSML 26/27' })).not.toBeInTheDocument()
   })

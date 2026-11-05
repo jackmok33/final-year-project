@@ -35,6 +35,19 @@ describe('versioned criteria page', () => {
     margin: 2,
     mandatoryRule: 'Current internal rule',
   }
+  it('saves a fourth section only after the owner allocates a valid reference weight', async () => {
+    renderCriteria()
+    expect(screen.getByLabelText('References (%)')).toHaveValue(0)
+    fireEvent.change(screen.getByLabelText('References (%)'), { target: { value: '10' } })
+    expect(screen.getByRole('button', { name: 'Save criteria' })).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Academic performance (%)'), { target: { value: '40' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Save criteria' }))
+    expect(command).toHaveBeenCalledWith({
+      op: 'rubric',
+      rubric: { ...rubric, weights: { academic: 40, cv: 25, statement: 25, references: 10 } },
+    })
+    expect(rubric.weights).toEqual({ academic: 50, cv: 25, statement: 25 })
+  })
   it('shows only active settings without history and discards drafts back to the active criteria', async () => {
     apiMocks.useRubricsQuery.mockReturnValue(
       queryResult({ rubrics: [rubric, newerRubric], activeId: newerRubric.id }),

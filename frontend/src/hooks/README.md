@@ -26,3 +26,9 @@ Keep one-screen controllers and feature-specific handlers in their Page file.
 Extract a shared hook when the same stateful responsibility is reused across
 screens. Generated RTK Query endpoint hooks stay with their definitions in
 `app/api.ts`; store creation, reducers and actions stay in `app/store.ts`.
+
+`useWorkspace` also exposes query refetch state. Route resolvers wait for an
+owned programme created by a completed mutation instead of interpreting its
+temporarily absent cached entry as a forbidden course. Explicit nested route
+scope takes precedence over the saved selection; URL construction belongs to
+the pure `app/paths.ts` helpers rather than a second selection hook.

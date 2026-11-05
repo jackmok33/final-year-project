@@ -4,6 +4,7 @@ import MenuUnfoldOutlined from '@ant-design/icons/MenuUnfoldOutlined'
 import { Box, Divider, Menu, MenuItem, Toolbar, Typography } from '@mui/material'
 import { useId } from 'react'
 import { Link } from 'react-router-dom'
+import { PROGRAMMES_PATH } from '../../app/paths'
 import { headerHeight, sidebarWidth } from '../../app/theme'
 import type { User } from '../../domain/types'
 import { useContent } from '../../hooks/useContent'
@@ -91,7 +92,7 @@ export function WorkspaceHeader({
           {user?.roles.length === 2 && (
             <MenuItem
               component={Link}
-              to={admin ? '/modules' : '/admin/users'}
+              to={admin ? PROGRAMMES_PATH : '/admin/users'}
               onClick={onCloseAccount}
             >
               {content.switchToWorkspace(admin ? content.tutorWorkspace : content.adminWorkspace)}

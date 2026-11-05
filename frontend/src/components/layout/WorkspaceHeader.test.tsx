@@ -11,6 +11,7 @@ describe('WorkspaceHeader', () => {
   it('provides account actions and a role switch only for dual-role users', async () => {
     const onSignOut = vi.fn(),
       onChangePassword = vi.fn(),
+      onCloseAccount = vi.fn(),
       anchor = document.createElement('button')
     document.body.append(anchor)
     try {
@@ -48,7 +49,25 @@ describe('WorkspaceHeader', () => {
           onSignOut={onSignOut}
         />,
       )
+      expect(screen.getByText(tutor.name)).toBeInTheDocument()
       expect(screen.queryByRole('menuitem', { name: /Switch to/ })).not.toBeInTheDocument()
+      view.rerender(
+        <WorkspaceHeader
+          user={{ ...tutor, roles: ['tutor', 'admin'] }}
+          admin
+          accountAnchor={anchor}
+          onOpenAccount={vi.fn()}
+          onCloseAccount={onCloseAccount}
+          onOpenNavigation={vi.fn()}
+          onChangePassword={onChangePassword}
+          onSignOut={onSignOut}
+        />,
+      )
+      const tutorWorkspace = screen.getByRole('menuitem', { name: 'Switch to tutor workspace' })
+      expect(tutorWorkspace).toHaveAttribute('href', '/programmes')
+      await userEvent.click(tutorWorkspace)
+      expect(onCloseAccount).toHaveBeenCalledOnce()
+      expect(screen.getByLabelText('Current URL')).toHaveTextContent('/programmes')
     } finally {
       anchor.remove()
     }

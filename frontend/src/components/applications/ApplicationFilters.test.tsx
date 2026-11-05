@@ -7,7 +7,7 @@ import { renderPage } from '../../test/renderPage'
 import { ApplicationFilters } from './ApplicationFilters'
 
 describe('ApplicationFilters', () => {
-  it('forwards search, workflow and quick-sort changes and preserves the add destination', async () => {
+  it('offers unique document states and forwards search and quick-sort changes', async () => {
     const setSearch = vi.fn(),
       setStatus = vi.fn(),
       setSort = vi.fn()
@@ -25,8 +25,13 @@ describe('ApplicationFilters', () => {
     await userEvent.type(screen.getByRole('textbox', { name: 'Search applicant' }), 'A')
     expect(setSearch).toHaveBeenCalledWith('A')
     await userEvent.click(screen.getByRole('combobox', { name: 'All status' }))
-    await userEvent.click(screen.getByRole('option', { name: 'failed' }))
-    expect(setStatus).toHaveBeenCalledWith('failed')
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'All status',
+      'Ready',
+      'Missing',
+    ])
+    await userEvent.click(screen.getByRole('option', { name: 'Missing' }))
+    expect(setStatus).toHaveBeenCalledWith('missing')
     await userEvent.click(screen.getByRole('combobox', { name: 'Sort by' }))
     await userEvent.click(screen.getByRole('option', { name: 'Highest score' }))
     expect(setSort).toHaveBeenCalledWith({ column: 'score', direction: 'desc' })

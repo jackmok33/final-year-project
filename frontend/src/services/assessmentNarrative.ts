@@ -1,7 +1,9 @@
 import { validateRubric } from '../domain/rules'
 import {
   isAssessmentReady,
+  legacySectionKeys,
   latestRun,
+  sectionKeys,
   type Application,
   type AssessmentRun,
   type Rubric,
@@ -19,6 +21,7 @@ const legacyExplanations: Record<SectionKey, readonly string[]> = {
   statement: [
     'Motivation is stated; programme-specific detail is limited in this synthetic example.',
   ],
+  references: [],
 }
 
 /** Expand old presentation fixtures only; stored runs and future evaluator output stay untouched. */
@@ -62,10 +65,11 @@ export function presentAssessment(
 }
 
 function consistentScores(run: AssessmentRun, rubric: Rubric) {
-  const keys: SectionKey[] = ['academic', 'cv', 'statement']
   if (
-    run.sections.length !== keys.length ||
-    !keys.every((key) => run.sections.filter((section) => section.key === key).length === 1) ||
+    (rubric.weights.references ?? 0) > 0 ||
+    !legacySectionKeys.every((key) => run.sections.some((section) => section.key === key)) ||
+    new Set(run.sections.map((section) => section.key)).size !== run.sections.length ||
+    run.sections.some((section) => !sectionKeys.some((key) => section.key === key)) ||
     run.sections.some(
       (section) =>
         section.score !== null &&
@@ -73,11 +77,12 @@ function consistentScores(run: AssessmentRun, rubric: Rubric) {
     )
   )
     return false
-  if (run.sections.some((section) => section.score === null)) return run.overall === null
+  const coreSections = run.sections.filter((section) => section.key !== 'references')
+  if (coreSections.some((section) => section.score === null)) return run.overall === null
   const expected =
     Math.round(
-      run.sections.reduce(
-        (total, section) => total + (section.score! * rubric.weights[section.key]) / 100,
+      coreSections.reduce(
+        (total, section) => total + (section.score! * (rubric.weights[section.key] ?? 0)) / 100,
         0,
       ) * 100,
     ) / 100
@@ -102,7 +107,7 @@ function formatNumber(value: number) {
 }
 
 function weighting(section: SectionScore, rubric: Rubric) {
-  const weight = rubric.weights[section.key]
+  const weight = rubric.weights[section.key] ?? 0
   return `Under criteria v${rubric.version}, this section carries ${formatNumber(weight)}% of the overall weighting. Its recorded score of ${formatNumber(section.score!)} / 100 contributes ${formatNumber((section.score! * weight) / 100)} points to a complete weighted result.`
 }
 
@@ -136,12 +141,13 @@ function sectionNarrative(section: SectionScore, run: AssessmentRun, rubric: Rub
 }
 
 function recommendationNarrative(run: AssessmentRun, rubric: Rubric) {
-  const complete = run.overall !== null && run.sections.every((section) => section.score !== null)
-  const totals = run.sections
+  const coreSections = run.sections.filter((section) => section.key !== 'references')
+  const complete = run.overall !== null && coreSections.every((section) => section.score !== null)
+  const totals = coreSections
     .map((section) =>
       section.score === null
         ? `${section.key}: unavailable`
-        : `${section.key}: ${formatNumber(section.score)} / 100 at ${formatNumber(rubric.weights[section.key])}%`,
+        : `${section.key}: ${formatNumber(section.score)} / 100 at ${formatNumber(rubric.weights[section.key] ?? 0)}%`,
     )
     .join('; ')
   const combination = complete

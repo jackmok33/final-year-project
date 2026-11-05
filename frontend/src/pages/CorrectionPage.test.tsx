@@ -15,6 +15,16 @@ vi.mock('../hooks/useWorkspace', async () => ({
 }))
 describe('fact correction page', () => {
   beforeEach(resetPageMocks)
+  it('blocks correction controls under another canonical programme', () => {
+    renderPage(
+      <CorrectionPage />,
+      '/programmes/programme-2/intakes/2026-27/applications/APP-TEST/correct',
+      '/programmes/:programmeId/intakes/:intake/applications/:id/correct',
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent('This application is unavailable')
+    expect(screen.queryByLabelText(/Corrected value/)).not.toBeInTheDocument()
+    expect(command).not.toHaveBeenCalled()
+  })
   it.each([0, 67.5, 92])('initialises the correction from the extracted grade %s', (grade) => {
     apiMocks.useApplicationQuery.mockReturnValue(
       queryResult({

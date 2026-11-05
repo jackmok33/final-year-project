@@ -8,9 +8,7 @@ import { SignInIntro } from './SignInIntro'
 describe('SignInIntro', () => {
   it('provides one workspace heading alongside the UCL logo', () => {
     renderPage(<SignInIntro />)
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'Application Review Workspace',
-    )
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Admission Review System')
     expect(screen.getByRole('img', { name: 'UCL' })).toBeInTheDocument()
   })
 })

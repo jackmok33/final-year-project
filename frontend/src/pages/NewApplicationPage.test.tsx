@@ -35,6 +35,202 @@ describe('new application upload', () => {
   })
   const renderIntake = () => renderPage(<NewApplicationPage />, '/applications/new', '*')
   const file = () => new File(['%PDF'], 'transcript.pdf', { type: 'application/pdf' })
+  it.each(['unknown-cohort', '~dW5rbm93bi1jb2hvcnQ', '~invalid!'])(
+    'rejects an unavailable intake before accepting PDF drafts: %s',
+    (intake) => {
+      renderPage(
+        <NewApplicationPage />,
+        `/programmes/programme-1/intakes/${intake}/applications/new`,
+        '/programmes/:programmeId/intakes/:intake/applications/new',
+      )
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Upload Transcript')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Create application' })).not.toBeInTheDocument()
+      expect(stageUploads).not.toHaveBeenCalled()
+    },
+  )
+  it('waits for saved descriptive intake labels and shows lookup failures without accepting a draft', () => {
+    apiMocks.useProgrammeIntakesQuery.mockReturnValue({ isLoading: true })
+    const view = renderPage(
+      <NewApplicationPage />,
+      '/programmes/programme-1/intakes/~QXV0dW1uIGNvaG9ydA/applications/new',
+      '/programmes/:programmeId/intakes/:intake/applications/new',
+    )
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Upload Transcript')).not.toBeInTheDocument()
+    apiMocks.useProgrammeIntakesQuery.mockReturnValue(
+      queryResult([{ programmeId: programme.id, years: ['Autumn cohort'] }]),
+    )
+    view.rerender(<NewApplicationPage />)
+    expect(screen.getByLabelText('Intake year')).toHaveValue('Autumn cohort')
+    expect(screen.getByLabelText('Upload Transcript')).toBeInTheDocument()
+    apiMocks.useProgrammeIntakesQuery.mockReturnValue({ error: { data: 'Intake lookup failed' } })
+    view.rerender(<NewApplicationPage />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Intake lookup failed')
+    expect(screen.queryByLabelText('Upload Transcript')).not.toBeInTheDocument()
+  })
+  it('uses the programme and intake from the canonical URL and links each breadcrumb', async () => {
+    workspaceMock.mockReturnValue({
+      user: tutor,
+      programme: otherProgramme,
+      programmes: [programme, otherProgramme],
+      intakeYear: '2025 / 26',
+    })
+    const base = '/programmes/programme-1/intakes/2026-27/applications'
+    renderPage(
+      <NewApplicationPage />,
+      `${base}/new`,
+      '/programmes/:programmeId/intakes/:intake/applications/new',
+    )
+    expect(screen.getByLabelText('Course')).toHaveValue(programme.name)
+    expect(screen.getByLabelText('Intake year')).toHaveValue(programme.year)
+    expect(screen.getByRole('link', { name: 'Programme' })).toHaveAttribute('href', '/programmes')
+    expect(screen.getByRole('link', { name: 'CSML 26/27' })).toHaveAttribute(
+      'href',
+      base.replace('/applications', ''),
+    )
+    expect(screen.getByRole('link', { name: 'New application' })).toHaveAttribute(
+      'href',
+      `${base}/new`,
+    )
+    expect(screen.queryByRole('link', { name: 'Cancel' })).not.toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText(/Candidate reference/), 'CANONICAL')
+    await userEvent.upload(screen.getByLabelText('Upload Transcript'), file())
+    await screen.findByText('4 / 100 pages per application')
+    await userEvent.click(screen.getByRole('button', { name: 'Create application' }))
+    await waitFor(() =>
+      expect(screen.getByLabelText('Current URL')).toHaveTextContent(`${base}/APP-CREATED`),
+    )
+    expect(command).toHaveBeenCalledWith(
+      expect.objectContaining({ programmeId: programme.id, intakeYear: programme.year }),
+    )
+  })
+  it('creates within the canonical batch and ignores a competing legacy batch query', async () => {
+    apiMocks.useBatchQuery.mockReturnValue(
+      queryResult({
+        id: 'batch-2',
+        programmeId: programme.id,
+        intakeYear: programme.year,
+        sequence: 2,
+      }),
+    )
+    const batchBase = '/programmes/programme-1/intakes/2026-27/batches/batch-2'
+    renderPage(
+      <NewApplicationPage />,
+      `${batchBase}/applications/new?batch=wrong`,
+      '/programmes/:programmeId/intakes/:intake/batches/:batchId/applications/new',
+    )
+    expect(screen.getByRole('link', { name: 'Batch 2' })).toHaveAttribute('href', batchBase)
+    await userEvent.type(screen.getByLabelText(/Candidate reference/), 'BATCHED')
+    await userEvent.upload(screen.getByLabelText('Upload Transcript'), file())
+    await screen.findByText('4 / 100 pages per application')
+    await userEvent.click(screen.getByRole('button', { name: 'Create application' }))
+    await waitFor(() =>
+      expect(screen.getByLabelText('Current URL')).toHaveTextContent(
+        `${batchBase}/applications/APP-CREATED`,
+      ),
+    )
+    expect(command).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-2',
+        programmeId: programme.id,
+        intakeYear: programme.year,
+      }),
+    )
+  })
+  it('opens an individually created application in the batch assigned by the service', async () => {
+    unwrap.mockImplementationOnce(async () => ({ id: 'APP-CREATED', batchId: 'assigned-batch' }))
+    renderIntake()
+    await userEvent.type(screen.getByLabelText(/Candidate reference/), 'ASSIGNED')
+    await userEvent.upload(screen.getByLabelText('Upload Transcript'), file())
+    await screen.findByText('4 / 100 pages per application')
+    await userEvent.click(screen.getByRole('button', { name: 'Create application' }))
+    await waitFor(() =>
+      expect(screen.getByLabelText('Current URL')).toHaveTextContent(
+        '/programmes/programme-1/intakes/2026-27/batches/assigned-batch/applications/APP-CREATED',
+      ),
+    )
+    expect(releaseUploads).toHaveBeenCalled()
+  })
+  it.each([
+    '/programmes/programme-2/intakes/2026-27/batches/batch-2/applications/new',
+    '/programmes/programme-1/intakes/2025-26/batches/batch-2/applications/new',
+    '/programmes/programme-1/intakes/2026-27/batches/wrong/applications/new',
+  ])('rejects a canonical batch outside its programme or intake at %s', (url) => {
+    apiMocks.useBatchQuery.mockReturnValue(
+      queryResult({
+        id: 'batch-2',
+        programmeId: programme.id,
+        intakeYear: programme.year,
+        sequence: 2,
+      }),
+    )
+    renderPage(
+      <NewApplicationPage />,
+      url,
+      '/programmes/:programmeId/intakes/:intake/batches/:batchId/applications/new',
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent('This batch is unavailable')
+    expect(screen.queryByRole('button', { name: 'Create application' })).not.toBeInTheDocument()
+    expect(stageUploads).not.toHaveBeenCalled()
+  })
+  it('stages all six categories, appends references and removes only the chosen reference', async () => {
+    renderIntake()
+    await userEvent.type(screen.getByLabelText(/Candidate reference/), 'SYN-PACKET')
+    const extras = [
+      ['Transcript', 'transcript'],
+      ['CV', 'cv'],
+      ['Personal statement', 'statement'],
+      ['Application form', 'application_form'],
+      ['English test report', 'english_test'],
+    ] as const
+    for (const [label, type] of extras) {
+      await userEvent.upload(
+        screen.getByLabelText(`Upload ${label}`),
+        new File(['%PDF'], `${type}.pdf`, { type: 'application/pdf' }),
+      )
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Create application' })).toBeEnabled(),
+      )
+    }
+    const references = ['academic.pdf', 'professional.pdf'].map(
+      (name) => new File(['%PDF'], name, { type: 'application/pdf' }),
+    )
+    await userEvent.upload(screen.getByLabelText('Upload References'), references)
+    expect(await screen.findByText('28 / 100 pages per application')).toBeInTheDocument()
+    const third = new File(['%PDF'], 'third.pdf', { type: 'application/pdf' })
+    await userEvent.upload(screen.getByLabelText('Upload References'), third)
+    expect(await screen.findByText('32 / 100 pages per application')).toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Remove reference 2: professional.pdf' }),
+    )
+    expect(screen.getByText('28 / 100 pages per application')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Create application' }))
+    expect(
+      vi.mocked(stageUploads).mock.calls[0][0].map((item) => [item.type, item.file.name]),
+    ).toEqual([
+      ...extras.map(([, type]) => [type, `${type}.pdf`]),
+      ['reference', 'academic.pdf'],
+      ['reference', 'third.pdf'],
+    ])
+  })
+  it('rejects a reference selection atomically and keeps previously validated references', async () => {
+    renderIntake()
+    const first = new File(['%PDF'], 'first.pdf', { type: 'application/pdf' })
+    await userEvent.upload(screen.getByLabelText('Upload References'), first)
+    expect(await screen.findByText('4 / 100 pages per application')).toBeInTheDocument()
+    vi.mocked(inspectPdf)
+      .mockResolvedValueOnce({ pages: 3 })
+      .mockRejectedValueOnce(new Error('Unreadable reference'))
+    await userEvent.upload(screen.getByLabelText('Upload References'), [
+      new File(['%PDF'], 'second.pdf', { type: 'application/pdf' }),
+      new File(['bad'], 'bad.pdf', { type: 'application/pdf' }),
+    ])
+    expect(await screen.findByText('Unreadable reference')).toBeInTheDocument()
+    expect(screen.getByText('4 / 100 pages per application')).toBeInTheDocument()
+    expect(screen.getByText(/first.pdf/)).toBeInTheDocument()
+    expect(screen.queryByText(/second.pdf/)).not.toBeInTheDocument()
+  })
   it('validates an original PDF, submits it to the selected course and releases staged files', async () => {
     renderIntake()
     expect(screen.getByRole('button', { name: 'Create application' })).toBeDisabled()

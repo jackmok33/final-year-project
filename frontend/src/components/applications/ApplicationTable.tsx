@@ -13,9 +13,11 @@ import {
   Tooltip,
 } from '@mui/material'
 import { Link, useNavigate } from 'react-router-dom'
+import { applicationPath, type IntakeScope } from '../../app/paths'
 import type { Application } from '../../domain/types'
+import type { ApplicationListItem } from '../../services/contracts'
 import {
-  applicationState,
+  applicantReadiness,
   aiRecommendation,
   currentDecision,
   decisionOutcome,
@@ -28,7 +30,7 @@ import IconButton from '../../mantis/components/IconButton'
 import { Status } from '../common'
 
 export interface ApplicantRow {
-  application: Application
+  application: ApplicationListItem
   profile: ReturnType<typeof applicantProfile>
   index: number
 }
@@ -43,11 +45,13 @@ export interface ApplicantSort {
 
 export function ApplicationTable({
   rows,
+  scope,
   sort,
   onSort,
   onDelete,
 }: {
   rows: ApplicantRow[]
+  scope: IntakeScope
   sort: ApplicantSort
   onSort: (column: ApplicantSortColumn) => void
   onDelete: (application: Application) => void
@@ -98,8 +102,8 @@ export function ApplicationTable({
             const ready = run && isAssessmentReady(run)
             const decision = currentDecision(app)
             const recommendation = aiRecommendation(run)
-            const state = applicationState(app)
-            const path = `/applications/${encodeURIComponent(app.id)}`
+            const state = applicantReadiness(app.documentTypes)
+            const path = applicationPath({ ...scope, batchId: app.batchId, applicationId: app.id })
             return (
               <TableRow key={app.id} hover>
                 <TableCell>{index + 1}</TableCell>
@@ -113,7 +117,7 @@ export function ApplicationTable({
                   </MuiLink>
                 </TableCell>
                 <TableCell>{profile.studentId}</TableCell>
-                <TableCell>{content.workflowLabels[state]}</TableCell>
+                <TableCell>{content.readinessLabels[state]}</TableCell>
                 <TableCell>{profile.university || content.notAvailable}</TableCell>
                 <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
                   {ready ? (run.overall ?? content.notAvailable) : content.notAvailable}

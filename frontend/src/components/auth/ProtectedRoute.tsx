@@ -1,5 +1,6 @@
 import { Button, Stack } from '@mui/material'
 import { Navigate, Outlet } from 'react-router-dom'
+import { PROGRAMMES_PATH } from '../../app/paths'
 import { admissionsApi, useMeQuery } from '../../app/api'
 import { signOut } from '../../app/store'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
@@ -17,7 +18,7 @@ export function ProtectedRoute({ admin = false }: { admin?: boolean }) {
   if (isLoading) return <Loading />
   if (error || !user) return <SessionError error={error} />
   if (!(admin ? user.roles.includes('admin') : user.roles.includes('tutor')))
-    return <Navigate to={user.roles.includes('admin') ? '/admin/users' : '/modules'} replace />
+    return <Navigate to={user.roles.includes('admin') ? '/admin/users' : PROGRAMMES_PATH} replace />
   return <Outlet />
 }
 

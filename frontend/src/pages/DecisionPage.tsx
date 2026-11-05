@@ -2,12 +2,15 @@ import { Alert } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useApplicationQuery, useCommandMutation } from '../app/api'
+import { applicationPath, matchesRouteScope } from '../app/paths'
+import { applicationIntakeYear } from '../domain/intakes'
 import { DecisionForm } from '../components/assessment/DecisionForm'
 import CustomizedDialog from '../mantis/components/CustomizedDialog'
 import { ErrorNotice, Loading } from '../components/common'
 import { isAssessmentReady, latestRun, type TutorOutcome } from '../domain/types'
 import { useContent } from '../hooks/useContent'
 import { useIsMounted } from '../hooks/useIsMounted'
+import { useWorkspace } from '../hooks/useWorkspace'
 
 export function DecisionPage({
   onClose,
@@ -17,20 +20,37 @@ export function DecisionPage({
   readOnly?: boolean
 } = {}) {
   const content = useContent('decisionPage')
-  const { id = '' } = useParams()
+  const routeParams = useParams()
+  const { id = '' } = routeParams
+  const { programmes, isLoading: workspaceLoading } = useWorkspace()
   const { currentData: data, error } = useApplicationQuery(id, { pollingInterval: 1000 })
   const [command, mutation] = useCommandMutation()
   const navigate = useNavigate()
   const isMounted = useIsMounted()
   const run = data && latestRun(data.application)
+  const app = data?.application
+  const programme = programmes.find((candidate) => candidate.id === app?.programmeId)
+  const scope = {
+    programmeId: app?.programmeId ?? '',
+    intakeYear: app && programme ? applicationIntakeYear(app, programme) : (app?.intakeYear ?? ''),
+    batchId: app?.batchId,
+  }
+  const validScope = Boolean(
+    app &&
+    matchesRouteScope(routeParams, scope) &&
+    (!routeParams.programmeId || programme) &&
+    (routeParams.id === undefined || routeParams.id === app.id),
+  )
+  const basePath = applicationPath({ ...scope, applicationId: app?.id ?? id })
   function close() {
     if (onClose) onClose()
-    else navigate(`/applications/${encodeURIComponent(id)}`)
+    else if (validScope) navigate(basePath)
   }
   async function save(outcome: TutorOutcome, reason: string) {
-    if (!run || !isAssessmentReady(run) || readOnly || mutation.isLoading) return
+    if (!app || !validScope || !run || !isAssessmentReady(run) || readOnly || mutation.isLoading)
+      return
     try {
-      await command({ op: 'decide', id, runId: run.id, outcome, reason }).unwrap()
+      await command({ op: 'decide', id: app.id, runId: run.id, outcome, reason }).unwrap()
       if (isMounted()) close()
     } catch {
       /* Keep the draft for retry. */
@@ -44,12 +64,14 @@ export function DecisionPage({
       onClose={close}
       busy={mutation.isLoading}
     >
-      {!data ? (
+      {!data || (routeParams.programmeId && workspaceLoading) ? (
         error ? (
           <ErrorNotice error={error} />
         ) : (
           <Loading />
         )
+      ) : !validScope ? (
+        <ErrorNotice error={content.applicationUnavailable} />
       ) : readOnly ? (
         <Alert severity="info">{content.readOnly}</Alert>
       ) : !run || !isAssessmentReady(run) ? (

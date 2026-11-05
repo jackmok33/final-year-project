@@ -10,6 +10,7 @@ function addProgrammeWithCriteria(data: Dataset, programme: Programme) {
   data.programmes.push(programme)
   const rubric: Rubric = {
     ...structuredClone(baseRubric),
+    weights: { academic: 40, cv: 25, statement: 25, references: 10 },
     id: crypto.randomUUID(),
     programmeId: programme.id,
     createdAt: new Date().toISOString(),

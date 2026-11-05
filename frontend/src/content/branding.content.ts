@@ -1,5 +1,5 @@
 export const brandingContent = {
   institution: 'UCL',
-  workspaceName: 'Application Review Workspace',
-  documentTitle: 'UCL Application Review Workspace',
+  workspaceName: 'Admission Review System',
+  documentTitle: 'Admission Review System',
 } as const

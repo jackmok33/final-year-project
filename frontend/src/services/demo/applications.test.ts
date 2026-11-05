@@ -205,6 +205,12 @@ describe('persistent browser demo contract', () => {
     )
     await commandDemo({ op: 'evaluate', id: created.id! }, 'tutor-a')
     const newApp = (await readDataset())!.applications.find((a) => a.id === created.id)!
+    expect(created.batchId).toBeTruthy()
+    expect(created.batchId).toBe(newApp.batchId)
+    expect((await readDataset())!.batches?.find((b) => b.id === created.batchId)).toMatchObject({
+      programmeId: newApp.programmeId,
+      intakeYear: newApp.intakeYear,
+    })
     expect(newApp.runs[0].overall).toBeNull()
     expect(newApp.runs[0].flags.some((f) => f.code === 'BACKEND_UNAVAILABLE')).toBe(true)
   })
@@ -218,6 +224,63 @@ describe('service mutation validation and failure atomicity', () => {
   })
   beforeEach(() => {
     vi.mocked(inspectPdf).mockImplementation(async () => ({ pages: 4 }))
+  })
+  it('persists six document types and two original references without changing older applications', async () => {
+    const types = [
+      'transcript',
+      'cv',
+      'statement',
+      'application_form',
+      'english_test',
+      'reference',
+      'reference',
+    ] as const
+    const refs = stageUploads(
+      types.map((type, index) => ({
+        type,
+        file: new File([`original-${index}`], `${type}-${index}.pdf`, { type: 'application/pdf' }),
+      })),
+    )
+    try {
+      const result = await commandDemo(
+        { op: 'create', candidate: 'SYN-PACKET', programmeId: 'programme-1', uploads: refs },
+        'tutor-a',
+      )
+      const saved = (await readDataset())!
+      const app = saved.applications.find((a) => a.id === result.id)!
+      expect(app.documentIds).toHaveLength(7)
+      expect(saved.documents.filter((d) => d.applicationId === app.id).map((d) => d.type)).toEqual(
+        types,
+      )
+      for (const [index, id] of app.documentIds.entries())
+        expect(await (await readFile(id))!.text()).toBe(`original-${index}`)
+      expect(saved.applications.filter((a) => a.id !== app.id)).toEqual(data.applications)
+      expect(app.runs).toEqual([])
+    } finally {
+      releaseUploads(refs)
+    }
+  })
+  it('aborts an expanded packet when a later reference cannot be validated', async () => {
+    const refs = stageUploads(
+      ['good.pdf', 'bad.pdf'].map((name) => ({
+        type: 'reference' as const,
+        file: new File(['pdf'], name, { type: 'application/pdf' }),
+      })),
+    )
+    vi.mocked(inspectPdf)
+      .mockResolvedValueOnce({ pages: 1 })
+      .mockRejectedValueOnce(new Error('Unreadable reference'))
+    try {
+      await expect(
+        commandDemo(
+          { op: 'create', candidate: 'SYN-BAD', programmeId: 'programme-1', uploads: refs },
+          'tutor-a',
+        ),
+      ).rejects.toThrow('Unreadable reference')
+      expect(await readDataset()).toEqual(data)
+    } finally {
+      releaseUploads(refs)
+    }
   })
   it('releases upload references and rejects duplicate document types without partial records', async () => {
     const file = new File(['pdf'], 'transcript.pdf', { type: 'application/pdf' })

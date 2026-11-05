@@ -7,6 +7,8 @@ export const documentUploadContent = {
   checking: 'Checking…',
   replace: 'Replace',
   choosePdf: 'Choose PDF',
+  addReferences: 'Add references',
   uploadLabel: (documentName: string) => `Upload ${documentName}`,
   remove: (documentName: string) => `Remove ${documentName}`,
+  removeReference: (name: string, index: number) => `Remove reference ${index + 1}: ${name}`,
 } as const

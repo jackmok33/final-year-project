@@ -30,6 +30,10 @@ test('redesigned programme, batch, review tabs and decision popup match the expo
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('/login')
+  await expect(page).toHaveTitle('Admission Review System')
+  await expect(
+    page.getByRole('heading', { name: 'Admission Review System', exact: true }),
+  ).toBeVisible()
   await page.getByRole('button', { name: "I don't have an account", exact: true }).click()
   const help = page.getByRole('dialog', { name: 'Available accounts', exact: true })
   await expect(help).toBeVisible()
@@ -38,10 +42,17 @@ test('redesigned programme, batch, review tabs and decision popup match the expo
   await expect(help).toHaveCount(0)
   await login(page)
   await expect(page.getByRole('heading', { name: 'Programme', exact: true })).toBeVisible()
+  await expect(page).toHaveURL('/programmes')
+  const breadcrumbs = page.getByRole('navigation', { name: 'Breadcrumb', exact: true })
+  await expect(breadcrumbs.getByRole('link')).toHaveText(['Programme'])
+  await expect(breadcrumbs.getByRole('link').last()).toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('link', { name: 'Open CSML 26/27', exact: true })).toBeVisible()
   await audit(page)
   await page.screenshot({ path: info.outputPath('programme.png'), fullPage: true })
   await page.getByRole('link', { name: 'Open CSML 26/27', exact: true }).click()
+  await expect(page).toHaveURL('/programmes/programme-1/intakes/2026-27')
+  await expect(breadcrumbs.getByRole('link')).toHaveText(['Programme', 'CSML 26/27'])
+  await expect(page.locator('main h1')).toHaveText('CSML 26/27')
   await expect(page.getByRole('tab', { name: 'Batches', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -84,6 +95,9 @@ test('redesigned programme, batch, review tabs and decision popup match the expo
   await page.screenshot({ path: info.outputPath('analytics.png'), fullPage: true })
   await page.getByRole('tab', { name: 'Batches', exact: true }).click()
   await page.getByRole('link', { name: 'Batch 1', exact: true }).click()
+  await expect(page).toHaveURL(/\/programmes\/programme-1\/intakes\/2026-27\/batches\/[^/?]+$/)
+  await expect(breadcrumbs.getByRole('link')).toHaveText(['Programme', 'CSML 26/27', 'Batch 1'])
+  await expect(page.locator('main h1')).toHaveText('Batch 1')
   await expect(page.getByRole('columnheader')).toHaveText([
     'Id',
     'Name',
@@ -104,6 +118,18 @@ test('redesigned programme, batch, review tabs and decision popup match the expo
     await expect(cells.nth(7)).toHaveText(/^(Unconditional|Conditional|Reject|Pending)$/)
   }
   await page.getByRole('link', { name: 'View Carson Darrin', exact: true }).click()
+  await expect(page).toHaveURL(
+    /\/programmes\/programme-1\/intakes\/2026-27\/batches\/[^/?]+\/applications\/APP-2026-0142$/,
+  )
+  await expect(breadcrumbs.getByRole('link')).toHaveText([
+    'Programme',
+    'CSML 26/27',
+    'Batch 1',
+    '1 - Carson Darrin - 24738849',
+  ])
+  await expect(page.locator('main h1')).toHaveCount(1)
+  await expect(page.locator('main h1')).toHaveText('1 - Carson Darrin - 24738849')
+  await expect(page.getByRole('link', { name: 'Back', exact: true })).toHaveCount(0)
   const storedRuns = (await dataset(page)).applications.find(
     (app) => app.id === 'APP-2026-0142',
   )!.runs

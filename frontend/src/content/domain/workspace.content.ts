@@ -1,9 +1,10 @@
 export const workspaceLabels = {
-  back: 'Back',
-  total: 'Total applications',
-  offers: 'Offers given',
-  pending: 'Total pending review',
-  offersHint: 'Offers recorded by tutor decision',
+  programmes: 'Programme',
+  administration: 'Administration',
+  total: 'Applications',
+  offers: 'Offers',
+  pending: 'Pending reviews',
+  offersHint: 'Offers decided by tutor',
   pendingHint: 'Applications requiring human review',
   batches: 'Batches',
   pagination: {

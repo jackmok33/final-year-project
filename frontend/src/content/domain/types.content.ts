@@ -1,15 +1,25 @@
-import type { DocumentType, Outcome, SectionKey, Workflow } from '../../domain/types'
+import type {
+  ApplicantReadiness,
+  DocumentType,
+  Outcome,
+  SectionKey,
+  Workflow,
+} from '../../domain/types'
 
 export const domainLabelsContent = {
   sectionNames: {
     academic: 'Academic performance',
     cv: 'CV & experience',
     statement: 'Personal statement',
+    references: 'References',
   } satisfies Record<SectionKey, string>,
   documentNames: {
     transcript: 'Transcript',
     cv: 'CV',
     statement: 'Personal statement',
+    application_form: 'Application form',
+    english_test: 'English test report',
+    reference: 'References',
   } satisfies Record<DocumentType, string>,
   outcomeLabels: {
     Conditional: 'Conditional',
@@ -26,4 +36,8 @@ export const domainLabelsContent = {
     completed: 'completed',
     failed: 'failed',
   } satisfies Record<Workflow | 'not evaluated', string>,
+  readinessLabels: {
+    ready: 'Ready',
+    missing: 'Missing',
+  } satisfies Record<ApplicantReadiness, string>,
 } as const

@@ -2,10 +2,18 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Application, BatchSummary, Decision } from '../domain/types'
+import type { BatchSummary, Decision } from '../domain/types'
+import type { ApplicationListItem } from '../services/contracts'
 import * as presentation from '../services/applicantPresentation'
 import '../test/domSetup'
-import { application, otherProgramme, programme, run, tutor } from '../test/fixtures'
+import {
+  applicationListItem as application,
+  completeApplicationListItem,
+  otherProgramme,
+  programme,
+  run,
+  tutor,
+} from '../test/fixtures'
 import { apiMocks, queryResult, resetPageMocks, workspaceMock } from '../test/pageMocks'
 import { renderPage } from '../test/renderPage'
 import { ApplicationsPage } from './ApplicationsPage'
@@ -37,10 +45,10 @@ describe('applicant queue', () => {
     ).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Export/ })).not.toBeInTheDocument()
   })
-  it('filters search and workflow and sorts scores without altering records', async () => {
+  it('filters source-document readiness independently of search and assessment progress', async () => {
     apiMocks.useApplicationsQuery.mockReturnValue(
       queryResult([
-        application,
+        completeApplicationListItem,
         {
           ...application,
           id: 'OTHER',
@@ -56,11 +64,15 @@ describe('applicant queue', () => {
     ).not.toBeInTheDocument()
     await userEvent.clear(screen.getByRole('textbox', { name: 'Search applicant' }))
     await userEvent.click(screen.getByRole('combobox', { name: 'All status' }))
-    await userEvent.click(screen.getByRole('option', { name: 'failed' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Missing' }))
     expect(screen.getByRole('link', { name: 'View Other applicant' })).toBeInTheDocument()
     expect(
       screen.queryByRole('link', { name: `View ${application.candidate}` }),
     ).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('combobox', { name: 'All status' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Ready' }))
+    expect(screen.getByRole('link', { name: `View ${application.candidate}` })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'View Other applicant' })).not.toBeInTheDocument()
   })
 })
 describe('applicant rows within a ZIP batch', () => {
@@ -98,8 +110,12 @@ describe('applicant rows within a ZIP batch', () => {
         },
       ]),
     )
-    renderPage(<ApplicationsPage />, '/batches/batch-one', '/batches/:batchId')
-    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/batches')
+    renderPage(<ApplicationsPage />, '/batches/batch%2Fone%3F', '/batches/:batchId')
+    expect(screen.queryByRole('link', { name: 'Back' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'CSML 25/26' })).toHaveAttribute(
+      'href',
+      '/programmes/programme-1/intakes/2025-26',
+    )
     expect(screen.queryByRole('link', { name: 'Admission criteria' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: `View ${application.candidate}` })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Open OTHER-BATCH' })).not.toBeInTheDocument()
@@ -127,14 +143,82 @@ describe('applicant rows within a ZIP batch', () => {
     const view = renderPage(<ApplicationsPage />, '/batches/existing', '/batches/:batchId')
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
     apiMocks.useBatchQuery.mockReturnValue(
-      queryResult({ ...batch, intakeYear: programme.year, source: 'existing', sequence: 1 }),
+      queryResult({
+        ...batch,
+        id: 'existing',
+        intakeYear: programme.year,
+        source: 'existing',
+        sequence: 1,
+      }),
     )
     view.rerender(<ApplicationsPage />)
     expect(screen.getByRole('heading', { name: 'Batch 1' })).toBeInTheDocument()
     expect(screen.queryByText('Existing applications')).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'CSML 26/27', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Batch 1', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'CSML 26/27' })).toHaveAttribute(
+      'href',
+      '/programmes/programme-1/intakes/2026-27',
+    )
     expect(screen.queryByText(/Review your assigned applications/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Document assessment is not connected/)).not.toBeInTheDocument()
+  })
+  it('uses canonical ancestry despite a different saved course and links each breadcrumb', () => {
+    workspaceMock.mockReturnValue({
+      user: tutor,
+      programme: otherProgramme,
+      programmes: [programme, otherProgramme],
+      intakeYear: otherProgramme.year,
+    })
+    apiMocks.useBatchQuery.mockReturnValue(queryResult(batch))
+    apiMocks.useApplicationsQuery.mockReturnValue(
+      queryResult([{ ...application, batchId: batch.id, intakeYear: batch.intakeYear }]),
+    )
+    renderPage(
+      <ApplicationsPage />,
+      '/programmes/programme-1/intakes/2025-26/batches/batch%2Fone%3F',
+      '/programmes/:programmeId/intakes/:intake/batches/:batchId',
+    )
+    const breadcrumbs = within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
+    expect(
+      breadcrumbs.getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')]),
+    ).toEqual([
+      ['Programme', '/programmes'],
+      ['CSML 25/26', '/programmes/programme-1/intakes/2025-26'],
+      ['Batch 2', '/programmes/programme-1/intakes/2025-26/batches/batch%2Fone%3F'],
+    ])
+    expect(breadcrumbs.getByRole('link', { name: 'Batch 2' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getByRole('link', { name: `View ${application.candidate}` })).toHaveAttribute(
+      'href',
+      `/programmes/programme-1/intakes/2025-26/batches/batch%2Fone%3F/applications/${application.id}`,
+    )
+  })
+  it.each([
+    '/programmes/programme-2/intakes/2025-26/batches/batch%2Fone%3F',
+    '/programmes/programme-1/intakes/2026-27/batches/batch%2Fone%3F',
+    '/programmes/programme-1/intakes/2025-26/batches/another',
+  ])('rejects a batch under mismatched ancestors: %s', (url) => {
+    apiMocks.useBatchQuery.mockReturnValue(queryResult(batch))
+    renderPage(
+      <ApplicationsPage />,
+      url,
+      '/programmes/:programmeId/intakes/:intake/batches/:batchId',
+    )
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Add applicant' })).not.toBeInTheDocument()
+  })
+  it('does not expose cached batch records when a permission refresh fails', () => {
+    apiMocks.useBatchQuery.mockReturnValue({
+      ...queryResult(batch),
+      error: { data: 'Tutor access denied' },
+    })
+    renderPage(<ApplicationsPage />, '/batches/batch%2Fone%3F', '/batches/:batchId')
+    expect(screen.getByRole('alert')).toHaveTextContent('Tutor access denied')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 })
 describe('applicant column sorting', () => {
@@ -149,7 +233,7 @@ describe('applicant column sorting', () => {
       at: run.finishAt,
     }
   }
-  const applicants: Application[] = [
+  const applicants: ApplicationListItem[] = [
     {
       ...application,
       id: 'one',
@@ -159,7 +243,7 @@ describe('applicant column sorting', () => {
       decisions: [decision('Conditional')],
     },
     {
-      ...application,
+      ...completeApplicationListItem,
       id: 'two',
       candidate: 'Alice',
       submittedAt: '2026-10-02T09:00:00Z',
@@ -174,7 +258,7 @@ describe('applicant column sorting', () => {
       decisions: [decision('Reject')],
     },
     {
-      ...application,
+      ...completeApplicationListItem,
       id: 'four',
       candidate: 'Dan',
       submittedAt: '2026-10-04T09:00:00Z',
@@ -205,7 +289,7 @@ describe('applicant column sorting', () => {
     ['Id', ['Zoe', 'Alice', 'Bob', 'Dan'], ['Dan', 'Bob', 'Alice', 'Zoe']],
     ['Name', ['Alice', 'Bob', 'Dan', 'Zoe'], ['Zoe', 'Dan', 'Bob', 'Alice']],
     ['Student ID', ['Bob', 'Dan', 'Alice', 'Zoe'], ['Zoe', 'Alice', 'Dan', 'Bob']],
-    ['State', ['Alice', 'Zoe', 'Bob', 'Dan'], ['Dan', 'Zoe', 'Bob', 'Alice']],
+    ['State', ['Zoe', 'Bob', 'Alice', 'Dan'], ['Alice', 'Dan', 'Zoe', 'Bob']],
     ['University', ['Alice', 'Bob', 'Zoe', 'Dan'], ['Zoe', 'Bob', 'Alice', 'Dan']],
     ['Score', ['Zoe', 'Bob', 'Alice', 'Dan'], ['Alice', 'Bob', 'Zoe', 'Dan']],
     ['AI', ['Bob', 'Zoe', 'Alice', 'Dan'], ['Alice', 'Zoe', 'Bob', 'Dan']],

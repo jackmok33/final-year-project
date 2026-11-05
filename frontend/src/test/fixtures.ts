@@ -7,6 +7,8 @@ import type {
   Rubric,
   User,
 } from '../domain/types'
+import type { ApplicationListItem } from '../services/contracts'
+import { documentTypes } from '../domain/types'
 
 export const programme: Programme = {
   id: 'programme-1',
@@ -100,6 +102,21 @@ export const application: Application = {
   runs: [run],
   corrections: [],
   decisions: [],
+}
+export const applicationListItem: ApplicationListItem = {
+  ...application,
+  documentTypes: documents.map((document) => document.type),
+}
+export const completeDocuments: DocumentRecord[] = documentTypes.map((type) => ({
+  ...documents[0],
+  id: `${application.id}-${type}`,
+  type,
+  name: `${type}.pdf`,
+}))
+export const completeApplicationListItem: ApplicationListItem = {
+  ...application,
+  documentIds: completeDocuments.map((document) => document.id),
+  documentTypes: completeDocuments.map((document) => document.type),
 }
 export const detail = { application, documents, rubrics: [rubric] }
 export const dataset: Dataset = {

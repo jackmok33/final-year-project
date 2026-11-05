@@ -4,7 +4,7 @@ import { normalizeIntakeYear } from '../domain/intakes'
 
 export function useWorkspace() {
   const { data: user } = useMeQuery()
-  const { data, isLoading, error } = useProgrammesQuery(undefined, {
+  const { data, isLoading, isFetching, error } = useProgrammesQuery(undefined, {
     skip: !user?.roles.includes('tutor'),
   })
   const preferred = useAppSelector((s) => user && s.ui.programmeByUser[user.id])
@@ -17,5 +17,5 @@ export function useWorkspace() {
   const intakeYear = selectedYear?.trim()
     ? (normalizeIntakeYear(selectedYear) ?? selectedYear)
     : programme?.year
-  return { user, programmes, programme, intakeYear, isLoading, error }
+  return { user, programmes, programme, intakeYear, isLoading, isFetching, error }
 }

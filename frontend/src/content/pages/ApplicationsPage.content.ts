@@ -3,10 +3,12 @@ import { batchListContent } from '../components/batches/BatchList.content'
 import { applicationTableContent } from '../components/applications/ApplicationTable.content'
 
 export const applicationsPageContent = {
-  workflowLabels: applicationTableContent.workflowLabels,
+  readinessLabels: applicationTableContent.readinessLabels,
   batchName: batchListContent.batchName,
   batchUnavailable: 'This upload batch is unavailable or you do not have access.',
-  back: workspaceLabels.back,
+  programmes: workspaceLabels.programmes,
+  applicants: workspaceLabels.applicants,
+  scopeUnavailable: 'This URL does not match the application workspace.',
   noWorkspaceMessage: 'Choose a course from All courses to review applications.',
   total: workspaceLabels.total,
   batchHint: 'Applications within this batch',

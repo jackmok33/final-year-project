@@ -27,6 +27,17 @@ vi.mock('../components/evidence/PdfViewer', () => ({
 }))
 describe('source evidence page', () => {
   beforeEach(resetPageMocks)
+  it('blocks original documents under a different canonical intake', () => {
+    renderPage(
+      <EvidencePage />,
+      '/programmes/programme-1/intakes/2025-26/applications/APP-TEST/evidence',
+      '/programmes/:programmeId/intakes/:intake/applications/:id/evidence',
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent('This application is unavailable')
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Download original' })).not.toBeInTheDocument()
+    expect(admissionsService.originalDocument).not.toHaveBeenCalled()
+  })
   it('does not display the previous application document while the next record loads', () => {
     apiMocks.useApplicationQuery.mockReturnValue({
       ...queryResult(detail),
