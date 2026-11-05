@@ -22,6 +22,39 @@ afterEach(() => {
 })
 
 describe('FastAPI adapter', () => {
+  it('rejects unsupported weighted references before sending a legacy mock request', async () => {
+    const original = structuredClone(application)
+    await expect(
+      evaluateBackend(
+        application,
+        documents,
+        { ...rubric, weights: { academic: 40, cv: 25, statement: 25, references: 10 } },
+        74,
+        true,
+      ),
+    ).rejects.toThrow('supports three scored sections')
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(application).toEqual(original)
+  })
+  it('keeps the mock contract legacy-compatible when references have zero weight', async () => {
+    fetchMock.mockResolvedValue(Response.json(result()))
+    const sources = [
+      ...documents,
+      { ...documents[0], id: 'reference-private', type: 'reference' as const, name: 'PRIVATE.pdf' },
+    ]
+    await evaluateBackend(
+      application,
+      sources,
+      { ...rubric, weights: { ...rubric.weights, references: 0 } },
+      74,
+      true,
+    )
+    const body = JSON.parse(fetchMock.mock.calls[0][1]!.body as string)
+    expect(body.criteria.weights).toEqual(rubric.weights)
+    expect(body.documents).toHaveLength(3)
+    expect(JSON.stringify(body)).not.toContain('reference-private')
+    expect(JSON.stringify(body)).not.toContain('PRIVATE.pdf')
+  })
   it('sends only synthetic assessment context and preserves run identities and citations', async () => {
     fetchMock.mockResolvedValue(Response.json(result()))
     const response = await evaluateApplication(application, documents, rubric, 74, true)

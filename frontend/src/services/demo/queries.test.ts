@@ -1,7 +1,13 @@
 import { resetDemo } from '../../test/resetDemo'
 import { strToU8, zipSync } from 'fflate'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Application, BatchSummary, Programme } from '../../domain/types'
+import {
+  applicantReadiness,
+  documentTypes,
+  type Application,
+  type BatchSummary,
+  type Programme,
+} from '../../domain/types'
 import { authorizedFile, commandDemo, queryDemo, releaseArchive, stageArchive } from '../demo'
 import { inspectPdf } from '../pdf'
 import * as storage from '../storage'
@@ -58,6 +64,58 @@ describe('persistent browser demo contract', () => {
     expect(
       (await readDataset())!.applications.find((a) => a.id === second[0].id)?.runs.at(-1)?.rubricId,
     ).toBe(saved.activeRubricIds['programme-2'])
+  })
+  it('derives readiness metadata from linked source records without changing saved applications', async () => {
+    const data = (await readDataset())!
+    const target = data.applications[0]
+    const source = data.documents.find((document) => document.applicationId === target.id)!
+    const original = (await storage.readFile(source.id))!
+    const addedFiles: Record<string, Blob> = {}
+    for (const [index, type] of (
+      ['application_form', 'english_test', 'reference', 'reference'] as const
+    ).entries()) {
+      const id = `${target.id}-additional-${index}`
+      target.documentIds.push(id)
+      data.documents.push({ ...source, id, type, name: `${type}-${index}.pdf` })
+      addedFiles[id] = original
+    }
+    await storage.writeDataset(data, addedFiles)
+    const before = (await readDataset())!
+    const queue = await queryDemo(
+      { op: 'applications', programmeId: target.programmeId },
+      'tutor-a',
+    )
+    const row = queue.find((application) => application.id === target.id)!
+    expect(new Set(row.documentTypes)).toEqual(new Set(documentTypes))
+    expect(row.documentTypes).toHaveLength(6)
+    expect(applicantReadiness(row.documentTypes)).toBe('ready')
+    expect(
+      applicantReadiness(queue.find((application) => application.id !== target.id)!.documentTypes),
+    ).toBe('missing')
+    expect((await readDataset())!.applications).toEqual(before.applications)
+    expect((await readDataset())!.applications[0]).not.toHaveProperty('documentTypes')
+
+    // Neither an orphan source row nor an unrelated application's record fills a missing category.
+    const incomplete = (await readDataset())!
+    const referenceIds = incomplete.documents
+      .filter((document) => document.applicationId === target.id && document.type === 'reference')
+      .map((document) => document.id)
+    incomplete.applications[0].documentIds = target.documentIds.filter(
+      (id) => !referenceIds.includes(id),
+    )
+    const unrelatedId = 'unrelated-reference'
+    incomplete.applications[0].documentIds.push(unrelatedId)
+    incomplete.documents.push({
+      ...source,
+      id: unrelatedId,
+      applicationId: incomplete.applications[1].id,
+      type: 'reference',
+    })
+    await storage.writeDataset(incomplete)
+    const next = await queryDemo({ op: 'applications', programmeId: target.programmeId }, 'tutor-a')
+    expect(next.find((application) => application.id === target.id)!.documentTypes).not.toContain(
+      'reference',
+    )
   })
 })
 describe('persistent ZIP upload batches', () => {

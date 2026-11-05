@@ -1,6 +1,7 @@
 import { Box, Link as MuiLink, List, Stack, Typography } from '@mui/material'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { PROGRAMMES_PATH } from '../../app/paths'
 import { headerHeight } from '../../app/theme'
 import { useContent } from '../../hooks/useContent'
 import SimpleBarScroll from '../../mantis/components/SimpleBarScroll'
@@ -40,7 +41,7 @@ export function WorkspaceNavigation({
       >
         <MuiLink
           component={Link}
-          to={admin ? '/admin/users' : '/modules'}
+          to={admin ? '/admin/users' : PROGRAMMES_PATH}
           onClick={onNavigate}
           sx={{ display: 'inline-flex' }}
         >

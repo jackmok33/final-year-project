@@ -3,6 +3,7 @@ import HeartOutlined from '@ant-design/icons/HeartOutlined'
 import { Box, Drawer, Toolbar } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation, useMatch, useSearchParams } from 'react-router-dom'
+import { PROGRAMMES_PATH, intakePath, intakeYearFromSegment, matchesRouteScope } from '../app/paths'
 import {
   admissionsApi,
   useApplicationQuery,
@@ -40,7 +41,16 @@ export function Layout() {
   })
   const dispatch = useAppDispatch()
   const open = useAppSelector((s) => s.ui.navigationOpen)
-  const applicationId = useMatch('/applications/:id/*')?.params.id
+  const intakeRoute = useMatch('/programmes/:programmeId/intakes/:intake/*')
+  const nestedBatch = useMatch('/programmes/:programmeId/intakes/:intake/batches/:batchId/*')
+  const legacyBatch = useMatch('/batches/:batchId')
+  const batchedApplication = useMatch(
+    '/programmes/:programmeId/intakes/:intake/batches/:batchId/applications/:id/*',
+  )
+  const intakeApplication = useMatch('/programmes/:programmeId/intakes/:intake/applications/:id/*')
+  const legacyApplication = useMatch('/applications/:id/*')
+  const applicationId =
+    batchedApplication?.params.id ?? intakeApplication?.params.id ?? legacyApplication?.params.id
   const { currentData: applicationData } = useApplicationQuery(applicationId ?? '', {
     skip: !applicationId || applicationId === 'new',
   })
@@ -55,20 +65,47 @@ export function Layout() {
       : undefined
   const userId = user?.id
   const batchId =
-    useMatch('/batches/:batchId')?.params.batchId ??
+    nestedBatch?.params.batchId ??
+    legacyBatch?.params.batchId ??
     (location.pathname === '/applications/new' ? (params.get('batch') ?? undefined) : undefined)
   const { currentData: batch } = useBatchQuery(batchId ?? '', { skip: !batchId })
   const batchProgramme = programmes.find((p) => p.id === batch?.programmeId)
-  const routeProgramme = programmes.find((p) => p.id === params.get('programme'))
-  const routeYear = params.get('intake')
+  const routeProgramme = programmes.find(
+    (p) => p.id === (intakeRoute?.params.programmeId ?? params.get('programme')),
+  )
+  const routeYear = intakeRoute
+    ? intakeYearFromSegment(intakeRoute.params.intake)
+    : params.get('intake')
   const validRouteYear =
     routeProgramme &&
     routeYear &&
-    (normalizeIntakeYear(routeYear) ?? (routeYear === routeProgramme.year ? routeYear : undefined))
+    (normalizeIntakeYear(routeYear) ??
+      (routeYear === routeProgramme.year ||
+      programmeIntakes
+        ?.find((row) => row.programmeId === routeProgramme.id)
+        ?.years.includes(routeYear)
+        ? routeYear
+        : undefined))
+  const routeParams = { ...intakeRoute?.params, ...nestedBatch?.params }
+  const ancestryValid =
+    applicationData && applicationId !== 'new' && applicationProgramme
+      ? matchesRouteScope(routeParams, {
+          programmeId: applicationProgramme.id,
+          intakeYear: applicationYear!,
+          batchId: applicationData.application.batchId,
+        })
+      : batch
+        ? matchesRouteScope(routeParams, {
+            programmeId: batch.programmeId,
+            intakeYear: batch.intakeYear,
+            batchId: batch.id,
+          })
+        : true
+  const validRouteContext = !intakeRoute || Boolean(routeProgramme && validRouteYear)
   const recordProgrammeId = applicationProgrammeId ?? batchProgramme?.id ?? routeProgramme?.id
   const recordYear = applicationYear ?? batch?.intakeYear ?? validRouteYear ?? routeProgramme?.year
   useEffect(() => {
-    if (userId && recordProgrammeId && recordYear)
+    if (userId && recordProgrammeId && recordYear && ancestryValid && validRouteContext)
       dispatch(
         selectProgramme({
           userId,
@@ -76,10 +113,15 @@ export function Layout() {
           intakeYear: recordYear,
         }),
       )
-  }, [recordProgrammeId, recordYear, userId, dispatch])
+  }, [recordProgrammeId, recordYear, userId, dispatch, ancestryValid, validRouteContext])
   const isAdmin = location.pathname.startsWith('/admin')
   const currentProgramme =
-    location.pathname === '/modules' ? undefined : (routeProgramme ?? programme)
+    location.pathname === PROGRAMMES_PATH ||
+    location.pathname === '/modules' ||
+    !ancestryValid ||
+    !validRouteContext
+      ? undefined
+      : (routeProgramme ?? programme)
   const selectedYear =
     normalizeIntakeYear(recordYear ?? intakeYear ?? programme?.year ?? '') ??
     recordYear ??
@@ -109,7 +151,7 @@ export function Layout() {
         return years.map((year) => ({
           id: programme.id + ':' + year,
           label: programmeIntakeLabel(programme, year),
-          path: '/batches?' + new URLSearchParams({ programme: programme.id, intake: year }),
+          path: intakePath({ programmeId: programme.id, intakeYear: year }),
           selected: currentProgramme?.id === programme.id && selectedYear === year,
         }))
       })

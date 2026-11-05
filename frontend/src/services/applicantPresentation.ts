@@ -24,6 +24,22 @@ const profiles: Record<string, { name: string; studentId: string; university: st
     university: 'Synthetic University',
   },
 }
+
+const exampleEnglishTest = {
+  level: 'Advanced',
+  type: 'IELTS Academic',
+  overall: 7.5,
+  listening: 8,
+  reading: 8,
+  writing: 7,
+  speaking: 7,
+}
+
+const exampleEducation = {
+  qsRanking: 50,
+  degree: 'BSc (Hons) Computer Science',
+  field: 'Computer Science and Mathematics',
+}
 export function applicantProfile(application: Application) {
   return (
     (application.fixture && profiles[application.id]) || {
@@ -41,32 +57,51 @@ export interface EvidenceGroup {
 
 /** Presentation fixtures for the synthetic review; not extraction or an HTTP response. */
 export function applicantEvidence(application: Application, run: AssessmentRun): EvidenceGroup[] {
-  if (!application.fixture || !profiles[application.id] || !isAssessmentReady(run)) return []
+  if (
+    !application.fixture ||
+    !profiles[application.id] ||
+    run.applicationId !== application.id ||
+    !isAssessmentReady(run)
+  )
+    return []
+  const profile = applicantProfile(application)
   const grade = run.extractedGrade
+  const referenceScore = run.sections.find((section) => section.key === 'references')?.score
   return [
     {
       key: 'english',
-      entries: [['Level: Advanced', 'Test: IELTS Academic', 'Overall score: 7.5 / 9.0']],
+      entries: [
+        [
+          `Level: ${exampleEnglishTest.level}`,
+          `Test: ${exampleEnglishTest.type}`,
+          `O:${exampleEnglishTest.overall}, L:${exampleEnglishTest.listening}, R:${exampleEnglishTest.reading}, W:${exampleEnglishTest.writing}, S:${exampleEnglishTest.speaking}`,
+        ],
+      ],
     },
     {
       key: 'education',
       entries: [
         [
-          'Synthetic University',
-          'BSc (Hons) Computer Science',
-          'Field: Computer Science and Mathematics',
-          ...(grade === null ? [] : [`Overall extracted mark: ${grade}%`]),
+          `${profile.university} · QS: ${exampleEducation.qsRanking}`,
+          exampleEducation.degree,
+          `Field: ${exampleEducation.field}`,
+          ...(typeof grade === 'number' && Number.isFinite(grade) && grade >= 0 && grade <= 100
+            ? [`Grade: ${grade}%`]
+            : []),
         ],
       ],
     },
     {
       key: 'references',
       entries: [
-        [
-          'Dr Emma Collins · Dissertation supervisor',
-          'Strongly recommended · Assessment score: 90/100',
-        ],
-        ['Dr Daniel Wong · Machine Learning lecturer', 'Recommended · Assessment score: 82/100'],
+        ['Dr Emma Collins · Dissertation supervisor', 'Strongly recommended'],
+        ['Dr Daniel Wong · Machine Learning lecturer', 'Recommended'],
+        ...(typeof referenceScore === 'number' &&
+        Number.isFinite(referenceScore) &&
+        referenceScore >= 0 &&
+        referenceScore <= 100
+          ? [[`Overall reference score: ${referenceScore}/100`]]
+          : []),
       ],
     },
     {

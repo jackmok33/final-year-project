@@ -34,8 +34,18 @@ function documentType(filename: string): DocumentType {
   if (words.some((w) => ['cv', 'resume', 'vitae'].includes(w))) matches.push('cv')
   if (words.some((w) => ['transcript', 'transcripts'].includes(w))) matches.push('transcript')
   if (words.some((w) => ['statement', 'ps'].includes(w))) matches.push('statement')
+  if (words.some((w) => ['application', 'app'].includes(w)) && words.includes('form'))
+    matches.push('application_form')
+  if (words.some((w) => ['english', 'ielts', 'toefl', 'pte'].includes(w)))
+    matches.push('english_test')
+  if (
+    words.some((w) => ['reference', 'references', 'ref', 'referee', 'recommendation'].includes(w))
+  )
+    matches.push('reference')
   if (matches.length !== 1)
-    throw new Error(`Cannot identify “${filename}”. Use cv.pdf, transcript.pdf or statement.pdf.`)
+    throw new Error(
+      `Cannot identify “${filename}”. Use transcript.pdf, cv.pdf, statement.pdf, application_form.pdf, english_test.pdf or reference-1.pdf (reference-2.pdf for another reference).`,
+    )
   return matches[0]
 }
 
@@ -86,7 +96,10 @@ export async function readApplicantArchive(file: File): Promise<ArchiveApplicant
       if (applicants.size > MAX_APPLICANTS)
         throw new Error('A ZIP batch supports at most 100 applicants.')
       const type = documentType(filename)
-      if ([...destinations.values()].some((d) => d.applicant === applicant && d.type === type))
+      if (
+        type !== 'reference' &&
+        [...destinations.values()].some((d) => d.applicant === applicant && d.type === type)
+      )
         throw new Error(
           `“${candidate}” has more than one ${type} PDF. Include one document per type.`,
         )

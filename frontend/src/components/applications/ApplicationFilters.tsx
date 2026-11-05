@@ -59,7 +59,7 @@ export function ApplicationFilters({
         slotProps={{ select: { 'aria-label': content.allStatus } }}
       >
         <MenuItem value="all">{content.allStatus}</MenuItem>
-        {Object.entries(content.workflowLabels).map(([value, label]) => (
+        {Object.entries(content.readinessLabels).map(([value, label]) => (
           <MenuItem key={value} value={value}>
             {label}
           </MenuItem>

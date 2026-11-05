@@ -14,7 +14,7 @@ describe('DocumentUpload', () => {
     renderPage(
       <DocumentUpload
         type="transcript"
-        document={{ file, pages: 4 }}
+        documents={[{ file, pages: 4 }]}
         checking={false}
         disabled={false}
         onSelect={onSelect}
@@ -23,9 +23,9 @@ describe('DocumentUpload', () => {
     )
     expect(screen.getByText(/transcript.pdf/)).toHaveTextContent('4 pages')
     await userEvent.upload(screen.getByLabelText('Upload Transcript'), file)
-    expect(onSelect).toHaveBeenCalledWith(file)
+    expect(onSelect).toHaveBeenCalledWith([file])
     await userEvent.click(screen.getByRole('button', { name: 'Remove Transcript' }))
-    expect(onRemove).toHaveBeenCalledOnce()
+    expect(onRemove).toHaveBeenCalledWith(0)
   })
   it('blocks file selection and removal while validation is running', () => {
     const onRemove = vi.fn()
@@ -33,7 +33,7 @@ describe('DocumentUpload', () => {
     renderPage(
       <DocumentUpload
         type="cv"
-        document={{ file, pages: 2 }}
+        documents={[{ file, pages: 2 }]}
         checking
         disabled
         onSelect={vi.fn()}
@@ -45,5 +45,32 @@ describe('DocumentUpload', () => {
     expect(remove).toBeDisabled()
     remove.click()
     expect(onRemove).not.toHaveBeenCalled()
+  })
+  it('accepts several references and removes a specific original', async () => {
+    const first = new File(['one'], 'academic.pdf', { type: 'application/pdf' })
+    const second = new File(['two'], 'professional.pdf', { type: 'application/pdf' })
+    const onSelect = vi.fn(),
+      onRemove = vi.fn()
+    renderPage(
+      <DocumentUpload
+        type="reference"
+        documents={[
+          { file: first, pages: 1 },
+          { file: second, pages: 2 },
+        ]}
+        checking={false}
+        disabled={false}
+        onSelect={onSelect}
+        onRemove={onRemove}
+      />,
+    )
+    const input = screen.getByLabelText('Upload References')
+    expect(input).toHaveAttribute('multiple')
+    await userEvent.upload(input, [first, second])
+    expect(onSelect).toHaveBeenCalledWith([first, second])
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Remove reference 2: professional.pdf' }),
+    )
+    expect(onRemove).toHaveBeenCalledWith(1)
   })
 })

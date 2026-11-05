@@ -1,3 +1,5 @@
+import { brandingContent } from '../branding.content'
+
 export const loginPageContent = {
   accountsTitle: 'Available accounts',
   passwordTitle: 'Access your account',
@@ -10,8 +12,7 @@ export const loginPageContent = {
   copyright: 'Copyright 2026 · UCL Computer Science project',
   terms: 'Terms and Conditions',
   about: 'About Us',
-  aboutDescription:
-    'Application Review Workspace is a final-year project for admissions decision support.',
+  aboutDescription: `${brandingContent.workspaceName} is a final-year project for admissions decision support.`,
   termsDescription:
     'This is a project prototype. University deployment terms have not been configured.',
 } as const

@@ -1,7 +1,18 @@
 import { Alert, Box, Button, Stack, Typography } from '@mui/material'
-import ArrowLeftOutlined from '@ant-design/icons/ArrowLeftOutlined'
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { useApplicationQuery, useApplicationsQuery, useCommandMutation } from '../app/api'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import {
+  useApplicationQuery,
+  useApplicationsQuery,
+  useBatchQuery,
+  useCommandMutation,
+} from '../app/api'
+import {
+  applicationPath,
+  batchPath,
+  intakePath,
+  matchesRouteScope,
+  PROGRAMMES_PATH,
+} from '../app/paths'
 import { useWorkspace } from '../hooks/useWorkspace'
 import { RecommendationSummary } from '../components/assessment/RecommendationSummary'
 import { ReviewFlags } from '../components/assessment/ReviewFlags'
@@ -13,6 +24,7 @@ import MainCard from '../mantis/components/MainCard'
 import { applicantEvidence, applicantProfile } from '../services/applicantPresentation'
 import { presentAssessment } from '../services/assessmentNarrative'
 import { programmeIntakeLabel } from '../domain/programmeDisplay'
+import { applicationIntakeYear, normalizeIntakeYear } from '../domain/intakes'
 import {
   isAssessmentReady,
   latestDecision,
@@ -49,9 +61,12 @@ function AssessmentReview({
   queryError?: unknown
 }) {
   const content = useContent('assessmentPage')
-  const { programmes } = useWorkspace()
+  const { programmes, isLoading: workspaceLoading, error: workspaceError } = useWorkspace()
+  const routeParams = useParams()
   const programme = programmes.find((p) => p.id === app.programmeId)
   const applications = useApplicationsQuery(app.programmeId)
+  const batchQuery = useBatchQuery(app.batchId ?? '', { skip: !app.batchId })
+  const batch = app.batchId && !batchQuery.error ? batchQuery.currentData : undefined
   const [command, mutation] = useCommandMutation()
   const [params] = useSearchParams()
   const location = useLocation()
@@ -83,28 +98,65 @@ function AssessmentReview({
     ? tab
     : 'recommendation'
   const profile = applicantProfile(app)
+  const intakeYear = programme ? applicationIntakeYear(app, programme) : (app.intakeYear ?? '')
+  const scope = { programmeId: app.programmeId, intakeYear, batchId: app.batchId }
+  const basePath = applicationPath({ ...scope, applicationId: app.id })
+  const contextPath = location.pathname.endsWith('/evidence') ? `${basePath}/evidence` : basePath
   const ordinal = Math.max(
     1,
     (applications.currentData
-      ?.filter((a) => a.batchId === app.batchId)
+      ?.filter(
+        (a) =>
+          a.batchId === app.batchId &&
+          (!programme || applicationIntakeYear(a, programme) === intakeYear),
+      )
       .findIndex((a) => a.id === app.id) ?? 0) + 1,
   )
+  const heading = content.applicantHeading(ordinal, profile.name, profile.studentId)
+  if (routeParams.programmeId && (workspaceLoading || (app.batchId && batchQuery.isLoading)))
+    return <Loading />
+  if (
+    !matchesRouteScope(routeParams, scope) ||
+    (routeParams.id !== undefined && routeParams.id !== app.id) ||
+    (routeParams.programmeId && (!programme || workspaceError || (app.batchId && !batch))) ||
+    (batch &&
+      (batch.id !== app.batchId ||
+        batch.programmeId !== app.programmeId ||
+        (normalizeIntakeYear(batch.intakeYear) ?? batch.intakeYear) !== intakeYear))
+  )
+    return <ErrorNotice error={content.applicationUnavailable} />
+  const breadcrumbs = [
+    { title: content.programme, to: PROGRAMMES_PATH },
+    ...(programme
+      ? [{ title: programmeIntakeLabel(programme, intakeYear), to: intakePath(scope) }]
+      : []),
+    ...(batch?.sequence
+      ? [
+          {
+            title: content.batchName(batch.sequence),
+            to: batchPath({ ...scope, batchId: batch.id }),
+          },
+        ]
+      : []),
+    { title: heading, to: basePath },
+  ]
   function selectTab(next: string) {
-    const query = new URLSearchParams()
+    const query = new URLSearchParams(params)
+    query.delete('correction')
+    query.delete('decision')
     if (historic && run) query.set('run', run.id)
-    if (next === 'documents')
-      navigate(
-        `/applications/${encodeURIComponent(app.id)}/evidence${query.size ? `?${query}` : ''}`,
-      )
-    else {
+    if (next === 'documents') {
+      query.delete('tab')
+      navigate(`${basePath}/evidence${query.size ? `?${query}` : ''}`)
+    } else {
       query.set('tab', next)
-      navigate(`/applications/${encodeURIComponent(app.id)}?${query}`)
+      navigate(`${basePath}?${query}`)
     }
   }
   function openCorrection() {
     const query = new URLSearchParams(params)
     query.set('correction', 'edit')
-    navigate(`${location.pathname}?${query}`)
+    navigate(`${contextPath}?${query}`)
   }
   function closeCorrection(saved = false) {
     const query = new URLSearchParams(params)
@@ -112,50 +164,31 @@ function AssessmentReview({
     if (saved) query.delete('run')
     const legacyPath = location.pathname.endsWith('/correct')
     if (legacyPath && !query.has('tab')) query.set('tab', 'flags')
-    const path = legacyPath ? `/applications/${encodeURIComponent(app.id)}` : location.pathname
-    navigate(`${path}${query.size ? `?${query}` : ''}`, { replace: true })
+    navigate(`${contextPath}${query.size ? `?${query}` : ''}`, { replace: true })
   }
   function openDecision() {
     const query = new URLSearchParams(params)
     query.set('decision', 'record')
-    navigate(`${location.pathname}?${query}`)
+    navigate(`${contextPath}?${query}`)
   }
   function closeDecision() {
     const query = new URLSearchParams(params)
     query.delete('decision')
     if (query.get('tab') === 'decision') query.delete('tab')
-    const path = location.pathname.endsWith('/decision')
-      ? `/applications/${encodeURIComponent(app.id)}`
-      : location.pathname
-    navigate(`${path}${query.size ? `?${query}` : ''}`, { replace: true })
+    navigate(`${contextPath}${query.size ? `?${query}` : ''}`, { replace: true })
   }
   function evaluate() {
     if (mutation.isLoading || busy || historic) return
     if (params.has('run')) {
       const query = new URLSearchParams(params)
       query.delete('run')
-      navigate(`${location.pathname}${query.size ? `?${query}` : ''}`, { replace: true })
+      navigate(`${contextPath}${query.size ? `?${query}` : ''}`, { replace: true })
     }
     void command({ op: 'evaluate', id: app.id })
   }
-  const back = app.batchId ? `/batches/${encodeURIComponent(app.batchId)}` : '/applications'
   return (
-    <Page
-      title={
-        programme
-          ? programmeIntakeLabel(programme, app.intakeYear ?? programme.year)
-          : content.programme
-      }
-      actions={
-        <Button component={Link} to={back} startIcon={<ArrowLeftOutlined aria-hidden="true" />}>
-          {content.back}
-        </Button>
-      }
-    >
+    <Page title={heading} breadcrumbs={breadcrumbs}>
       <ErrorNotice error={queryError ?? mutation.error} />
-      <Typography variant="h2" component="h2" color="text.secondary">
-        {content.applicantHeading(ordinal, profile.name, profile.studentId)}
-      </Typography>
       {busy && (
         <Alert severity="info" role="status">
           {content.processingMessage(latest?.status)}
@@ -167,7 +200,7 @@ function AssessmentReview({
           action={
             <Button
               onClick={() => {
-                navigate(`/applications/${encodeURIComponent(app.id)}`)
+                navigate(basePath)
               }}
             >
               {content.showLatest}

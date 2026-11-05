@@ -2,11 +2,11 @@ import { CriteriaPage } from './CriteriaPage'
 import { CourseAnalytics } from '../components/batches/CourseAnalytics'
 import TabsCard from '../mantis/components/TabsCard'
 import { programmeIntakeLabel } from '../domain/programmeDisplay'
-import ArrowLeftOutlined from '@ant-design/icons/ArrowLeftOutlined'
 import DownloadOutlined from '@ant-design/icons/DownloadOutlined'
 import { Alert, Box, Button, Stack } from '@mui/material'
 import { useState } from 'react'
-import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { useNavigate, useSearchParams, useLocation, useParams } from 'react-router-dom'
+import { PROGRAMMES_PATH, batchPath, intakePath, intakeYearFromSegment } from '../app/paths'
 import {
   useApplicationsQuery,
   useBatchesQuery,
@@ -18,9 +18,9 @@ import { BatchList } from '../components/batches/BatchList'
 import { ZipUploadPanel } from '../components/batches/ZipUploadPanel'
 import { ErrorNotice, Loading, Page } from '../components/common'
 import { SummaryCards } from '../components/SummaryCards'
-import { applicationIntakeYear, normalizeIntakeYear } from '../domain/intakes'
+import { applicationIntakeYear, intakeYears, normalizeIntakeYear } from '../domain/intakes'
 import {
-  applicationState,
+  applicantReadiness,
   aiRecommendation,
   assessmentScore,
   currentDecision,
@@ -37,13 +37,16 @@ import { releaseArchive, stageArchive } from '../services/fileStaging'
 
 export function UploadBatchesPage() {
   const source = useWorkspace()
+  const route = useParams()
   const [params] = useSearchParams()
-  const requested = params.get('programme')
+  const requested = route.programmeId ?? params.get('programme')
   const programme = requested ? source.programmes.find((p) => p.id === requested) : source.programme
   const workspace = {
     ...source,
     programme,
-    intakeYear: requested ? (params.get('intake') ?? programme?.year) : source.intakeYear,
+    intakeYear:
+      intakeYearFromSegment(route.intake) ??
+      (requested ? (params.get('intake') ?? programme?.year) : source.intakeYear),
   }
   return (
     <BatchUploadController
@@ -55,6 +58,7 @@ export function UploadBatchesPage() {
 
 function BatchUploadController({ workspace }: { workspace: ReturnType<typeof useWorkspace> }) {
   const content = useContent('uploadBatchesPage')
+  const route = useParams()
   const location = useLocation()
   const [tabParams] = useSearchParams()
   const requestedTab = location.pathname === '/criteria' ? 'criteria' : tabParams.get('tab')
@@ -84,7 +88,8 @@ function BatchUploadController({ workspace }: { workspace: ReturnType<typeof use
         intakeYear: year,
         archiveId,
       }).unwrap()
-      if (isMounted() && id) navigate(`/batches/${encodeURIComponent(id)}`)
+      if (isMounted() && id)
+        navigate(batchPath({ programmeId: programme.id, intakeYear: year, batchId: id }))
     } catch (error) {
       if (isMounted()) setUploadError(error || content.importError)
     } finally {
@@ -93,8 +98,24 @@ function BatchUploadController({ workspace }: { workspace: ReturnType<typeof use
   }
   if (isLoading) return <Loading />
   if (error) return <ErrorNotice error={error} />
-  if (!programme) return <Alert severity="info">{content.noWorkspace}</Alert>
+  if (!programme)
+    return workspace.isFetching ? (
+      <Loading />
+    ) : route.programmeId ? (
+      <ErrorNotice error={content.scopeUnavailable} />
+    ) : (
+      <Alert severity="info">{content.noWorkspace}</Alert>
+    )
+  if (route.intake !== undefined && intakeYearFromSegment(route.intake) === undefined)
+    return <ErrorNotice error={content.scopeUnavailable} />
   const currentYear = normalizeIntakeYear(year) ?? year
+  if (
+    !normalizeIntakeYear(currentYear) &&
+    !intakeYears(programme, applications.currentData ?? []).includes(currentYear)
+  ) {
+    if (applications.isLoading || applications.isFetching) return <Loading />
+    return <ErrorNotice error={content.scopeUnavailable} />
+  }
   const courseApplications = applications.currentData?.filter(
     (application) => application.programmeId === programme.id,
   )
@@ -133,7 +154,7 @@ function BatchUploadController({ workspace }: { workspace: ReturnType<typeof use
         a.candidate,
         programme.code,
         applicationIntakeYear(a, programme),
-        applicationState(a),
+        content.readinessLabels[applicantReadiness(a.documentTypes)],
         assessmentScore(a),
         aiRecommendation(run),
         decisionOutcome(currentDecision(a)?.outcome),
@@ -150,18 +171,20 @@ function BatchUploadController({ workspace }: { workspace: ReturnType<typeof use
   return (
     <Page
       title={programmeIntakeLabel(programme, year)}
-      actions={
-        <Button component={Link} to="/modules" startIcon={<ArrowLeftOutlined aria-hidden="true" />}>
-          {content.back}
-        </Button>
-      }
+      breadcrumbs={[
+        { title: content.programmes, to: PROGRAMMES_PATH },
+        {
+          title: programmeIntakeLabel(programme, year),
+          to: intakePath({ programmeId: programme.id, intakeYear: year }),
+        },
+      ]}
     >
       <ErrorNotice error={criteria.error} />
       <TabsCard
         value={tab}
         onChange={(next) =>
           navigate(
-            `/batches?${new URLSearchParams({ programme: programme.id, intake: year, tab: next })}`,
+            `${intakePath({ programmeId: programme.id, intakeYear: year })}?${new URLSearchParams({ tab: next })}`,
           )
         }
         label={content.tabs}

@@ -1,4 +1,7 @@
+import { workspaceLabels } from '../domain/workspace.content'
+
 export const serviceHealthPageContent = {
+  administration: workspaceLabels.administration,
   title: 'Service health',
   subtitle: 'Check backend connectivity and the services it reports.',
   refresh: 'Refresh status',

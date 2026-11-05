@@ -8,14 +8,17 @@ export function FilePicker({
   disabled,
   icon,
   onSelect,
+  onSelectMany,
 }: {
   label: string
   inputLabel: string
   accept: string
   disabled?: boolean
   icon?: ReactNode
-  onSelect: (file?: File) => void
-}) {
+} & (
+  | { onSelect: (file?: File) => void; onSelectMany?: never }
+  | { onSelect?: never; onSelectMany: (files: File[]) => void }
+)) {
   const input = useRef<HTMLInputElement>(null)
   return (
     <>
@@ -34,9 +37,11 @@ export function FilePicker({
         hidden
         aria-label={inputLabel}
         accept={accept}
+        multiple={!!onSelectMany}
         disabled={disabled}
         onChange={(event) => {
-          onSelect(event.currentTarget.files?.[0])
+          if (onSelectMany) onSelectMany(Array.from(event.currentTarget.files ?? []))
+          else onSelect(event.currentTarget.files?.[0])
           event.currentTarget.value = ''
         }}
       />

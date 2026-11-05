@@ -9,15 +9,15 @@ export function UclLogo() {
       component="img"
       src={logo}
       alt={content.institution}
-      width={167}
-      height={50}
+      width={400}
+      height={112}
       sx={{
         display: 'block',
         width: 128,
         height: 'auto',
         p: 0.75,
         boxSizing: 'content-box',
-        bgcolor: 'common.black',
+        bgcolor: 'common.white',
         flexShrink: 0,
       }}
     />

@@ -1,16 +1,21 @@
 // @vitest-environment jsdom
 import { fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { Application } from '../../domain/types'
+import type { ApplicationListItem } from '../../services/contracts'
 import { applicantProfile } from '../../services/applicantPresentation'
 import '../../test/domSetup'
-import { application, run } from '../../test/fixtures'
+import {
+  applicationListItem as application,
+  completeApplicationListItem,
+  run,
+} from '../../test/fixtures'
 import { renderPage } from '../../test/renderPage'
 import { ApplicationTable } from './ApplicationTable'
 
-function show(applications: Application[], onDelete = vi.fn()) {
+function show(applications: ApplicationListItem[], onDelete = vi.fn()) {
   renderPage(
     <ApplicationTable
+      scope={{ programmeId: application.programmeId, intakeYear: '2026 / 27' }}
       rows={applications.map((application, index) => ({
         application,
         index,
@@ -20,7 +25,7 @@ function show(applications: Application[], onDelete = vi.fn()) {
       onSort={vi.fn()}
       onDelete={onDelete}
     />,
-    '/applications',
+    '/programmes/programme-1/intakes/2026-27/applications',
     '*',
   )
   return onDelete
@@ -45,16 +50,30 @@ describe('Mantis applicant table', () => {
     ])
     expect(screen.getByRole('link', { name: `View ${application.candidate}` })).toHaveAttribute(
       'href',
-      `/applications/${application.id}`,
+      `/programmes/programme-1/intakes/2026-27/applications/${application.id}`,
     )
     expect(cells()[5]).toHaveTextContent(String(run.overall))
+    expect(cells()[3]).toHaveTextContent('Missing')
     expect(cells()[6]).toHaveTextContent('Unconditional')
     expect(cells()[7]).toHaveTextContent('Pending')
+  })
+  it('uses each applicant’s actual batch for both its name link and View action', () => {
+    const batched = { ...application, id: 'APP/1', batchId: 'batch/one' }
+    show([batched])
+    const destination =
+      '/programmes/programme-1/intakes/2026-27/batches/batch%2Fone/applications/APP%2F1'
+    expect(screen.getByRole('link', { name: `View ${batched.candidate}` })).toHaveAttribute(
+      'href',
+      destination,
+    )
+    fireEvent.click(screen.getByRole('button', { name: `View ${batched.candidate}` }))
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent(destination)
   })
   it.each(['queued', 'running', 'failed'] as const)(
     'does not expose scores for %s runs',
     (status) => {
-      show([{ ...application, runs: [{ ...run, status }] }])
+      show([{ ...completeApplicationListItem, runs: [{ ...run, status }] }])
+      expect(cells()[3]).toHaveTextContent('Ready')
       expect(cells()[5]).toHaveTextContent('—')
       expect(cells()[6]).toHaveTextContent('—')
       expect(within(cells()[6]).queryByText('Unconditional')).not.toBeInTheDocument()
@@ -81,6 +100,13 @@ describe('Mantis applicant table', () => {
     expect(cells()[5]).toHaveTextContent('—')
     expect(cells()[6]).toHaveTextContent('Conditional')
     expect(cells()[7]).toHaveTextContent('Reject')
+    expect(cells()[3]).toHaveTextContent('Missing')
+  })
+  it('shows Ready for all document categories even before assessment or a tutor decision', () => {
+    show([{ ...completeApplicationListItem, runs: [], decisions: [] }])
+    expect(cells()[3]).toHaveTextContent('Ready')
+    expect(cells()[5]).toHaveTextContent('—')
+    expect(cells()[7]).toHaveTextContent('Pending')
   })
   it('treats old-run decisions as pending and new uploads as unassessed', () => {
     show([

@@ -1,6 +1,9 @@
 import { workspaceLabels } from '../domain/workspace.content'
+import { domainLabelsContent } from '../domain/types.content'
 export const uploadBatchesPageContent = {
-  back: workspaceLabels.back,
+  readinessLabels: domainLabelsContent.readinessLabels,
+  programmes: workspaceLabels.programmes,
+  scopeUnavailable: 'This programme or intake is unavailable or you do not have access.',
   criteria: 'Admission criteria',
   overview: 'Intake overview',
   offers: workspaceLabels.offers,

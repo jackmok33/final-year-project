@@ -2,6 +2,7 @@ import PlusOutlined from '@ant-design/icons/PlusOutlined'
 import { Alert, Button } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { PROGRAMMES_PATH, programmePath } from '../app/paths'
 import { useCommandMutation, useProgrammeIntakesQuery } from '../app/api'
 import { useWorkspace } from '../hooks/useWorkspace'
 import { ErrorNotice, Loading, Page } from '../components/common'
@@ -29,7 +30,7 @@ export function ModulesPage() {
       const { id } = await command({ op: 'workspace', name: normalizedName }).unwrap()
       if (isMounted() && id) {
         setOpen(false)
-        navigate(`/batches?${new URLSearchParams({ programme: id })}`)
+        navigate(programmePath(id))
       }
     } catch (error) {
       if (isMounted()) setSaveError(error)
@@ -39,6 +40,7 @@ export function ModulesPage() {
   return (
     <Page
       title={content.title}
+      breadcrumbs={[{ title: content.title, to: PROGRAMMES_PATH }]}
       actions={
         <Button
           variant="contained"

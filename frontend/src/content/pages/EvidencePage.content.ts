@@ -1,6 +1,8 @@
 import { textValue, type ContentValue } from '../formatText'
 
 export const evidencePageContent = {
+  applicationUnavailable:
+    'This application is unavailable in the selected programme, intake or batch.',
   downloadOriginal: 'Download original',
   invalidCitationMessage:
     'The document, page or run reference is unavailable. This citation has not been verified. Return to the assessment to select a valid source.',

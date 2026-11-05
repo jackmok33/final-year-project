@@ -21,6 +21,15 @@ Each page/component has a matching colocated test, for example
 Keep screen orchestration checks in page tests and controlled UI behaviour in
 component tests. See the [test guide](../test/README.md) for the enforced convention.
 
+`common.Page` renders the supplied Mantis `Breadcrumbs` adaptation when given
+typed links. All segments are clickable; the current segment is the sole page
+heading and has `aria-current="page"`. Pages own readable labels and authorised
+parent scope. `app/paths.ts` constructs stable nested URLs; do not concatenate
+display names or batch ordinals into paths. Back buttons have been removed.
+`LegacyRedirectPage` resolves earlier URLs without changing stored data, retaining
+run/document/page/tab query values and hashes. Layout/sidebar selection follows
+validated route ancestry rather than overriding an explicit URL with preferences.
+
 Shared workspace selection, typed Redux bindings and table pagination belong in
 `src/hooks/`. Both table pages use `usePagination`; each page still owns filtering,
 sorting and its queries. See the [hooks guide](../hooks/README.md) before creating
@@ -93,6 +102,10 @@ programme, intake and batch, so switching context starts a fresh draft. Creation
 requires an active tutor who owns the course; compatibility assignment arrays do
 not grant access. Late PDF inspection/create results cannot update or redirect a
 different screen. Import parsing and atomic persistence stay in services.
+The individual form reuses `DocumentUpload`/Mantis MainCard for six document
+categories. Selection is page-owned; reference files append as a group only after
+all files pass PDF validation, and each has its own removal action. FilePicker
+retains single-file callers and supports multi-file reference selection.
 
 AI fields use `aiRecommendation()` for Unconditional/Conditional/Reject, or `—`
 while unavailable. It projects legacy Offer/Further review to Unconditional/
@@ -125,7 +138,9 @@ Evidence summary use Mantis MainCard's prominent section headers; evidence group
 use smaller headings inside a two-column grid of MainCards, following supplied
 group order instead of separate fixed academic/project columns. `ReviewFlags` renders Mantis
 alerts and a controlled correction action. `SectionAssessments` renders section
-accordions with scores, explanations and uncertainty. Neither section renders PDF
+accordions with scores, explanations and uncertainty. Score breakdown has four
+sections including References; an absent section renders an unavailable
+placeholder without mutating the saved assessment. Neither section renders PDF
 shortcuts; original files are accessed through View documents. The unused
 `EvidenceLink` component, its content and tests were removed. Stored citations and
 validated legacy document bookmarks remain supported by EvidencePage.

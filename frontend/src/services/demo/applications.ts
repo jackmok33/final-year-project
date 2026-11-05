@@ -76,7 +76,8 @@ export async function changeApplication(
         : undefined
       if (command.batchId && !targetBatch)
         throw new Error('Select a batch in the same programme and intake.')
-      if (new Set(command.uploads.map((r) => r.type)).size !== command.uploads.length)
+      const singleUploads = command.uploads.filter((r) => r.type !== 'reference')
+      if (new Set(singleUploads.map((r) => r.type)).size !== singleUploads.length)
         throw new Error('Upload one document per type.')
       const lastReference = Math.max(
         146,
@@ -121,7 +122,7 @@ export async function changeApplication(
       data.applications.push(app)
       assignExistingBatches(data)
       recordAudit(data, user.id, 'Create application', id)
-      result = { id }
+      result = { id, batchId: app.batchId }
       break
     }
     case 'evaluate': {

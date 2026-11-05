@@ -23,9 +23,9 @@ vi.mock('../hooks/useWorkspace', async () => ({
 }))
 describe('module workspace creation', () => {
   beforeEach(resetPageMocks)
-  it('adds a course by name, opens its intake workspace and closes the dialog', async () => {
+  it('adds a course by name, opens its authorised programme destination and closes the dialog', async () => {
     unwrap.mockResolvedValue({ id: 'workspace-new' })
-    renderPage(<ModulesPage />, '/modules', '*')
+    renderPage(<ModulesPage />, '/programmes', '*')
     await userEvent.click(screen.getByRole('button', { name: 'Add Programme' }))
     const input = screen.getByRole('textbox', { name: 'Programme name' })
     expect(input).toHaveFocus()
@@ -34,15 +34,13 @@ describe('module workspace creation', () => {
     await userEvent.keyboard('{Enter}')
     expect(command).toHaveBeenCalledWith({ op: 'workspace', name: 'Data Science & AI MSc' })
     await waitFor(() =>
-      expect(screen.getByLabelText('Current URL')).toHaveTextContent(
-        '/batches?programme=workspace-new',
-      ),
+      expect(screen.getByLabelText('Current URL')).toHaveTextContent('/programmes/workspace-new'),
     )
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
   it('allows creating the first workspace without an assigned course and resets cancelled drafts', async () => {
     workspaceMock.mockReturnValue({ user: tutor, programmes: [], programme: undefined })
-    renderPage(<ModulesPage />, '/modules', '*')
+    renderPage(<ModulesPage />, '/programmes', '*')
     expect(screen.getByRole('alert')).toHaveTextContent('do not have access')
     await userEvent.click(screen.getByRole('button', { name: 'Add Programme' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'Programme name' }), 'Draft')
@@ -54,7 +52,7 @@ describe('module workspace creation', () => {
   })
   it('keeps failed drafts editable and rejects names longer than 100 characters', async () => {
     unwrap.mockRejectedValue({ data: 'Storage unavailable' })
-    renderPage(<ModulesPage />, '/modules', '*')
+    renderPage(<ModulesPage />, '/programmes', '*')
     dispatch.mockClear()
     await userEvent.click(screen.getByRole('button', { name: 'Add Programme' }))
     const input = screen.getByRole('textbox', { name: 'Programme name' })
@@ -77,7 +75,7 @@ describe('module workspace creation', () => {
         finish = resolve
       }),
     )
-    const view = renderPage(<ModulesPage />, '/modules', '*')
+    const view = renderPage(<ModulesPage />, '/programmes', '*')
     await userEvent.click(screen.getByRole('button', { name: 'Add Programme' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'Programme name' }), 'New programme')
     await userEvent.click(screen.getByRole('button', { name: 'Add Programme' }))
@@ -85,7 +83,7 @@ describe('module workspace creation', () => {
     await act(async () => {
       finish({ id: 'late-workspace' })
     })
-    expect(screen.getByLabelText('Current URL')).toHaveTextContent('/modules')
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('/programmes')
   })
 })
 describe('module and intake selection', () => {
@@ -96,18 +94,20 @@ describe('module and intake selection', () => {
       programmes: [{ ...programme, name: 'Legacy course title' }],
       isLoading: false,
     })
-    renderPage(<ModulesPage />, '/modules', '*')
+    renderPage(<ModulesPage />, '/programmes', '*')
     expect(screen.getByRole('link', { name: 'Open Legacy course title 26/27' })).toHaveAttribute(
       'href',
-      '/batches?programme=programme-1&intake=2026+%2F+27',
+      '/programmes/programme-1/intakes/2026-27',
     )
     expect(screen.getByRole('heading', { name: 'Legacy course title 26/27' })).toBeInTheDocument()
     expect(screen.queryByText(programme.code)).not.toBeInTheDocument()
     expect(screen.queryByText(programme.department)).not.toBeInTheDocument()
     expect(screen.queryByText(otherProgramme.name)).not.toBeInTheDocument()
-    expect(screen.getAllByRole('link')).toHaveLength(3)
-    for (const link of screen.getAllByRole('link'))
-      expect(link.getAttribute('href')).toMatch(/^\/batches\?/)
+    expect(screen.getByRole('link', { name: 'Programme' })).toHaveAttribute('href', '/programmes')
+    expect(screen.getByRole('link', { name: 'Programme' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getAllByRole('link', { name: /^Open / })).toHaveLength(3)
+    for (const link of screen.getAllByRole('link', { name: /^Open / }))
+      expect(link.getAttribute('href')).toMatch(/^\/programmes\/programme-1\/intakes\//)
     expect(screen.queryByRole('link', { name: 'Open Legacy course title' })).not.toBeInTheDocument()
   })
   it('opens the selected intake directly from programme cards', async () => {
@@ -116,19 +116,19 @@ describe('module and intake selection', () => {
         { programmeId: programme.id, years: ['2026 / 27', '2025 / 26', '2024 / 25', '2020 / 21'] },
       ]),
     )
-    renderPage(<ModulesPage />, '/modules', '*')
+    renderPage(<ModulesPage />, '/programmes', '*')
     for (const year of ['26/27', '25/26', '24/25', '20/21']) {
       expect(screen.getByRole('heading', { name: `CSML ${year}` })).toBeInTheDocument()
     }
     await userEvent.click(screen.getByRole('link', { name: 'Open CSML 25/26' }))
     expect(screen.getByLabelText('Current URL')).toHaveTextContent(
-      '/batches?programme=programme-1&intake=2025+%2F+26',
+      '/programmes/programme-1/intakes/2025-26',
     )
     expect(command).not.toHaveBeenCalled()
   })
   it('shows module loading and lookup failures without inventing counts', () => {
     workspaceMock.mockReturnValue({ programmes: [], isLoading: true })
-    const view = renderPage(<ModulesPage />, '/modules', '*')
+    const view = renderPage(<ModulesPage />, '/programmes', '*')
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
     workspaceMock.mockReturnValue({ programmes: [], error: { data: 'Storage unavailable' } })
     view.rerender(<ModulesPage />)

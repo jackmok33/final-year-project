@@ -15,6 +15,7 @@ import type { ReactNode } from 'react'
 import { errorMessage } from '../services/errors'
 import MainCard, { type MainCardProps } from '../mantis/components/MainCard'
 import CircularWithPath from '../mantis/components/CircularWithPath'
+import Breadcrumbs, { type BreadcrumbLink } from '../mantis/components/Breadcrumbs'
 export function Card({
   title,
   children,
@@ -34,13 +35,16 @@ export function Page({
   title,
   subtitle,
   actions,
+  breadcrumbs,
   children,
 }: {
   title: string
   subtitle?: string
   actions?: ReactNode
+  breadcrumbs?: BreadcrumbLink[]
   children: ReactNode
 }) {
+  const content = useContent('common')
   return (
     <Stack spacing={3}>
       <Box
@@ -52,10 +56,14 @@ export function Page({
           gap: 2,
         }}
       >
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="h1" component="h1">
-            {title}
-          </Typography>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          {breadcrumbs?.length ? (
+            <Breadcrumbs links={breadcrumbs} label={content.breadcrumbNavigation} />
+          ) : (
+            <Typography variant="h1" component="h1">
+              {title}
+            </Typography>
+          )}
           {subtitle && (
             <Typography color="text.secondary" sx={{ mt: 0.75 }}>
               {subtitle}

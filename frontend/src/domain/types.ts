@@ -13,8 +13,26 @@ export function decisionOutcome(outcome: Outcome | undefined): DecisionOutcome {
   return isTutorOutcome(outcome) ? outcome : 'Pending'
 }
 export type Workflow = 'queued' | 'running' | 'awaiting review' | 'completed' | 'failed'
-export type DocumentType = 'transcript' | 'cv' | 'statement'
-export type SectionKey = 'academic' | 'cv' | 'statement'
+export const coreDocumentTypes = ['transcript', 'cv', 'statement'] as const
+export const documentTypes = [
+  ...coreDocumentTypes,
+  'application_form',
+  'english_test',
+  'reference',
+] as const
+export type DocumentType = (typeof documentTypes)[number]
+export type ApplicantReadiness = 'ready' | 'missing'
+
+/** Document readiness is independent of assessment progress and tutor decisions. */
+export function applicantReadiness(presentTypes: readonly DocumentType[]): ApplicantReadiness {
+  return documentTypes.every((type) => presentTypes.includes(type)) ? 'ready' : 'missing'
+}
+
+export const legacySectionKeys = ['academic', 'cv', 'statement'] as const
+export const sectionKeys = [...legacySectionKeys, 'references'] as const
+export type SectionKey = (typeof sectionKeys)[number]
+export type SectionWeights = Record<(typeof legacySectionKeys)[number], number> &
+  Partial<Record<'references', number>>
 export interface User {
   id: string
   name: string
@@ -40,7 +58,7 @@ export interface Rubric {
   programmeId: string
   version: string
   createdAt: string
-  weights: Record<SectionKey, number>
+  weights: SectionWeights
   rejectBelow: number
   offerFrom: number
   margin: number
@@ -193,11 +211,6 @@ export function currentDecision(app: Application) {
   const decision = latestDecision(app)
   return run && decision?.runId === run.id ? decision : undefined
 }
-export function applicationState(app: Application): Workflow | 'not evaluated' {
-  const run = latestRun(app)
-  return finalDecision(app) ? 'completed' : (run?.status ?? 'not evaluated')
-}
-
 export function finalDecision(app: Application) {
   const decision = currentDecision(app)
   return decision && isTutorOutcome(decision.outcome) ? decision : undefined

@@ -1,5 +1,6 @@
 import { workspaceLabels } from '../domain/workspace.content'
 import { textValue, type ContentValue } from '../formatText'
+import { batchListContent } from '../components/batches/BatchList.content'
 
 export const assessmentPageContent = {
   processingMessage: (status: ContentValue) =>
@@ -11,7 +12,9 @@ export const assessmentPageContent = {
   historicRunNotice:
     'Viewing a previous assessment. Return to the latest assessment to record a decision or correct a fact.',
   programme: 'Programme',
-  back: workspaceLabels.back,
+  applicationUnavailable:
+    'This application is unavailable in the selected programme, intake or batch.',
+  batchName: batchListContent.batchName,
   applicantHeading: (index: number, name: string, studentId: string) =>
     name === studentId ? `${index} - ${name}` : `${index} - ${name} - ${studentId}`,
   reviewTabs: workspaceLabels.reviewTabs,

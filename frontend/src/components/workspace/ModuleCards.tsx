@@ -1,6 +1,7 @@
 import ArrowRightOutlined from '@ant-design/icons/ArrowRightOutlined'
 import { Box, CardActionArea, Stack, Typography } from '@mui/material'
 import { Link } from 'react-router-dom'
+import { intakePath } from '../../app/paths'
 import type { Programme } from '../../domain/types'
 import { intakeYears } from '../../domain/intakes'
 import { programmeIntakeLabel } from '../../domain/programmeDisplay'
@@ -38,7 +39,7 @@ export function ModuleCards({
             <MainCard key={`${module.id}:${year}`} content={false}>
               <CardActionArea
                 component={Link}
-                to={`/batches?${new URLSearchParams({ programme: module.id, intake: year })}`}
+                to={intakePath({ programmeId: module.id, intakeYear: year })}
                 aria-label={content.openProgramme(label)}
                 sx={{ p: 3, minHeight: 126 }}
               >

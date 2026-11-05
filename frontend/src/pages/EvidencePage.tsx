@@ -3,6 +3,7 @@ import DownloadOutlined from '@ant-design/icons/DownloadOutlined'
 import { useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useApplicationQuery } from '../app/api'
+import { matchesRouteScope } from '../app/paths'
 import { useAppSelector } from '../hooks/redux'
 import { ErrorNotice, Loading } from '../components/common'
 import { DocumentNavigation } from '../components/evidence/DocumentNavigation'
@@ -12,16 +13,33 @@ import { latestRun } from '../domain/types'
 import { admissionsService } from '../services/admissions'
 import { errorMessage } from '../services/errors'
 import { useContent } from '../hooks/useContent'
+import { useWorkspace } from '../hooks/useWorkspace'
+import { applicationIntakeYear } from '../domain/intakes'
 import MainCard from '../mantis/components/MainCard'
 
 export function EvidencePage() {
   const content = useContent('evidencePage')
-  const { id = '' } = useParams()
+  const routeParams = useParams()
+  const { id = '' } = routeParams
+  const { programmes, isLoading: workspaceLoading } = useWorkspace()
   const [params, setParams] = useSearchParams()
   const { currentData: data, error } = useApplicationQuery(id)
   const userId = useAppSelector((s) => s.session.userId)
   const [downloadError, setDownloadError] = useState('')
   if (!data) return error ? <ErrorNotice error={error} /> : <Loading />
+  const app = data.application
+  const programme = programmes.find((candidate) => candidate.id === app.programmeId)
+  if (routeParams.programmeId && workspaceLoading) return <Loading />
+  if (
+    !matchesRouteScope(routeParams, {
+      programmeId: app.programmeId,
+      intakeYear: programme ? applicationIntakeYear(app, programme) : (app.intakeYear ?? ''),
+      batchId: app.batchId,
+    }) ||
+    (routeParams.programmeId && !programme) ||
+    (routeParams.id !== undefined && routeParams.id !== app.id)
+  )
+    return <ErrorNotice error={content.applicationUnavailable} />
   const doc = params.has('document')
     ? data.documents.find((d) => d.id === params.get('document'))
     : (data.documents.find((d) => d.type === 'transcript') ?? data.documents[0])

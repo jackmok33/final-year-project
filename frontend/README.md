@@ -1,4 +1,4 @@
-# UCL Application Review Workspace
+# Admission Review System
 
 React, TypeScript and Vite frontend using the supervisor-supplied **Mantis React
 Next TypeScript 4.0.1** source, MUI, React Router, Redux Toolkit and RTK Query.
@@ -82,7 +82,37 @@ connected; entered passwords are never persisted or sent to the mock backend.
 The three examples display as **CSML**, **ML** and **CS** with years such as 26/27.
 Their full stored names remain Computational Statistics and Machine Learning MSc,
 Machine Learning MSc and Computer Science MSc. Other programme names display as
-entered. Technical `Programme` models and `/modules` routes remain compatible.
+entered. The Programme list now lives at `/programmes`; old `/modules` links
+remain compatible.
+
+Page headings use the supplied Mantis breadcrumbs instead of Back buttons. Every
+segment is linked, including the current page: **Programme / CSML 26/27 / Batch 1 /
+1 - Carson Darrin - 24738849**. Programme, intake and batch links open their own
+pages directly. Applicant names and batch numbers are display labels; stable IDs
+identify records in the URL so renaming/reordering does not break bookmarks.
+
+```text
+/programmes
+/programmes/:programmeId/intakes/2026-27
+/programmes/:programmeId/intakes/2026-27/batches/:batchId
+/programmes/:programmeId/intakes/2026-27/batches/:batchId/applications/:id
+```
+
+Add applicant uses the same parent path with `applications/new`. Original-document
+links append `/evidence`; correction/decision dialogs also retain their legacy
+action suffixes. Intake queues and unbatched applicants have the equivalent
+`.../intakes/:intake/applications` paths. `src/app/paths.ts` owns path construction
+and intake-segment encoding. Pages verify actual programme/intake/batch ancestry
+before showing data or mutation controls.
+Numeric intakes use `2026-27`; descriptive legacy labels use a reserved, reversible
+URL-safe segment so literal slashes, percent sequences and Unicode round-trip
+through React Router without changing the stored label.
+
+Old `/batches`, `/batches/:batchId`, `/applications` and applicant/action URLs
+resolve through authorised reads and redirect to their canonical nested URL.
+Run/document/page/tab bookmarks and hashes are retained; conflicting explicit
+ancestors show an error. The old `/criteria` URL selects the criteria tab in the
+nested intake workspace. No saved records or PDF bytes are migrated or reset.
 
 Select **Add Programme**, enter a name (1–100 trimmed characters) and save. Names
 accept punctuation and Unicode and cannot duplicate another name owned by the
@@ -104,8 +134,8 @@ whole programme across intakes.
 ## Intake workspace and uploads
 
 The intake workspace has page-level **Batches**, **Admission criteria** and
-**Analytics** tabs. Batches contains **Total applications**, **Offers given** and
-**Total pending review**, followed by the ZIP upload area and batch table.
+**Analytics** tabs. Batches contains **Applications**, **Offers** and
+**Pending reviews**, followed by the ZIP upload area and batch table.
 Counts use the latest tutor decision matching the latest run.
 Conditional and Unconditional are offers; Reject is a completed decision. Older
 run decisions and legacy Further review/generic Offer records remain pending. A
@@ -144,14 +174,21 @@ November.zip
     cv.pdf
     transcript.pdf
     statement.pdf
+    application_form.pdf
+    english_test.pdf
+    reference-1.pdf
+    reference-2.pdf
   APPLICANT-002/
     cv.pdf
 ```
 
-Folder names become candidate references. Common CV/resume, transcript and
-personal-statement names are recognised. Missing types remain missing. Ambiguous
-names, duplicate types, unsafe/duplicate paths, non-PDF files and unreadable PDFs
-reject the entire import. macOS archive metadata is ignored.
+Folder names become candidate references. Common CV/resume, transcript,
+personal-statement, application-form, English/IELTS/TOEFL/PTE and reference names
+are recognised. References may have multiple PDFs; other categories accept one.
+Give references a recognisable prefix (for example `reference-1.pdf`); a name-only
+letter cannot be classified from its filename. Missing types remain missing.
+Ambiguous names, duplicate singleton types, unsafe/duplicate paths, non-PDF files
+and unreadable PDFs reject the entire import. macOS archive metadata is ignored.
 
 Service-layer limits remain 100 MB compressed, 200 MB extracted, 100 applicants,
 20 MB per PDF and 100 combined pages per applicant. Bounded extraction uses
@@ -161,6 +198,11 @@ refresh before commit requires selecting the ZIP again.
 
 The original extracted PDFs are retained, not the ZIP container. **Add applicant**
 on a batch opens the individual PDF form and preserves that batch association.
+The form uses the existing Mantis upload cards for transcript, CV, personal
+statement, application form, English test report and references. Add references
+in one selection or incrementally and remove each independently. A failed
+multi-reference selection adds none of that selection and preserves earlier
+valid references. All originals are available through View documents.
 New uploads receive no invented facts, scores or recommendations. Uploads are
 not yet sent to FastAPI or PostgreSQL.
 
@@ -174,12 +216,18 @@ reserved for buttons. Numeric IDs/scores sort numerically, equal values keep the
 original order, and missing scores/universities stay last in both directions.
 Sorting covers all filtered rows before pagination and returns to page one; the
 quick-sort selector reflects the selected column/direction.
+State describes document completeness: **Ready** requires all six categories,
+including at least one reference; **Missing** means a category is absent. The table,
+two-option filter, sorting and CSV use the same projection from linked document
+records. A tutor decision or completed AI run does not make missing documents ready.
+Older three-document examples therefore remain Missing. Uploading all six categories
+can produce Ready while AI remains unavailable and the tutor decision is Pending.
 Queued, failed and unassessed cases never expose precomputed scores as completed
 results. Decisions from older assessments remain saved; the current result stays pending.
 
 The AI field contains **Unconditional**, **Conditional** or **Reject**. The tutor
 Decision field contains those values or **Pending**. Missing/unfinished AI results
-show `—`; processing remains in State. The same projection is used in the applicant
+show `—`; processing status remains available in the assessment. The same projection is used in the applicant
 summary, sorting and CSV export. Pending is derived when no current classified
 decision exists, rather than saved as a fourth tutor outcome.
 
@@ -194,7 +242,10 @@ The review has a compact score/AI/decision summary and four Mantis tabs:
   and work experience.
 - **Review flag:** actionable evidence alerts; Update detail opens a correction
   popup with a source page and reason, keeping the review tab in place.
-- **Score breakdown:** expandable section scores, explanations and uncertainty.
+- **Score breakdown:** four Mantis accordions for academic performance, CV and
+  experience, personal statement and references, with explanations and uncertainty.
+  A section absent from an older assessment displays Score unavailable; stored
+  totals, criteria versions and runs are not rewritten.
 - **View documents:** original PDF selection, page navigation and download.
 
 Recommendation and section-score summaries have no PDF shortcuts. Use View
@@ -240,7 +291,11 @@ valid and older results are read-only, with a return to the latest result.
 Names/student IDs and the expanded evidence summary for known synthetic cases
 are **presentation fixtures**, not PDF extraction or new HTTP fields. Transcript
 module values use the existing sample PDF, and the overall extracted grade follows
-the selected run. Real uploads get no fixture identity/evidence. These additions
+the selected run, including a corrected or historical mark. Unsupported fixed degree
+classifications and per-referee scores are not substituted for assessment data.
+The evidence summary shows an overall reference score only if the run contains one.
+The English bands and ranking are coherent illustrative fixture metadata. Real
+uploads get no fixture identity/evidence. These additions
 do not establish evidence provenance for a deployed admissions system.
 
 The sample weights, thresholds, rankings and recommendations are illustrative,
@@ -249,10 +304,17 @@ at the user's request; functional errors and destructive confirmations remain.
 
 ## Criteria
 
-Active owners can edit three section weights, offer/reject thresholds and review
+Active owners can edit four section weights, offer/reject thresholds and review
 margin from the intake's criteria tab. Weights total 100%; finite values and
 threshold ordering are validated. Additional thresholds expand on demand. The
 unimplemented mandatory academic rule remains internal for compatibility.
+New private programmes start with illustrative weights of 40/25/25/10 for
+academic/CV/statement/references. Existing courses retain their saved weights;
+a legacy rubric displays References at 0% until the owner allocates a weight.
+Positive reference weight requires an actual reference assessment for a complete
+total. Missing reference scores stay unavailable; totals are not renormalised.
+English-language eligibility and cross-document concerns are separate from the
+four weighted sections and require the future evaluator, not fabricated upload data.
 
 **Save criteria** creates and activates a new version. Existing runs and decisions
 retain their original criteria; only explicit re-evaluation uses the new version.
@@ -310,6 +372,11 @@ optional mock API, synthetic reassessments send fixture IDs,
 document metadata and criteria, not original PDFs or tutor notes. HTTP errors do
 not silently fall back or save partial corrections. The HTTP response contract
 and independent five-table PostgreSQL foundation are unchanged by this redesign.
+The existing FastAPI mock accepts only three scored sections. Zero-weight
+references preserve that request shape and extra document metadata stays local.
+A positive reference weight is rejected before a mock request rather than
+silently dropping its contribution or modifying existing runs. Real four-section
+inference and the server's expanded document constraints remain backend work.
 
 Real authentication, upload APIs, extraction, inference, PostgreSQL-backed HTTP
 routes, database/model health checks and deployment remain future work.

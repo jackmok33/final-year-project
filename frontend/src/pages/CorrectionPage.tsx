@@ -2,6 +2,8 @@ import { Alert } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useApplicationQuery, useCommandMutation } from '../app/api'
+import { applicationPath, matchesRouteScope } from '../app/paths'
+import { applicationIntakeYear } from '../domain/intakes'
 import { CorrectionForm } from '../components/assessment/CorrectionForm'
 import { ErrorNotice, Loading } from '../components/common'
 import {
@@ -25,25 +27,50 @@ export function CorrectionPage({
   readOnly?: boolean
 } = {}) {
   const content = useContent('correctionPage')
-  const { id = '' } = useParams()
+  const routeParams = useParams()
+  const { id = '' } = routeParams
   const [params] = useSearchParams()
-  const { user } = useWorkspace()
+  const { user, programmes, isLoading: workspaceLoading } = useWorkspace()
   const { currentData: data, error } = useApplicationQuery(id, { pollingInterval: 1000 })
   const [command, mutation] = useCommandMutation()
   const navigate = useNavigate()
   const run = data && latestRun(data.application)
   const selectedRun = data?.application.runs.find((candidate) => candidate.id === params.get('run'))
   const historic = readOnly || Boolean(selectedRun && selectedRun !== run)
-  const canCorrect = Boolean(run && isAssessmentReady(run) && run.extractedGrade !== null)
+  const app = data?.application
+  const programme = programmes.find((candidate) => candidate.id === app?.programmeId)
+  const scope = {
+    programmeId: app?.programmeId ?? '',
+    intakeYear: app && programme ? applicationIntakeYear(app, programme) : (app?.intakeYear ?? ''),
+    batchId: app?.batchId,
+  }
+  const validScope = Boolean(
+    app &&
+    matchesRouteScope(routeParams, scope) &&
+    (!routeParams.programmeId || programme) &&
+    (routeParams.id === undefined || routeParams.id === app.id),
+  )
+  const canCorrect = Boolean(
+    validScope && run && isAssessmentReady(run) && run.extractedGrade !== null,
+  )
+  const basePath = applicationPath({ ...scope, applicationId: app?.id ?? id })
   function close() {
     if (mutation.isLoading) return
     if (onClose) onClose()
-    else navigate(`/applications/${encodeURIComponent(id)}?tab=flags`)
+    else if (validScope) navigate(`${basePath}?tab=flags`)
   }
   async function save(value: number, page: number, reason: string, documentId: string) {
-    if (!run || !canCorrect || historic || mutation.isLoading) return false
+    if (!app || !run || !canCorrect || historic || mutation.isLoading) return false
     try {
-      await command({ op: 'correct', id, runId: run.id, value, reason, documentId, page }).unwrap()
+      await command({
+        op: 'correct',
+        id: app.id,
+        runId: run.id,
+        value,
+        reason,
+        documentId,
+        page,
+      }).unwrap()
       return true
     } catch {
       return false
@@ -57,12 +84,14 @@ export function CorrectionPage({
       onClose={close}
       busy={mutation.isLoading}
     >
-      {!data ? (
+      {!data || (routeParams.programmeId && workspaceLoading) ? (
         error ? (
           <ErrorNotice error={error} />
         ) : (
           <Loading />
         )
+      ) : !validScope ? (
+        <ErrorNotice error={content.applicationUnavailable} />
       ) : historic ? (
         <Alert severity="info">{content.readOnly}</Alert>
       ) : !run || !canCorrect ? (
@@ -78,7 +107,7 @@ export function CorrectionPage({
           onSaved={() => {
             if (onSaved) onSaved()
             else if (onClose) onClose()
-            else navigate(`/applications/${encodeURIComponent(id)}?tab=flags`)
+            else navigate(`${basePath}?tab=flags`)
           }}
           cancel={close}
         />

@@ -9,6 +9,7 @@ import {
   TableRow,
 } from '@mui/material'
 import { Link } from 'react-router-dom'
+import { batchPath } from '../../app/paths'
 import type { BatchSummary } from '../../domain/types'
 import { useContent } from '../../hooks/useContent'
 import TablePagination from '../../mantis/components/TablePagination'
@@ -66,7 +67,14 @@ export function BatchList({
                   {batches.map((batch) => (
                     <TableRow key={batch.id} hover>
                       <TableCell>
-                        <MuiLink component={Link} to={`/batches/${encodeURIComponent(batch.id)}`}>
+                        <MuiLink
+                          component={Link}
+                          to={batchPath({
+                            programmeId: batch.programmeId,
+                            intakeYear: batch.intakeYear,
+                            batchId: batch.id,
+                          })}
+                        >
                           {content.batchName(batch.sequence)}
                         </MuiLink>
                       </TableCell>

@@ -12,14 +12,36 @@ describe('WorkspaceNavigation', () => {
     renderPage(
       <WorkspaceNavigation
         admin={false}
-        items={[{ id: 'one', label: 'CSML 26/27', path: '/batches?programme=one', selected: true }]}
+        items={[
+          {
+            id: 'one',
+            label: 'CSML 26/27',
+            path: '/programmes/one/intakes/2026-27',
+            selected: true,
+          },
+        ]}
         onNavigate={onNavigate}
       />,
     )
     const link = screen.getByRole('link', { name: 'Open course CSML 26/27' })
     expect(link).toHaveAttribute('aria-current', 'page')
-    expect(link).toHaveAttribute('href', '/batches?programme=one')
+    expect(link).toHaveAttribute('href', '/programmes/one/intakes/2026-27')
     await userEvent.click(link)
     expect(onNavigate).toHaveBeenCalledOnce()
   })
+  it.each([
+    [false, '/programmes'],
+    [true, '/admin/users'],
+  ] as const)(
+    'returns the logo to the canonical workspace home when admin=%s',
+    async (admin, destination) => {
+      const onNavigate = vi.fn()
+      renderPage(<WorkspaceNavigation admin={admin} items={[]} onNavigate={onNavigate} />)
+      const logo = screen.getByRole('link', { name: 'UCL' })
+      expect(logo).toHaveAttribute('href', destination)
+      await userEvent.click(logo)
+      expect(onNavigate).toHaveBeenCalledOnce()
+      expect(screen.getByLabelText('Current URL')).toHaveTextContent(destination)
+    },
+  )
 })

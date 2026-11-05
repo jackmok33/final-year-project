@@ -6,7 +6,14 @@ import { downloadBlob } from '../components/files'
 import type { BatchSummary, Decision } from '../domain/types'
 import { releaseArchive, stageArchive } from '../services/fileStaging'
 import '../test/domSetup'
-import { application, otherProgramme, programme, run, tutor } from '../test/fixtures'
+import {
+  applicationListItem as application,
+  completeApplicationListItem,
+  otherProgramme,
+  programme,
+  run,
+  tutor,
+} from '../test/fixtures'
 import {
   apiMocks,
   command,
@@ -46,6 +53,40 @@ describe('intake upload batches', () => {
     source: 'zip',
   }
   beforeEach(resetPageMocks)
+  it('takes programme/intake from the nested URL rather than stale saved selection', () => {
+    workspaceMock.mockReturnValue({
+      user: tutor,
+      programme: otherProgramme,
+      programmes: [programme, otherProgramme],
+      intakeYear: otherProgramme.year,
+    })
+    renderPage(
+      <UploadBatchesPage />,
+      '/programmes/programme-1/intakes/2025-26',
+      '/programmes/:programmeId/intakes/:intake',
+    )
+    expect(apiMocks.useBatchesQuery).toHaveBeenCalledWith(
+      { programmeId: programme.id, intakeYear: '2025 / 26' },
+      { skip: false },
+    )
+    const breadcrumbs = within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
+    expect(breadcrumbs.getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
+      '/programmes',
+      '/programmes/programme-1/intakes/2025-26',
+    ])
+    expect(screen.queryByRole('link', { name: 'Back' })).not.toBeInTheDocument()
+  })
+  it.each([
+    '/programmes/unavailable/intakes/2026-27',
+    '/programmes/programme-1/intakes/unknown-intake',
+    '/programmes/programme-1/intakes/~invalid!',
+  ])('does not fall back to another workspace for %s', (url) => {
+    renderPage(<UploadBatchesPage />, url, '/programmes/:programmeId/intakes/:intake')
+    expect(screen.getByRole('alert')).toHaveTextContent('This programme or intake is unavailable')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Application ZIP file')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Export results as CSV' })).not.toBeInTheDocument()
+  })
   function decision(outcome: Decision['outcome'], runId = run.id): Decision {
     return {
       id: `decision-${outcome}`,
@@ -112,7 +153,7 @@ describe('intake upload batches', () => {
   it('exports the whole course across intakes and batches with safe CSV values and separate tutor decisions', async () => {
     apiMocks.useApplicationsQuery.mockReturnValue(
       queryResult([
-        { ...application, candidate: '=1+2', batchId: 'first' },
+        { ...completeApplicationListItem, candidate: '=1+2', batchId: 'first' },
         {
           ...application,
           id: 'OTHER-INTAKE',
@@ -134,6 +175,8 @@ describe('intake upload batches', () => {
     expect(csv).toContain('OTHER-INTAKE')
     expect(csv).toContain('2025 / 26')
     expect(csv).toContain('"Unconditional","Reject","1.0"')
+    expect(csv).toContain('"2026 / 27","Ready",')
+    expect(csv).toContain('"2025 / 26","Missing",')
     expect(csv).not.toContain('OTHER-COURSE')
     expect(csv.split('\r\n')).toHaveLength(3)
   })
@@ -199,12 +242,12 @@ describe('intake upload batches', () => {
     renderPage(<UploadBatchesPage />, '/batches', '*')
     expect(apiMocks.useApplicationsQuery).toHaveBeenCalledWith(programme.id, { skip: false })
     expect(screen.getByRole('region', { name: 'Intake overview' })).toBeInTheDocument()
-    summaryValue('Total applications', '6')
-    summaryValue('Offers given', '1')
-    summaryValue('Total pending review', '4')
+    summaryValue('Applications', '6')
+    summaryValue('Offers', '1')
+    summaryValue('Pending reviews', '4')
     expect(
       screen
-        .getByRole('heading', { name: 'Offers given' })
+        .getByRole('heading', { name: 'Offers' })
         .compareDocumentPosition(screen.getByRole('heading', { name: 'Upload application' })) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
@@ -216,22 +259,22 @@ describe('intake upload batches', () => {
       ]),
     )
     const view = renderPage(<UploadBatchesPage />, '/batches', '*')
-    summaryValue('Total applications', '0')
-    summaryValue('Offers given', '0')
-    summaryValue('Total pending review', '0')
+    summaryValue('Applications', '0')
+    summaryValue('Offers', '0')
+    summaryValue('Pending reviews', '0')
     workspaceMock.mockReturnValue({ programme, programmes: [programme], intakeYear: '2025 / 26' })
     view.rerender(<UploadBatchesPage />)
-    summaryValue('Total applications', '1')
-    summaryValue('Offers given', '1')
-    summaryValue('Total pending review', '0')
+    summaryValue('Applications', '1')
+    summaryValue('Offers', '1')
+    summaryValue('Pending reviews', '0')
   })
   it('keeps unclassified legacy tutor offers pending without changing their stored outcome', async () => {
     const legacy = { ...application, decisions: [decision('Offer')] }
     const original = structuredClone(legacy)
     apiMocks.useApplicationsQuery.mockReturnValue(queryResult([legacy]))
     renderPage(<UploadBatchesPage />, '/batches', '*')
-    summaryValue('Offers given', '0')
-    summaryValue('Total pending review', '1')
+    summaryValue('Offers', '0')
+    summaryValue('Pending reviews', '1')
     await userEvent.click(screen.getByRole('tab', { name: 'Analytics' }))
     expect(screen.getByRole('heading', { name: 'Decision overview' })).toBeInTheDocument()
     expect(
@@ -248,8 +291,8 @@ describe('intake upload batches', () => {
       'aria-disabled',
       'false',
     )
-    expect(screen.queryByRole('heading', { name: 'Offers given' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Total applications' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Offers' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Applications' })).not.toBeInTheDocument()
     apiMocks.useApplicationsQuery.mockReturnValue({ data: [application], isLoading: false })
     view.rerender(<UploadBatchesPage />)
     expect(overview().getByRole('progressbar')).toBeInTheDocument()
@@ -259,12 +302,12 @@ describe('intake upload batches', () => {
     })
     view.rerender(<UploadBatchesPage />)
     expect(overview().getByRole('alert')).toHaveTextContent('Application lookup failed')
-    expect(screen.queryByRole('heading', { name: 'Total applications' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Offers given' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Applications' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Offers' })).not.toBeInTheDocument()
     apiMocks.useApplicationsQuery.mockReturnValue(queryResult([application]))
     view.rerender(<UploadBatchesPage />)
-    summaryValue('Offers given', '0')
-    summaryValue('Total pending review', '1')
+    summaryValue('Offers', '0')
+    summaryValue('Pending reviews', '1')
   })
   it('queries the selected intake and shows upload date/time, applicant count and encoded batch links', () => {
     workspaceMock.mockReturnValue({
@@ -291,11 +334,12 @@ describe('intake upload batches', () => {
       { programmeId: programme.id, intakeYear: '2025 / 26' },
       { skip: false },
     )
-    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/modules')
+    expect(screen.queryByRole('link', { name: 'Back' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Programme' })).toHaveAttribute('href', '/programmes')
     expect(screen.getByRole('tab', { name: 'Admission criteria' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Batch 2' })).toHaveAttribute(
       'href',
-      '/batches/batch%2Fone%3F',
+      '/programmes/programme-1/intakes/2025-26/batches/batch%2Fone%3F',
     )
     const table = screen.getByRole('table', { name: 'Batches' })
     expect(
@@ -367,7 +411,9 @@ describe('intake upload batches', () => {
     })
     expect(releaseArchive).toHaveBeenCalledWith('archive-staged')
     await waitFor(() =>
-      expect(screen.getByLabelText('Current URL')).toHaveTextContent('/batches/batch%2Fone%3F'),
+      expect(screen.getByLabelText('Current URL')).toHaveTextContent(
+        '/programmes/programme-1/intakes/2026-27/batches/batch%2Fone%3F',
+      ),
     )
   })
   it('surfaces import errors, releases the staged file and allows choosing a corrected ZIP', async () => {

@@ -37,6 +37,7 @@ import { correctionPageContent } from './pages/CorrectionPage.content'
 import { criteriaPageContent } from './pages/CriteriaPage.content'
 import { decisionPageContent } from './pages/DecisionPage.content'
 import { evidencePageContent } from './pages/EvidencePage.content'
+import { legacyRedirectPageContent } from './pages/LegacyRedirectPage.content'
 import { loginPageContent } from './pages/LoginPage.content'
 import { modulesPageContent } from './pages/ModulesPage.content'
 import { newApplicationPageContent } from './pages/NewApplicationPage.content'
@@ -69,6 +70,7 @@ export const content = {
   evidencePage: evidencePageContent,
   evidenceSummary: evidenceSummaryContent,
   layout: layoutContent,
+  legacyRedirectPage: legacyRedirectPageContent,
   loginPage: loginPageContent,
   moduleCards: moduleCardsContent,
   modulesPage: modulesPageContent,

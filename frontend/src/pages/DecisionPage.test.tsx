@@ -15,6 +15,16 @@ vi.mock('../hooks/useWorkspace', async () => ({
 }))
 describe('tutor decision page', () => {
   beforeEach(resetPageMocks)
+  it('blocks decision controls under another canonical programme', () => {
+    renderPage(
+      <DecisionPage />,
+      '/programmes/programme-2/intakes/2026-27/applications/APP-TEST/decision',
+      '/programmes/:programmeId/intakes/:intake/applications/:id/decision',
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent('This application is unavailable')
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+    expect(command).not.toHaveBeenCalled()
+  })
   it('does not show a previous application while loading', () => {
     apiMocks.useApplicationQuery.mockReturnValue({ ...queryResult(detail), currentData: undefined })
     renderPage(<DecisionPage />, '/applications/APP-OTHER/decision')

@@ -1,9 +1,160 @@
-# Frontend verification — 1 November 2026
+# Frontend verification — 5 November 2026
 
-This snapshot covers the Users/Service health admin workspace and earlier tutor review
-changes. Earlier snapshots remain
-below. Startup and reproducible commands are in the
+This snapshot covers nested routes/Mantis breadcrumbs, manual copy/branding
+alignment, document readiness, expanded application documents and the existing
+Mantis tutor/admin interface. Earlier snapshots remain below.
+Startup and reproducible commands are in the
 [frontend guide](README.md#checks).
+
+## Final frontend PR review — 5 November
+
+Reviewed the full frontend changes against the current main branch, including
+the final supplied Mantis breadcrumb presentation, nested-route guards, legacy
+bookmarks, six document categories, multiple references, readiness projections,
+scoring compatibility and fixture evidence. No blocking issues were found.
+The branch starts from main after PR #9; unrelated backend/planning changes and
+the untracked old-logo backup are excluded.
+
+All 877 tests across 105 companions pass with one coverage worker. Coverage is
+98.65% lines, 97.46% statements, 97.93% functions and 93.47% branches. TypeScript,
+ESLint, Prettier, standard/e2e production builds, test structure and whitespace
+checks pass. All 21 standalone production-browser workflows and all three FastAPI
+browser workflows pass against the final breadcrumb source. Browser assertions
+include its original h6 linked-item typography, neutral colour and no hover
+decoration, plus keyboard navigation and every parent destination. All 68 original
+Mantis source/layout hashes and mapped paths verify.
+
+Backend unit/Ruff/PostgreSQL suites were not rerun. Backend HTTP/storage schemas
+are unchanged by this PR; uploads remain in IndexedDB, and the existing mock API
+explicitly rejects positive reference weighting before HTTP. No browser data was
+reset and no real extraction, inference or authentication is implied.
+
+## Nested navigation and Mantis breadcrumbs — 4 November
+
+Default-presentation follow-up: removed the custom h4 font, current-item colour,
+hover/focus effects, wrapping overrides and forced expanded hierarchy. The supplied
+custom-links rendering now keeps its h6 linked-item typography, secondary-text
+colour, no text decoration, MainCard margin, Grid spacing/alignment and eight-item
+collapse default. Required Router/MUI API and semantic/ARIA wiring remain.
+All 26 focused tests pass, including the restored default collapse behaviour.
+The production breadcrumb workflow verifies 14px regular linked text, neutral
+colour/no decoration on hover, all destinations and keyboard navigation. TypeScript,
+e2e build, targeted ESLint/Prettier, structure and whitespace checks pass; the
+updated screenshot was visually inspected. This supersedes the custom presentation
+described in the earlier follow-ups below.
+
+Colour follow-up: a real production-browser assertion reproduced blue breadcrumb
+text before the fix. MUI 9 Typography does not resolve dotted `color` props; moving
+the tokens to `sx.color` restores Mantis grey ancestors and the darker current
+page. Hover keeps the neutral text with an underline. All 26 focused breadcrumb/
+shared-page tests and the production breadcrumb workflow pass, including computed
+colours, hover, clickable ancestors, current h1 and keyboard navigation. TypeScript,
+e2e build, targeted ESLint/Prettier and whitespace checks pass; the updated desktop
+screenshot was visually inspected. The full-suite results below precede this
+scoped colour correction.
+
+Page headings now use the actual supplied Mantis Breadcrumbs custom-links branch,
+adapted to React Router. All segments link to their page, including the current
+segment with the sole semantic h1 and `aria-current="page"`. Back buttons and the
+duplicate applicant/batch headings are removed. The manifest verifies all 63
+original source/asset mappings and five layout references (68 hashes/consumer paths).
+
+Canonical URLs follow programme → intake → batch → applicant using stable IDs.
+Shared typed path builders serve cards, sidebar, tables, creation and assessment
+tabs/dialogs. Numeric intakes use YYYY-YY; descriptive labels use strict reversible
+UTF-8 base64url segments to preserve slashes, literal percent sequences, Unicode
+and dot/prefix-looking labels through real Router matching. Malformed encodings
+fail without selecting a saved-year fallback.
+
+Legacy routes resolve through authorised reads and replace their URL while
+preserving remaining raw query encoding/hash, document/page/run bookmarks and
+correction/decision context. Pages reject mismatched actual ancestors and
+unavailable records before showing applicant/evidence/mutation controls. Explicit
+route context takes precedence over saved preferences. Individual creation returns
+the service-assigned batch ID so its first navigation uses the saved relationship.
+Descriptive intake uploads wait for known labels and reject unknown years before
+accepting PDF drafts. No records, PDFs, IDs or histories were migrated/reset.
+
+All 877 tests across 105 companions pass with one coverage worker: 98.65% lines,
+97.46% statements, 97.93% functions and 93.47% branches. TypeScript, standard/e2e
+production builds, ESLint, Prettier, test structure and whitespace checks pass.
+All 21 standalone production-browser and three FastAPI workflows pass, including
+clicking/keyboard-activating each breadcrumb, refresh/back navigation, old bookmark
+replacement, forged ancestry, ownership/admin guards and the existing upload/PDF/
+correction/decision/criteria workflows. Desktop applicant, bookmarked evidence and
+narrow-screen focused breadcrumb screenshots were visually inspected. The existing
+development server responds on port 5173. Backend unit/Ruff/PostgreSQL suites were
+not rerun; unrelated local changes remain preserved.
+
+## Manual mock-up changes connected to behaviour — 4 November
+
+The shared branding drives Admission Review System in the login heading, About
+copy and document title. Applications/Offers/Pending reviews labels retain their
+existing live counts. The supplied replacement transparent UCL logo renders on
+white using its intrinsic 400×112 aspect ratio.
+
+State now describes document completeness. The authorized application-list query
+derives `ApplicationListItem.documentTypes` from matching, linked source records;
+it does not persist duplicate lists. Ready requires every category and at least one
+reference. Table, two-option filter, stable sort and CSV use the same projection.
+AI workflow and tutor decisions are separate. Original three-document examples
+remain Missing; complete uploads can be Ready with unavailable AI/Pending decision.
+The obsolete workflow-based State helper was removed.
+
+Evidence grades follow the selected run's extracted value, including zero,
+corrections and historical runs. Fixed classifications/per-referee numeric scores
+are not substituted for source assessment fields; a reference aggregate is shown
+only when present. Cross-applicant runs cannot produce a known profile's evidence.
+English bands/ranking remain coherent illustrative profile data. Uploads receive
+no invented evidence. A zero-weight unassessed reference section no longer blocks
+the detailed core mock narrative, and reference text/stored runs stay unchanged.
+
+All 763 tests across 102 companions pass with one coverage worker. Coverage is
+98.57% lines, 97.41% statements, 97.85% functions and 93.17% branches. TypeScript,
+standard/e2e production builds, ESLint, Prettier, test structure and whitespace
+checks pass. Independent review found no actionable issues. Backend source and
+the existing uncommitted expanded-document work were preserved.
+All 18 standalone production-browser workflows and all three FastAPI browser
+workflows pass. New checks cover unique Ready/Missing filters, matching CSV State,
+complete document packets with unavailable AI/Pending decision, corrected grades
+across refresh/history and absence of invented reference scores. The login/logo,
+corrected evidence and Ready/Missing screenshots were visually inspected. Saved
+records/original PDF hashes remain intact. Backend unit/Ruff/PostgreSQL checks
+were not rerun; no new backend authentication, extraction or inference is implied.
+
+## Six document categories and four score sections — 3 November
+
+Add applicant reuses the existing Mantis MainCard upload cards, themed buttons
+and FilePicker. It supports transcript, CV, statement, application form, English
+test report and multiple references. Multi-file reference validation is atomic
+for each selection; earlier validated references survive a failed addition.
+Every file counts toward existing PDF and combined-page limits. Individual
+creation and ZIP import preserve multiple reference blobs and reject duplicate
+singleton categories. ZIP classification requires recognisable document names.
+
+Score breakdown uses the existing Mantis accordions for academic, CV, statement
+and references. Absent historical sections show unavailable placeholders without
+modifying records. Optional reference weights preserve three-section criteria;
+new private courses have illustrative 40/25/25/10 defaults. Owners can allocate
+reference weights in a new criteria version. A positive weight requires an actual
+reference score; missing scores stay null and totals are never renormalised.
+Local mock fixtures do not invent reference assessments. The existing FastAPI
+mock remains three-section-only: positive reference weighting is rejected before
+HTTP, while zero-weight references preserve the old request shape. Backend
+routes, PostgreSQL models/migrations and real inference were not extended.
+
+All 749 tests across 102 companions pass. Coverage: 98.57% lines, 97.40% statements,
+97.82% functions and 93.13% branches. TypeScript, standard/e2e production builds,
+ESLint, Prettier, companion structure and whitespace checks pass. All 18 standalone
+browser workflows and all three FastAPI integration browser workflows pass.
+Browser checks include all six upload categories, two separately persisted
+references, PDF viewing after refresh, unchanged previous PDF IDs/hashes and
+assessment history, four score accordions, reference-weight edits, ZIP imports
+and no critical/serious axe issues. Expanded-upload and score-breakdown screenshots
+were visually inspected. Imported Mantis source and theme factories were unchanged.
+
+Backend unit and PostgreSQL suites were not rerun; unrelated backend changes
+were preserved. Newly uploaded real documents remain unassessed and browser-local.
 
 ## Final PR review and dead-code cleanup — 1 November
 
