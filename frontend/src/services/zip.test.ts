@@ -13,6 +13,38 @@ const archive = (files: Record<string, string>, name = 'November.zip') =>
     name,
   )
 describe('applicant ZIP layout and bounded extraction', () => {
+  it('imports six categories and multiple references without guessing unknown filenames', async () => {
+    const result = await readApplicantArchive(
+      archive({
+        'A/CV_Supporting Documents.pdf': 'cv',
+        'A/Transcripts.pdf': 'transcript',
+        'A/PS-UCL.pdf': 'statement',
+        'A/app_form.pdf': 'form',
+        'A/English Test Report.pdf': 'english',
+        'A/reference-1.pdf': 'academic reference',
+        'A/ref_portal_doc.pdf': 'professional reference',
+      }),
+    )
+    expect(result[0].documents.map((d) => d.type)).toEqual([
+      'cv',
+      'transcript',
+      'statement',
+      'application_form',
+      'english_test',
+      'reference',
+      'reference',
+    ])
+    expect(await result[0].documents.at(-1)!.file.text()).toBe('professional reference')
+    await expect(
+      readApplicantArchive(archive({ 'A/letter-with-no-type.pdf': 'reference' })),
+    ).rejects.toThrow('Cannot identify')
+    await expect(
+      readApplicantArchive(archive({ 'A/english.pdf': 'one', 'A/ielts.pdf': 'two' })),
+    ).rejects.toThrow('one document per type')
+    await expect(
+      readApplicantArchive(archive({ 'A/cv-reference.pdf': 'ambiguous' })),
+    ).rejects.toThrow('Cannot identify')
+  })
   it('imports applicant folders, preserves bytes and accepts an outer directory and common PDF filenames', async () => {
     const result = await readApplicantArchive(
       archive({

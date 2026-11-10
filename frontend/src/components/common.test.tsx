@@ -2,11 +2,49 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import '../test/domSetup'
-import { Confirm, ErrorNotice, Status } from './common'
+import { Confirm, ErrorNotice, Page, Status } from './common'
 import { FilePicker } from './FilePicker'
 
 describe('shared accessible controls', () => {
+  it.each([undefined, []])(
+    'retains the plain page heading without a populated trail (%s)',
+    (breadcrumbs) => {
+      render(
+        <Page title="Programme" breadcrumbs={breadcrumbs}>
+          Course cards
+        </Page>,
+      )
+      expect(screen.getByRole('heading', { level: 1, name: 'Programme' })).toBeVisible()
+      expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+      expect(screen.getByText('Course cards')).toBeVisible()
+    },
+  )
+  it('uses the linked trail as the heading while preserving subtitle, actions and page content', () => {
+    render(
+      <MemoryRouter>
+        <Page
+          title="Duplicate title"
+          breadcrumbs={[
+            { title: 'Programme', to: '/modules' },
+            { title: 'Batch 1', to: '/batches/batch-1' },
+          ]}
+          subtitle="Eight applications"
+          actions={<button>Export course results</button>}
+        >
+          Applicant table
+        </Page>
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeVisible()
+    expect(screen.getByRole('heading', { level: 1, name: 'Batch 1' })).toBeVisible()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.queryByText('Duplicate title')).not.toBeInTheDocument()
+    expect(screen.getByText('Eight applications')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Export course results' })).toBeVisible()
+    expect(screen.getByText('Applicant table')).toBeVisible()
+  })
   it('uses a labelled dialog and only calls the explicitly confirmed action', async () => {
     const onClose = vi.fn(),
       onConfirm = vi.fn()

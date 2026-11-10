@@ -16,7 +16,7 @@ describe('ModuleCards', () => {
     )
     expect(screen.getByRole('link', { name: 'Open CSML 25/26' })).toHaveAttribute(
       'href',
-      '/batches?programme=programme-1&intake=2025+%2F+26',
+      '/programmes/programme-1/intakes/2025-26',
     )
     expect(screen.getAllByRole('link')).toHaveLength(1)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
@@ -25,5 +25,17 @@ describe('ModuleCards', () => {
     renderPage(<ModuleCards modules={[programme]} />)
     expect(screen.getAllByRole('link')).toHaveLength(3)
     expect(screen.getByRole('link', { name: 'Open CSML 26/27' })).toBeInTheDocument()
+  })
+  it('keeps descriptive saved intakes and internal programme identifiers encoded in links', () => {
+    renderPage(
+      <ModuleCards
+        modules={[{ ...programme, id: 'programme/one' }]}
+        intakes={[{ programmeId: 'programme/one', years: ['Legacy %2F cohort'] }]}
+      />,
+    )
+    expect(screen.getByRole('link')).toHaveAttribute(
+      'href',
+      '/programmes/programme%2Fone/intakes/~TGVnYWN5ICUyRiBjb2hvcnQ',
+    )
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Application, AssessmentRun, Rubric } from '../domain/types'
+import type { Application, AssessmentRun, Rubric, SectionKey } from '../domain/types'
 import { application, documents, rubric } from '../test/fixtures'
 import { presentAssessment } from './assessmentNarrative'
 import { simulateRun } from './seed'
@@ -24,7 +24,7 @@ function fixture(kind: Application['fixture'] = 'review') {
     status: kind === 'failed' ? 'failed' : 'awaiting review',
   } as AssessmentRun
   const target: Application = { ...app, documentIds: sources.map((doc) => doc.id), runs: [result] }
-  return { app: target, result }
+  return { app: target, result, sources }
 }
 
 describe('presentAssessment', () => {
@@ -90,6 +90,50 @@ describe('presentAssessment', () => {
     expect(display.sections[2].score).toBeNull()
     expect(display.sections[2].explanation).toBe('The required source document is missing.')
   })
+  it.each([null, 82])(
+    'expands complete core findings while leaving zero-weight references unchanged (%s)',
+    (referenceScore) => {
+      const { app, sources } = fixture('offer')
+      const criteria = { ...rubric, weights: { ...rubric.weights, references: 0 } }
+      const result: AssessmentRun = {
+        ...simulateRun(app, sources, criteria, 74, true),
+        status: 'awaiting review',
+      }
+      app.runs.push(result)
+      const reference = result.sections.find((section) => section.key === 'references')!
+      reference.score = referenceScore
+      const before = structuredClone(app)
+      const display = presentAssessment(app, result, criteria)
+      expect(display).not.toBe(result)
+      expect(display.justification.summary).toContain('overall score is 88.5 / 100')
+      expect(display.justification.summary).toContain('offer threshold of 80')
+      expect(display.justification.summary).not.toContain('complete weighted result is unavailable')
+      expect(display.justification.summary).not.toContain('references:')
+      for (const section of display.sections.slice(0, 3))
+        expect(section.explanation.split('\n\n')).toHaveLength(3)
+      expect(display.sections.at(-1)).toBe(reference)
+      expect(app).toEqual(before)
+    },
+  )
+  it.each(['duplicate-reference', 'unknown-section', 'invalid-reference', 'weighted-reference'])(
+    'does not expand inconsistent additional sections: %s',
+    (condition) => {
+      const { app, result } = fixture('offer')
+      const reference = {
+        ...result.sections[0],
+        key: 'references' as const,
+        score: condition === 'invalid-reference' ? Infinity : null,
+      }
+      result.sections.push(reference)
+      let criteria: Rubric = { ...rubric, weights: { ...rubric.weights, references: 0 } }
+      if (condition === 'duplicate-reference') result.sections.push({ ...reference })
+      if (condition === 'unknown-section')
+        result.sections.push({ ...reference, key: 'unknown' as SectionKey })
+      if (condition === 'weighted-reference')
+        criteria = { ...rubric, weights: { academic: 40, cv: 25, statement: 25, references: 10 } }
+      expect(presentAssessment(app, result, criteria)).toBe(result)
+    },
+  )
   it.each(['upload', 'unknown', 'historic', 'failed', 'unavailable', 'wrong-application'] as const)(
     'does not add fixture explanations for %s records',
     (condition) => {

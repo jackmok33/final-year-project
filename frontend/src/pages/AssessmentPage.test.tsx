@@ -1,12 +1,24 @@
 // @vitest-environment jsdom
 import { screen, waitFor, within } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '../test/domSetup'
-import { application, detail, run } from '../test/fixtures'
+import { application, applicationListItem, detail, programme, run } from '../test/fixtures'
 import { apiMocks, command, queryResult, resetPageMocks } from '../test/pageMocks'
 import { renderPage } from '../test/renderPage'
 import { AssessmentPage } from './AssessmentPage'
+
+const applicationBase = '/programmes/programme-1/intakes/2026-27/applications/APP-TEST'
+function renderReview(element: ReactElement, url = applicationBase) {
+  return renderPage(
+    element,
+    url,
+    url.startsWith('/applications/')
+      ? '*'
+      : '/programmes/:programmeId/intakes/:intake/applications/:id/*',
+  )
+}
 vi.mock('../app/api', async () => (await import('../test/pageMocks')).apiMocks)
 vi.mock('../app/store', async () => (await import('../test/pageMocks')).storeMocks)
 vi.mock('../hooks/redux', async () => (await import('../test/pageMocks')).reduxMocks)
@@ -21,8 +33,18 @@ vi.mock('../components/evidence/PdfViewer', () => ({
 describe('application review and decision popup', () => {
   beforeEach(resetPageMocks)
   it('starts with the summary and recommendation, with keyboard-accessible tabs', async () => {
-    renderPage(<AssessmentPage />)
-    expect(screen.getByRole('heading', { name: 'CSML 26/27', level: 1 })).toBeInTheDocument()
+    renderReview(<AssessmentPage />)
+    expect(screen.getByRole('heading', { name: '1 - SYN-TEST', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Programme' })).toHaveAttribute('href', '/programmes')
+    expect(screen.getByRole('link', { name: 'CSML 26/27' })).toHaveAttribute(
+      'href',
+      '/programmes/programme-1/intakes/2026-27',
+    )
+    expect(screen.getByRole('link', { name: '1 - SYN-TEST' })).toHaveAttribute(
+      'href',
+      applicationBase,
+    )
+    expect(screen.queryByRole('link', { name: 'Back' })).not.toBeInTheDocument()
     expect(screen.getByText('88.0')).toBeInTheDocument()
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'AI recommendation',
@@ -49,7 +71,7 @@ describe('application review and decision popup', () => {
     expect(screen.queryByText(run.justification.summary)).not.toBeInTheDocument()
   })
   it('opens the decision popup from the summary and returns to the selected tab without saving', async () => {
-    renderPage(<AssessmentPage />)
+    renderReview(<AssessmentPage />)
     await userEvent.click(screen.getByRole('tab', { name: 'Score breakdown' }))
     const trigger = screen.getByRole('button', { name: 'Decision' })
     await userEvent.click(trigger)
@@ -73,7 +95,7 @@ describe('application review and decision popup', () => {
   it.each(['/applications/APP-TEST/decision', '/applications/APP-TEST?tab=decision'])(
     'keeps the legacy decision link %s usable without a fifth tab',
     async (url) => {
-      renderPage(<AssessmentPage />, url)
+      renderReview(<AssessmentPage />, url)
       expect(screen.getByRole('dialog', { name: 'Record decision' })).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -82,7 +104,7 @@ describe('application review and decision popup', () => {
         'aria-selected',
         'true',
       )
-      expect(screen.getByLabelText('Current URL')).toHaveTextContent('/applications/APP-TEST')
+      expect(screen.getByLabelText('Current URL')).toHaveTextContent(applicationBase)
       expect(command).not.toHaveBeenCalled()
     },
   )
@@ -107,7 +129,7 @@ describe('application review and decision popup', () => {
         },
       }),
     )
-    renderPage(<AssessmentPage />)
+    renderReview(<AssessmentPage />)
     await userEvent.click(screen.getByRole('tab', { name: 'Review flag' }))
     expect(screen.getByRole('alert')).toHaveTextContent('The transcript needs checking.')
     const trigger = screen.getByRole('button', { name: 'Update detail' })
@@ -130,7 +152,7 @@ describe('application review and decision popup', () => {
       apiMocks.useApplicationQuery.mockReturnValue(
         queryResult({ ...detail, application: { ...application, runs: [{ ...run, status }] } }),
       )
-      renderPage(<AssessmentPage />)
+      renderReview(<AssessmentPage />)
       expect(screen.getByRole('button', { name: 'Decision' })).toBeDisabled()
       expect(screen.queryByText('88.0')).not.toBeInTheDocument()
       expect(screen.queryByText(run.justification.summary)).not.toBeInTheDocument()
@@ -155,7 +177,7 @@ describe('application review and decision popup', () => {
         },
       }),
     )
-    renderPage(<AssessmentPage />)
+    renderReview(<AssessmentPage />)
     expect(screen.queryByText('88.0')).not.toBeInTheDocument()
     expect(screen.queryByText('Backend unavailable')).not.toBeInTheDocument()
     const summary = screen.getByRole('region', { name: 'Application review' })
@@ -169,7 +191,7 @@ describe('application review and decision popup', () => {
         application: { ...application, runs: [{ ...run, id: 'older', overall: 12 }, run] },
       }),
     )
-    renderPage(<AssessmentPage />)
+    renderReview(<AssessmentPage />)
     expect(screen.getByText('88.0')).toBeInTheDocument()
     expect(screen.queryByText('12.0')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Assessment history' })).not.toBeInTheDocument()
@@ -184,7 +206,7 @@ describe('application review and decision popup', () => {
         application: { ...application, runs: [{ ...run, id: 'older', overall: 12 }, run] },
       }),
     )
-    renderPage(<AssessmentPage />, '/applications/APP-TEST?run=older')
+    renderReview(<AssessmentPage />, '/applications/APP-TEST?run=older')
     expect(screen.getByText(/Viewing a previous assessment/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Decision' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Re-run AI evaluation' })).toBeDisabled()
@@ -193,7 +215,7 @@ describe('application review and decision popup', () => {
     expect(screen.queryByText(/Viewing a previous assessment/)).not.toBeInTheDocument()
   })
   it('does not turn a current-run document link into a historic review after re-evaluation', async () => {
-    const view = renderPage(<AssessmentPage />, `/applications/APP-TEST?run=${run.id}`)
+    const view = renderReview(<AssessmentPage />, `/applications/APP-TEST?run=${run.id}`)
     await userEvent.click(screen.getByRole('button', { name: 'Re-run AI evaluation' }))
     expect(screen.getByLabelText('Current URL')).not.toHaveTextContent('run=')
     apiMocks.useApplicationQuery.mockReturnValue(
@@ -208,6 +230,76 @@ describe('application review and decision popup', () => {
   })
 })
 
+describe('canonical application ancestry', () => {
+  const route = '/programmes/:programmeId/intakes/:intake/batches/:batchId/applications/:id/*'
+  const batchBase = '/programmes/programme-1/intakes/2026-27/batches/batch-2'
+  beforeEach(() => {
+    resetPageMocks()
+    apiMocks.useApplicationQuery.mockReturnValue(
+      queryResult({
+        ...detail,
+        application: { ...application, batchId: 'batch-2' },
+      }),
+    )
+    apiMocks.useBatchQuery.mockReturnValue(
+      queryResult({
+        id: 'batch-2',
+        programmeId: programme.id,
+        intakeYear: programme.year,
+        sequence: 2,
+      }),
+    )
+    apiMocks.useApplicationsQuery.mockReturnValue(
+      queryResult([
+        { ...applicationListItem, id: 'earlier', batchId: 'batch-2' },
+        { ...applicationListItem, batchId: 'batch-2' },
+      ]),
+    )
+  })
+  it('links the actual batch and applicant using the batch ordinal, retaining document context through tabs and popup cancellation', async () => {
+    const base = `${batchBase}/applications/APP-TEST`
+    renderPage(<AssessmentPage />, `${base}/evidence?document=APP-TEST-transcript&page=3`, route)
+    expect(screen.getByRole('link', { name: 'Batch 2' })).toHaveAttribute('href', batchBase)
+    expect(screen.getByRole('link', { name: '2 - SYN-TEST' })).toHaveAttribute('href', base)
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('2 - SYN-TEST')
+    expect(
+      screen.queryByRole('heading', { level: 2, name: '2 - SYN-TEST' }),
+    ).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Decision' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent(
+      `${base}/evidence?document=APP-TEST-transcript&page=3`,
+    )
+    await userEvent.click(screen.getByRole('tab', { name: 'Score breakdown' }))
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent(
+      `${base}?document=APP-TEST-transcript&page=3&tab=scores`,
+    )
+    await userEvent.click(screen.getByRole('tab', { name: 'View documents' }))
+    expect(screen.getByRole('img', { name: 'transcript.pdf, page 3' })).toBeInTheDocument()
+  })
+  it.each([
+    '/programmes/programme-2/intakes/2026-27/batches/batch-2/applications/APP-TEST',
+    '/programmes/programme-1/intakes/2025-26/batches/batch-2/applications/APP-TEST',
+    '/programmes/programme-1/intakes/2026-27/batches/wrong/applications/APP-TEST',
+  ])('rejects mismatched ancestry at %s before showing evidence or actions', (url) => {
+    renderPage(<AssessmentPage />, url, route)
+    expect(screen.getByRole('alert')).toHaveTextContent('This application is unavailable')
+    expect(screen.queryByRole('button', { name: 'Decision' })).not.toBeInTheDocument()
+    expect(screen.queryByText(run.justification.summary)).not.toBeInTheDocument()
+    expect(command).not.toHaveBeenCalled()
+  })
+  it('waits for authorised batch metadata and rejects its failure rather than inventing a batch number', () => {
+    apiMocks.useBatchQuery.mockReturnValue({ ...queryResult(), isLoading: true })
+    const view = renderPage(<AssessmentPage />, `${batchBase}/applications/APP-TEST`, route)
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Batch/ })).not.toBeInTheDocument()
+    apiMocks.useBatchQuery.mockReturnValue({ ...queryResult(), error: 'Not available' })
+    view.rerender(<AssessmentPage />)
+    expect(screen.getByRole('alert')).toHaveTextContent('This application is unavailable')
+    expect(screen.queryByRole('button', { name: 'Decision' })).not.toBeInTheDocument()
+  })
+})
+
 it('keeps legacy correction links in the review shell and preserves the historic run on cancel', async () => {
   resetPageMocks()
   apiMocks.useApplicationQuery.mockReturnValue(
@@ -216,7 +308,7 @@ it('keeps legacy correction links in the review shell and preserves the historic
       application: { ...application, runs: [{ ...run, id: 'older' }, run] },
     }),
   )
-  renderPage(<AssessmentPage />, '/applications/APP-TEST/correct?run=older')
+  renderReview(<AssessmentPage />, '/applications/APP-TEST/correct?run=older')
   expect(screen.getByRole('dialog', { name: 'Correct extracted fact' })).toBeInTheDocument()
   expect(screen.getByText(/latest assessment before correcting/)).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Close fact correction' }))
@@ -228,7 +320,7 @@ it('keeps legacy correction links in the review shell and preserves the historic
 
 it('removes the current-run bookmark after saving a correction so the new result can display', async () => {
   resetPageMocks()
-  const view = renderPage(
+  const view = renderReview(
     <AssessmentPage />,
     `/applications/APP-TEST?tab=flags&correction=edit&run=${run.id}`,
   )
@@ -250,7 +342,7 @@ it('removes the current-run bookmark after saving a correction so the new result
 
 it('preserves document and page context when closing a correction popup', async () => {
   resetPageMocks()
-  renderPage(
+  renderReview(
     <AssessmentPage />,
     `/applications/APP-TEST/evidence?document=APP-TEST-transcript&page=2&correction=edit`,
   )

@@ -1,35 +1,40 @@
 import { Accordion, AccordionDetails, AccordionSummary, Stack, Typography } from '@mui/material'
-import type { AssessmentRun } from '../../domain/types'
+import { sectionKeys, type AssessmentRun } from '../../domain/types'
 import { useContent } from '../../hooks/useContent'
 
 export function SectionAssessments({ run }: { run: AssessmentRun }) {
   const content = useContent('sectionAssessments')
   return (
     <Stack>
-      {run.sections.map((section, index) => (
-        <Accordion key={section.key} defaultExpanded={index === 0}>
-          <AccordionSummary
-            id={`section-${section.key}-heading`}
-            aria-controls={`section-${section.key}-details`}
-          >
-            <Stack
-              direction="row"
-              sx={{ justifyContent: 'space-between', width: 1, pr: 2, gap: 2 }}
+      {sectionKeys.map((key, index) => {
+        const section = run.sections.find((item) => item.key === key)
+        return (
+          <Accordion key={key} defaultExpanded={index === 0}>
+            <AccordionSummary
+              id={`section-${key}-heading`}
+              aria-controls={`section-${key}-details`}
             >
-              <Typography component="span">{content.sectionNames[section.key]}</Typography>
-              <Typography component="span">{content.sectionScore(section.score)}</Typography>
-            </Stack>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Stack spacing={1.5}>
-              <Typography sx={{ lineHeight: 1.8, whiteSpace: 'pre-line' }}>
-                {section.explanation}
-              </Typography>
-              <Typography color="text.secondary">{section.uncertainty}</Typography>
-            </Stack>
-          </AccordionDetails>
-        </Accordion>
-      ))}
+              <Stack
+                direction="row"
+                sx={{ justifyContent: 'space-between', width: 1, pr: 2, gap: 2 }}
+              >
+                <Typography component="span">{content.sectionNames[key]}</Typography>
+                <Typography component="span">
+                  {content.sectionScore(section?.score ?? null)}
+                </Typography>
+              </Stack>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Stack spacing={1.5}>
+                <Typography sx={{ lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+                  {section?.explanation ?? content.notAssessed}
+                </Typography>
+                {section && <Typography color="text.secondary">{section.uncertainty}</Typography>}
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        )
+      })}
     </Stack>
   )
 }

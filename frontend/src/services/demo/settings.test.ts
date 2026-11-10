@@ -64,7 +64,7 @@ describe('persistent browser demo contract', () => {
     expect(saved.rubrics.find((r) => r.id === saved.activeRubricIds[workspaceId!])).toMatchObject({
       programmeId: workspaceId,
       version: '1.0',
-      weights: { academic: 50, cv: 25, statement: 25 },
+      weights: { academic: 40, cv: 25, statement: 25, references: 10 },
     })
     expect(saved.activeRubricIds['programme-1']).toBe(original.activeRubricIds['programme-1'])
     expect(saved.audit.at(-1)).toMatchObject({

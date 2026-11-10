@@ -1,7 +1,7 @@
 import { domainLabelsContent } from '../../domain/types.content'
 import { applicationTableContent } from './ApplicationTable.content'
 export const applicationFiltersContent = {
-  workflowLabels: domainLabelsContent.workflowLabels,
+  readinessLabels: domainLabelsContent.readinessLabels,
   search: 'Search applicant',
   allStatus: 'All status',
   sort: 'Sort by',

@@ -7,7 +7,7 @@ not a replacement npm component package. The app remains React/Vite with its
 existing router, Redux state, domain rules and browser storage.
 
 `source-manifest.json` records the original paths and SHA-256 hashes for the
-62 imported source/asset mappings. Most come from `seed/src`; the statistics card and form action bar come
+63 imported source/asset mappings. Most come from `seed/src`; the statistics card and form action bar come
 from `full-version/src`. The source retains its original licensing. `layoutPatterns` separately records the supplied form and
 table examples adapted directly in feature components; these are source patterns,
 not additional standalone Mantis packages.
@@ -25,6 +25,7 @@ not additional standalone Mantis packages.
 | Account avatar and navigation button                                                              | Extended `Avatar` and `IconButton`                                                |
 | Decision, correction, password and sign-in help popups                                            | Controlled `CustomizedDialog` adaptation from the supplied dialog example         |
 | Form action bars                                                                                  | `components/FormActions`, adapted from the supplied action-bar layout             |
+| Page heading trails                                                                               | Controlled custom-links branch of `components/@extended/Breadcrumbs`              |
 | Route and inline loading                                                                          | `Loader` and `CircularWithPath`                                                   |
 | Fields, buttons, tables, menus, statuses, alerts, dialogs, radios, switches and expandable panels | The 38 factories in `theme/overrides/`                                            |
 | Fonts, colours and shadows                                                                        | Mantis typography, default light palette and custom-shadow factories              |
@@ -103,6 +104,33 @@ and a busy guard for close, Escape and backdrop dismissal. The close control sta
 outside the title so it cannot become part of the dialog's accessible name.
 These application compatibility changes are documented rather than passed off as
 original template behavior. The manifest records the original source hash.
+
+## Page heading breadcrumbs
+
+`components/Breadcrumbs` adapts the custom-links branch of the supplied
+`full-version/src/components/@extended/Breadcrumbs.tsx`, retaining its MainCard,
+Grid, MUI Breadcrumbs and Typography composition. Pages supply the complete linked
+trail through `Page`; navigation-menu discovery, Next.js, translation hooks and
+demo state are removed. Route context and data remain with each page.
+
+Use the supplied custom-links presentation without additional visual overrides:
+linked items use `h6`, secondary-text grey and no text decoration. MainCard keeps
+its three-unit bottom margin; Grid keeps the supplied one-unit spacing and
+start alignment. Slash separators and the eight-item collapse default are retained.
+There are no custom font sizes, current-item colour, hover effects, focus styling
+or wrapping rules in this component. The application-wide keyboard focus remains.
+
+Every segment, including the current page, has a destination. This uses the
+template's linked-item appearance for every item. The final item retains its
+semantic h1 and `aria-current="page"`, with the same h6 presentation; there is no
+duplicate visible title below the trail. Page retains subtitle/actions and its
+plain-heading fallback.
+
+The port replaces NextLink with React Router and translation IDs with supplied
+labels. MUI 9 uses `color="textSecondary"` rather than the original dotted colour
+prop, and moves Grid's column direction into `sx`; these preserve the original
+appearance. This is compatible source from the supplied Next.js template, not a
+byte-identical standalone package import. Do not add bespoke breadcrumb styling.
 
 ## Revised Figma implementation (23 October 2026)
 

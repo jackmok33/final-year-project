@@ -6,7 +6,7 @@ typed `query`, `command` and `originalDocument`. The current implementation
 delegates to `demo.ts`; screens do not import demo storage or permission helpers.
 
 `contracts.ts` contains request types and named read models, including
-`ApplicationDetail`, `AccountSummary`, `ProgrammeIntake` and `RubricCollection`.
+`ApplicationDetail`, `ApplicationListItem`, `AccountSummary`, `ProgrammeIntake` and `RubricCollection`.
 `QueryResults` gives each operation one result type shared by the adapter and RTK
 Query. It is independent of IndexedDB, React and the demo mutation context.
 
@@ -50,6 +50,20 @@ Redux and are released by their callers.
 reset. `seed.ts` contains the required synthetic dataset and its one-time sample
 upgrades. `batchImport.ts`, `zip.ts` and `pdf.ts` validate originals before storage.
 These are active data/validation paths, not obsolete UI components.
+Application-list queries derive `documentTypes` from each application's linked
+document records. This read-model field drives Ready/Missing filtering, sorting,
+table display and CSV through `applicantReadiness()`. It is not a duplicate stored
+document list or a replacement for assessment workflow/decision state.
+Document types now include application forms, English test reports and references
+alongside the original three. Only references allow multiple documents per
+application, both for individual creation and ZIP import. Existing records and
+original blobs require no reset or destructive migration.
+
+Rubrics support legacy three-section weights and an optional `references` weight.
+New private programmes use illustrative 40/25/25/10 weights. Existing criteria
+stay unchanged until explicitly versioned by the owner. Aggregation requires a
+reference score when its weight is positive; no reference score is synthesised
+by the local fixtures, and missing scores never become zero or a rescaled total.
 
 `evaluation.ts` selects the local fixture or `backend.ts` FastAPI adapter. The
 backend still accepts only known synthetic cases; real upload assessment and server
@@ -64,10 +78,18 @@ the first paragraphs. Stored runs, HTTP responses, scores, flags, citations and
 decisions are untouched. Uploads, unknown cases, historical bookmarks, unavailable
 results, custom evaluator text and missing sections are not given invented prose.
 This is presentation of mock fixtures, not new extraction or inference.
+Zero-weight reference placeholders are ignored when checking core narrative
+completeness. `applicantPresentation.ts` formats the selected assessment's extracted
+grade and actual reference aggregate; it never inserts fixed per-referee scores.
+English bands/ranking remain known-fixture metadata and are not assigned to uploads.
 
 `backend.ts` validates unknown JSON in named stages for context/identity, timing,
 scores, sections, flags, citations and recommendation consistency. It normalises
 nullable optional fields on a copy and rejects invalid results before storage.
+The existing FastAPI mock remains a three-section transport: reference weighting
+above zero is rejected before HTTP, and zero-weight references plus extra document
+metadata are omitted from that legacy request. No HTTP failure silently falls
+back, and reference documents/results remain local until a real adapter supports them.
 
 `backendHealth.ts` probes the configured FastAPI `/health` endpoint without touching
 browser records or holding the demo dataset lock. The separate RTK Query
@@ -86,6 +108,10 @@ Implement `AdmissionsService` in an HTTP adapter and select it in `admissions.ts
 Map validated server response models to `contracts.ts`; return original PDF blobs
 from `originalDocument`. Resolve staged file references in that adapter when
 building upload requests, rather than passing File objects through Redux.
+Creation returns the persisted application ID and its actual assigned `batchId`
+in `CommandResult`, including when the service groups an individual upload into
+an existing-applications batch. Pages use those IDs to construct nested URLs;
+an HTTP adapter must return the saved relationship rather than guess a batch.
 The current command union is an adapter contract, not a list of existing REST
 routes. Removed browser maintenance commands must not be reintroduced as assumed
 server endpoints.

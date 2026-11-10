@@ -250,6 +250,48 @@ describe('persistent ZIP upload batches', () => {
 })
 describe('Existing module behaviour', () => {
   describe('honest synthetic assessment fixtures', () => {
+    it.each([false, true])(
+      'keeps references unassessed even for a known fixture (source present: %s)',
+      (present) => {
+        const sources = present
+          ? [...documents, { ...documents[0], id: 'reference', type: 'reference' as const }]
+          : documents
+        const criteria = {
+          ...rubric,
+          weights: { academic: 40, cv: 25, statement: 25, references: 10 },
+        }
+        const result = simulateRun(
+          { ...application, fixture: 'offer' },
+          sources,
+          criteria,
+          74,
+          true,
+        )
+        expect(result.sections.find((s) => s.key === 'references')).toMatchObject({
+          score: null,
+          citations: [],
+        })
+        expect(result.overall).toBeNull()
+        expect(result.recommendation).toBe('Further review')
+        expect(result.flags).toContainEqual(
+          expect.objectContaining({ code: 'REFERENCES_UNASSESSED' }),
+        )
+        expect(result.justification.summary).toContain('References have not been assessed')
+      },
+    )
+    it('does not require an assessment for a zero-weight reference section', () => {
+      const criteria = { ...rubric, weights: { ...rubric.weights, references: 0 } }
+      const result = simulateRun(
+        { ...application, fixture: 'offer' },
+        documents,
+        criteria,
+        74,
+        true,
+      )
+      expect(result.overall).toBe(88.5)
+      expect(result.sections.find((s) => s.key === 'references')!.score).toBeNull()
+      expect(result.flags.some((f) => f.code === 'REFERENCES_UNASSESSED')).toBe(false)
+    })
     it.each(['offer', 'reject', 'review'] as const)(
       'makes the %s fixture traceable to its rubric and source pages',
       (fixture) => {

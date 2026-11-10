@@ -18,6 +18,7 @@ import { DemoSignIn } from '../components/auth/DemoSignIn'
 import { SignInIntro } from '../components/auth/SignInIntro'
 import AuthCard from '../mantis/components/AuthCard'
 import CustomizedDialog from '../mantis/components/CustomizedDialog'
+import { PROGRAMMES_PATH } from '../app/paths'
 import { useContent } from '../hooks/useContent'
 
 export function LoginPage() {
@@ -40,7 +41,7 @@ export function LoginPage() {
     }
     dispatch(admissionsApi.util.resetApiState())
     dispatch(signIn(account.id))
-    navigate(account.roles.includes('tutor') ? '/modules' : '/admin/users')
+    navigate(account.roles.includes('tutor') ? PROGRAMMES_PATH : '/admin/users')
   }
   return (
     <Box

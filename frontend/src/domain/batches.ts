@@ -35,7 +35,10 @@ export function assignExistingBatches(data: Dataset) {
   }
 }
 
-export function batchApplications(batch: UploadBatch, applications: Application[]) {
+export function batchApplications<T extends Application>(
+  batch: UploadBatch,
+  applications: T[],
+): T[] {
   return applications.filter((a) => a.batchId === batch.id && a.programmeId === batch.programmeId)
 }
 

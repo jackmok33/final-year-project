@@ -36,7 +36,7 @@ export function CriteriaFields({
             key={key}
             label={content.weightLabel(content.sectionNames[key])}
             type="number"
-            value={Number.isNaN(rubric.weights[key]) ? '' : rubric.weights[key]}
+            value={Number.isNaN(rubric.weights[key]) ? '' : (rubric.weights[key] ?? 0)}
             disabled={disabled}
             onChange={(event) => changeWeight(key, event.target.value)}
             slotProps={{ htmlInput: { min: 0, max: 100, step: 'any' } }}

@@ -1,17 +1,24 @@
-import type { Outcome, Rubric, SectionScore } from './types'
+import {
+  legacySectionKeys,
+  sectionKeys,
+  type Outcome,
+  type Rubric,
+  type SectionScore,
+} from './types'
 
 export function validateRubric(rubric: Rubric): string | null {
-  const keys = ['academic', 'cv', 'statement'] as const
+  const keys =
+    rubric.weights && Object.hasOwn(rubric.weights, 'references') ? sectionKeys : legacySectionKeys
   if (
     !rubric.weights ||
     Object.keys(rubric.weights).length !== keys.length ||
     keys.some((key) => !Object.hasOwn(rubric.weights, key))
   )
-    return 'Provide weights for academic performance, CV and personal statement.'
+    return 'Provide weights for academic performance, CV, personal statement and, when used, references.'
   const weights = keys.map((key) => rubric.weights[key])
   if (
-    weights.some((w) => !Number.isFinite(w) || w < 0 || w > 100) ||
-    Math.abs(weights.reduce((a, b) => a + b, 0) - 100) > 0.001
+    weights.some((w) => typeof w !== 'number' || !Number.isFinite(w) || w < 0 || w > 100) ||
+    Math.abs(weights.reduce<number>((a, b) => a + (b ?? 0), 0) - 100) > 0.001
   )
     return 'Section weights must be between 0 and 100 and total 100%.'
   if (
@@ -30,9 +37,8 @@ export function validateRubric(rubric: Rubric): string | null {
 
 export function criteriaChanged(draft: Rubric, active: Rubric): boolean {
   return (
-    (['academic', 'cv', 'statement'] as const).some(
-      (key) => draft.weights[key] !== active.weights[key],
-    ) || (['rejectBelow', 'offerFrom', 'margin'] as const).some((key) => draft[key] !== active[key])
+    sectionKeys.some((key) => (draft.weights[key] ?? 0) !== (active.weights[key] ?? 0)) ||
+    (['rejectBelow', 'offerFrom', 'margin'] as const).some((key) => draft[key] !== active[key])
   )
 }
 export function aggregate(
@@ -41,13 +47,26 @@ export function aggregate(
   critical: boolean,
   mandatoryFailed = false,
 ): { overall: number | null; recommendation: Outcome; rules: string[] } {
-  const complete = (['academic', 'cv', 'statement'] as const).every((key) => {
-    const s = sections.find((s) => s.key === key)
-    return s?.score != null && Number.isFinite(s.score) && s.score >= 0 && s.score <= 100
+  const keys = (rubric.weights.references ?? 0) > 0 ? sectionKeys : legacySectionKeys
+  const complete = keys.every((key) => {
+    const matches = sections.filter((s) => s.key === key)
+    const s = matches[0]
+    return (
+      matches.length === 1 &&
+      s?.score != null &&
+      Number.isFinite(s.score) &&
+      s.score >= 0 &&
+      s.score <= 100
+    )
   })
   const overall = complete
-    ? Math.round(sections.reduce((n, s) => n + (s.score! * rubric.weights[s.key]) / 100, 0) * 100) /
-      100
+    ? Math.round(
+        keys.reduce(
+          (n, key) =>
+            n + (sections.find((s) => s.key === key)!.score! * (rubric.weights[key] ?? 0)) / 100,
+          0,
+        ) * 100,
+      ) / 100
     : null
   if (critical || !complete)
     return {

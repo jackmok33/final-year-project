@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { application, run } from '../test/fixtures'
 import {
   aiRecommendation,
-  applicationState,
+  applicantReadiness,
   assessmentScore,
   decisionOutcome,
   finalDecision,
   latestDecision,
   latestRun,
+  coreDocumentTypes,
+  documentTypes,
   type Outcome,
 } from './types'
 describe('new programme and applicant presentation', () => {
@@ -45,36 +47,18 @@ describe('Existing module behaviour', () => {
     at: run.startedAt,
   }
 
-  describe('application workflow helpers', () => {
+  describe('assessment and decision helpers', () => {
     it('handles applications without evaluations or decisions', () => {
       const empty = { ...application, runs: [], decisions: [] }
       expect(latestRun(empty)).toBeUndefined()
       expect(latestDecision(empty)).toBeUndefined()
-      expect(applicationState(empty)).toBe('not evaluated')
     })
     it('returns the last run and decision without mutating history', () => {
       const latest = { ...run, id: 'run-2', status: 'running' as const }
       const app = { ...application, runs: [run, latest], decisions: [decision] }
       expect(latestRun(app)).toBe(latest)
       expect(latestDecision(app)).toBe(decision)
-      expect(applicationState(app)).toBe('running')
       expect(app.runs).toHaveLength(2)
-    })
-    it.each(['Unconditional', 'Conditional', 'Reject'] as const)(
-      'marks the latest final %s decision completed',
-      (outcome) => {
-        expect(applicationState({ ...application, decisions: [{ ...decision, outcome }] })).toBe(
-          'completed',
-        )
-      },
-    )
-    it('keeps Further review unresolved', () => {
-      expect(
-        applicationState({
-          ...application,
-          decisions: [{ ...decision, outcome: 'Further review' }],
-        }),
-      ).toBe('awaiting review')
     })
     it.each(['Offer', 'Further review'] as const)(
       'keeps a legacy %s decision intact while awaiting one of the three current outcomes',
@@ -83,7 +67,6 @@ describe('Existing module behaviour', () => {
         const original = structuredClone(app)
         expect(decisionOutcome(outcome)).toBe('Pending')
         expect(finalDecision(app)).toBeUndefined()
-        expect(applicationState(app)).toBe('awaiting review')
         expect(app).toEqual(original)
       },
     )
@@ -123,5 +106,18 @@ describe('Existing module behaviour', () => {
         }),
       ).toBeUndefined()
     })
+  })
+})
+
+describe('applicant document readiness', () => {
+  it('requires all six categories and at least one reference, without counting duplicates as other types', () => {
+    expect(applicantReadiness(documentTypes)).toBe('ready')
+    expect(applicantReadiness([...documentTypes, 'reference', 'reference'])).toBe('ready')
+    expect(applicantReadiness([])).toBe('missing')
+    expect(applicantReadiness(coreDocumentTypes)).toBe('missing')
+    expect(applicantReadiness([...coreDocumentTypes, 'reference', 'reference'])).toBe('missing')
+  })
+  it.each(documentTypes)('keeps the state Missing when the %s category is absent', (missing) => {
+    expect(applicantReadiness(documentTypes.filter((type) => type !== missing))).toBe('missing')
   })
 })

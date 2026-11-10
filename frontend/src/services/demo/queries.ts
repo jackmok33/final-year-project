@@ -41,14 +41,29 @@ export function readQuery(data: Dataset, query: Query, userId: string | null): Q
     case 'applications': {
       requireTutor(data, user, query.programmeId)
       const programme = data.programmes.find((p) => p.id === query.programmeId)
-      return data.applications.filter(
-        (a) =>
-          a.programmeId === query.programmeId &&
-          (!query.intakeYear ||
-            (programme &&
-              applicationIntakeYear(a, programme) ===
-                (normalizeIntakeYear(query.intakeYear) ?? query.intakeYear))),
-      )
+      return data.applications
+        .filter(
+          (a) =>
+            a.programmeId === query.programmeId &&
+            (!query.intakeYear ||
+              (programme &&
+                applicationIntakeYear(a, programme) ===
+                  (normalizeIntakeYear(query.intakeYear) ?? query.intakeYear))),
+        )
+        .map((application) => ({
+          ...application,
+          documentTypes: [
+            ...new Set(
+              data.documents
+                .filter(
+                  (document) =>
+                    document.applicationId === application.id &&
+                    application.documentIds.includes(document.id),
+                )
+                .map((document) => document.type),
+            ),
+          ],
+        }))
     }
     case 'application': {
       const application = applicationFor(data, user, query.id)

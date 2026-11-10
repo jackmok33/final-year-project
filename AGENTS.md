@@ -1,13 +1,13 @@
 # Project context for agents
 
-Last reviewed: 1 November 2026. Applies to this project and its subdirectories.
+Last reviewed: 5 November 2026. Applies to this project and its subdirectories.
 Read this guide before editing, then inspect the relevant source. Newer user
 instructions take precedence. Keep this file focused on current conventions;
 verification history belongs in the maintained guides below.
 
 ## Product and implemented boundaries
 
-**UCL Application Review Workspace** is a final-year project for human review of
+**Admission Review System** is a final-year project for human review of
 postgraduate applications. Tutors inspect evidence and record final decisions.
 Example courses, rubrics and synthetic assessments are not UCL admissions policy.
 The intended evaluators return structured evidence; deterministic code owns
@@ -81,7 +81,7 @@ Paths here are relative to `frontend/src/`:
   queries, commands and original-document Blob reads. UI code uses this port;
   do not import `services/demo` or its internals from screens/components.
 - `services/contracts.ts`: transport-neutral requests and named read models,
-  including `ApplicationDetail`, `AccountSummary`, `ProgrammeIntake`,
+  including `ApplicationDetail`, `ApplicationListItem`, `AccountSummary`, `ProgrammeIntake`,
   `RubricCollection` and `QueryResults`. It has no IndexedDB/React dependency.
 - `services/fileStaging.ts`: temporary PDF/ZIP references outside Redux.
   Callers release them after completion/failure, including after navigation.
@@ -107,7 +107,7 @@ authentication/permissions must not trust the demo `userId` argument or frontend
 
 Use actual supplied **Mantis React Next TypeScript 4.0.1** source under
 `src/mantis/`, sourced from `/Users/jack_1/Downloads/mantis-react-next-ts-4.0.1`.
-The manifest records 62 original source/asset mappings and five layout references.
+The manifest records 63 original source/asset mappings and five layout references.
 Check supplied components/examples before creating generic UI. Mantis itself uses
 MUI, so `@mui/material` imports are expected. Keep admissions logic outside Mantis;
 do not import demo routes/authentication or migrate the app to Next.js.
@@ -123,17 +123,28 @@ labelled statuses. `app/theme.ts` composes theme factories; shell dimensions com
 from Mantis config (260px sidebar, 64px header). Public Sans is self-hosted. Keep
 typed Ant Design per-icon imports and the Vite/Vitest ESM alias; root wrappers
 otherwise cause production React element-type errors. Use the bundled UCL logo;
-do not hotlink or use watermarked previews. Product text is Application Review
-Workspace; technical package/storage keys still use `ucl-admissions`.
+do not hotlink or use watermarked previews. Product text is Admission Review System;
+technical package/storage keys still use `ucl-admissions`.
 
 Desktop is the presentation priority. Preserve basic responsive/keyboard access;
 do not recreate deleted mobile Figma mockups unless requested. Routine demo/
 backend-disconnection banners were removed; retain real validation/storage errors,
 evidence concerns and destructive-operation consequences.
 
-Tutor routes: `/login`, `/modules`, `/batches`, `/batches/:batchId`, `/applications`
-(legacy intake queue), `/applications/new`, `/applications/:id`, plus its
-`/evidence`, `/correct` and `/decision` paths, and `/criteria`.
+Tutor routes: `/login`, `/programmes`, then
+`/programmes/:programmeId/intakes/:intake` (for example `2026-27`),
+its `/batches/:batchId` queue and `/batches/:batchId/applications/:id` review.
+Add applicant uses `applications/new`; review action suffixes are `/evidence`,
+`/correct` and `/decision`. Unbatched intake queues/reviews use equivalent
+`.../intakes/:intake/applications` paths. `app/paths.ts` owns typed path helpers,
+intake encoding and scope matching. Stable IDs stay in URLs; readable names,
+batch numbers and applicant identity stay in breadcrumb labels.
+Legacy `/modules` opens Programme; `/modules/:id` still falls back there.
+`LegacyRedirectPage` resolves old `/batches`, `/batches/:batchId`, `/applications`,
+`/applications/new`, `/applications/:id` and action links, plus `/criteria`, through
+authorised reads. Preserve raw remaining query encoding/hash and historic run/
+document/page/tab bookmarks. Conflicting explicit ancestors must fail instead of
+falling back to another course. No storage migration/reset is needed for URLs.
 Admin routes: `/admin/users` and `/admin/health`. Admin-only login, the logo and role
 switching open Users. Legacy `/admin/programme`, `/admin/data` and `/admin/backup`
 links redirect to Users under admin guards.
@@ -163,7 +174,7 @@ and migrations; never reset saved data to simplify UI.
   Account-help links do not implement registration, reset or real UCL sign-in.
   Example emails are `tutor@demo.ucl.local`, `tutor.b@demo.ucl.local` and
   `admin@demo.ucl.local`; read the seed/README for current editable account data.
-- Programme (`/modules`) shows direct programme/intake cards such as CSML 26/27.
+- Programme (`/programmes`) shows direct programme/intake cards such as CSML 26/27.
   Stored full course names/IDs remain. The sidebar lists compact programme/intake
   links; account, role, Change password and Logout are in the header avatar menu.
   All programmes is removed. The password form validates its fields but cannot
@@ -172,8 +183,8 @@ and migrations; never reset saved data to simplify UI.
   Add Programme asks for a course name. No settings buttons, intake-picker page
   or course-management/deletion command remain. Old `/modules/:id` links fall back
   to Programme; historical deletion markers remain stored.
-- `/batches` has page-level Batches / Admission criteria / Analytics tabs. The
-  Batches tab contains Total applications, Offers given and Total pending review,
+- The nested intake workspace has page-level Batches / Admission criteria / Analytics tabs. The
+  Batches tab contains Applications, Offers and Pending reviews,
   then ZIP upload and numbered batch rows with date/time and outcome counts.
   Other tabs show their own content. URL selection survives refresh; `/criteria`
   selects the criteria tab. A selected ZIP survives tab switching within the intake.
@@ -182,6 +193,12 @@ and migrations; never reset saved data to simplify UI.
   pagination, reset on sort changes, preserve equal-value order, and keep missing
   scores/universities last in either direction. Search/filter/pagination are real.
   Applicant deletion requires owner confirmation; Add applicant retains its batch.
+  State is document readiness: Ready requires every document category, with at
+  least one reference; otherwise Missing. `ApplicationListItem.documentTypes` is
+  derived from linked source records in the query adapter, never persisted on the
+  application. Table/filter/sort/CSV use `applicantReadiness()` consistently.
+  Tutor decisions and AI processing do not change document readiness. Legacy
+  three-document samples remain Missing until the extra categories are present.
 - Assessment has four tabs: AI recommendation, Review flag, Score breakdown and
   View documents. The summary contains blue Re-run AI evaluation and green Decision
   buttons. Decision opens the recording popup; it is not a tab. Rationale/evidence
@@ -189,6 +206,18 @@ and migrations; never reset saved data to simplify UI.
   to the underlying tab/document context without saving. Busy saves block edits/
   dismissal; failures retain the draft. Old `/decision` and `?tab=decision` links
   open the popup; historical links show a read-only notice instead of a form.
+- Add applicant supports transcript, CV, statement, application form, English test
+  report and multiple reference PDFs, reusing Mantis MainCard/buttons and the
+  existing FilePicker. Canonical extra types are `application_form`, `english_test`
+  and `reference`. Only references may repeat. All files count toward existing
+  size/page limits and remain available in View documents.
+- Score breakdown shows academic, CV, statement and references. Legacy runs stay
+  unchanged and show missing sections as unavailable. `Rubric.weights.references`
+  is optional for old records; legacy criteria show 0% in the editor. New private
+  courses start with illustrative 40/25/25/10 weights. Positive reference weight
+  requires an actual assessed reference score; never renormalise incomplete totals
+  or invent reference assessments. English eligibility and consistency flags are
+  separate from weighted scores. Numeric criteria edits create new versions.
 - Recommendation and section-score summaries show no PDF shortcut links. Use
   View documents for originals. The unused EvidenceLink component/content/tests
   are removed; preserve stored citations, backend contracts and validated legacy
@@ -205,8 +234,18 @@ and migrations; never reset saved data to simplify UI.
 - No criteria/assessment history picker is rendered. Keep old records and historic
   run/citation bookmarks read-only, with return to latest. Re-evaluation clears the
   current-run bookmark so a new result cannot strand the user on an older run.
-- Back links use explicit parent destinations, left-arrow icons and Back, at the
-  far right. Export course results lives only in the intake workspace and covers
+- Page headings use the actual Mantis Breadcrumbs custom-links adaptation. Every
+  segment is clickable, including the current page with `aria-current="page"`
+  and the sole semantic h1. Back buttons are removed.
+  Keep the supplied custom-links appearance: h6 secondary-text grey for every
+  linked item, no text decoration, MainCard mb:3, Grid spacing:1 and default
+  eight-item collapse. Do not add custom typography, hover/focus, current-colour
+  or wrapping overrides. Use MUI 9's `color="textSecondary"` prop to preserve the
+  original grey; the old dotted colour prop is unsupported. Keep only routing,
+  MUI API and semantic/ARIA compatibility changes. Global keyboard focus remains.
+  Pages validate actual programme/intake/batch ancestry before showing review/evidence/mutation controls;
+  explicit URL scope takes precedence over saved preferences. Export course
+  results lives only in the intake workspace and covers
   the whole course across intakes/batches, with intake in each CSV row; filters do
   not constrain export. Preserve CSV formula escaping. Forbidden/missing batch
   links never open another queue.
@@ -254,6 +293,11 @@ and migrations; never reset saved data to simplify UI.
   never rewrite saved runs/HTTP responses or apply it to uploads, unknown/custom
   evaluator text, unavailable results, historical bookmarks or unassessed sections.
   Paragraph rendering supports richer future evaluator output without new schemas.
+  An optional zero-weight reference section does not suppress the core narrative;
+  leave its unassessed text untouched. Evidence grades use the selected run's
+  extractedGrade, including zero and historical values, rather than hard-coded
+  sample marks/classifications. Reference scores appear only when actually present
+  in that run; fixture profiles never apply to uploads or another applicant's run.
 - NewApplicationPage keys drafts by account/programme/intake/batch. Late PDF
   validation/create callbacks cannot update or navigate a different screen.
 
@@ -280,8 +324,10 @@ Existing IDs/old fixture references remain supported. Default CSML 26/27 has thr
 batches/eight applicants; do not overwrite user data to restore those counts.
 
 - ZIP import accepts applicant folders (optionally inside a common outer folder)
-  with CV, transcript and personal-statement PDFs. Missing types stay missing;
-  ambiguous/duplicate types, unsafe paths, non-PDF files or unreadable PDFs reject
+  with all six document categories. Reference filenames require a recognisable
+  reference/ref/referee/recommendation marker and may repeat as distinct files.
+  Missing types stay missing; ambiguous/duplicate singleton types, unsafe paths,
+  non-PDF files or unreadable PDFs reject
   the entire import. Retain originals, not the ZIP container. Validate everything
   before one atomic record/PDF write. Keep the upload UI concise, without restoring
   the removed format/limits help panel.
@@ -309,6 +355,12 @@ fall back or save partial runs/corrections. Keep `evaluationSource: 'fastapi-moc
 and raw Offer/Further review/Reject responses. The mock API is not authentication,
 a persistent job service or document/decision access. Service health is a real
 read-only HTTP check; simulated service controls remain internal demo facilities.
+
+The expanded frontend document types and fourth score section are not implemented
+by the mock API or PostgreSQL upload schema yet. The mock adapter rejects positive
+reference weights before HTTP; a zero-weight reference field is omitted along
+with extra document metadata to retain the legacy synthetic request shape. Do not
+silently fall back or imply that the server assessed uploaded references.
 
 The five domain tables are users, programmes, programme_memberships, applications
 and documents. SQLAlchemy models in `backend/app/models/` are separate from
@@ -377,14 +429,18 @@ with installed backend dependencies. Backend checks from `backend/` are
 `python -m pytest -q`, `ruff check .` and `ruff format --check .`; PostgreSQL tests
 add `--run-postgres` only after the dedicated database safeguards are satisfied.
 
-Latest frontend verification (1 November, final PR cleanup): 733 tests across 102
-companions pass; coverage is 98.54% lines, 97.34% statements, 97.77% functions and
-93.21% branches. Standard/e2e builds, lint/format, structure and whitespace pass.
-All 17 standalone and three FastAPI browser workflows pass with axe, permissions,
-health recovery, uploads, correction/decision/criteria flows and PDF hash checks.
-The runtime audit verified 199 reachable modules with no orphan runtime files or
+Latest frontend verification (5 November, final PR review/default Mantis breadcrumbs): 877 tests
+across 105 companions pass; coverage is 98.65% lines, 97.46% statements, 97.93%
+functions and 93.47% branches. Standard/e2e builds, lint/format, structure and
+whitespace pass. All 21 standalone and three FastAPI browser workflows pass with
+axe, permissions, health recovery, uploads, correction/decision/criteria flows
+and PDF hash checks. New checks cover breadcrumb navigation/current headings,
+legacy bookmark preservation, forged ancestors, route preference precedence and
+descriptive intake round-tripping. Desktop applicant/bookmarked evidence and
+narrow-screen focused breadcrumbs were visually inspected. No saved data was reset.
+The 1 November runtime audit verified 199 reachable modules with no orphan runtime files or
 cycles; two type-only contracts are outside that graph. All direct runtime
-dependencies and registered content fields have consumers. All 67 original Mantis
+dependencies and registered content fields have consumers. All 68 original Mantis
 source/layout hashes and consumer paths verify. Independent reviews found no
 actionable issues. Backend unit/Ruff/PostgreSQL suites were not rerun. See the
 verification guide for dated history and limits.

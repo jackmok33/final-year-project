@@ -22,6 +22,10 @@ export function UsersAccessPage() {
   return (
     <Page
       title={content.usersAccess}
+      breadcrumbs={[
+        { title: content.administration, to: '/admin' },
+        { title: content.usersAccess, to: '/admin/users' },
+      ]}
       subtitle={content.subtitle}
       actions={
         <Button variant="contained" onClick={() => open(emptyAccount())} disabled={!users}>

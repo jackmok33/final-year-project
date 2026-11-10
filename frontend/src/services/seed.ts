@@ -195,7 +195,27 @@ export function simulateRun(
           : [],
     }
   })
+  const needsReferences = (rubric.weights.references ?? 0) > 0
+  if (Object.hasOwn(rubric.weights, 'references'))
+    sections.push({
+      key: 'references',
+      score: null,
+      explanation: 'No reference assessment is available. A backend evaluator is required.',
+      uncertainty: 'Not assessed',
+      citations: [],
+    })
   const flags = [
+    ...(needsReferences
+      ? [
+          {
+            code: 'REFERENCES_UNASSESSED',
+            message: docs.some((d) => d.type === 'reference')
+              ? 'References are preserved but have not been assessed. No complete weighted score is available.'
+              : 'References are missing and carry a scoring weight. No complete weighted score is available.',
+            critical: true,
+          },
+        ]
+      : []),
     ...(flagMismatch
       ? [
           {
@@ -257,9 +277,11 @@ export function simulateRun(
       ? 'The simulated model service is unavailable. The application needs further review; no score has been calculated.'
       : missing
         ? 'A required document is missing, so the assessment is incomplete. Review the source documents before making a decision.'
-        : flagMismatch
-          ? `Further review is required because the extracted final grade (71%) conflicts with the transcript (74%, page 2). ${scoreContext} Criteria v${rubric.version} applies.`
-          : `${result.recommendation} is recommended for this synthetic case. The weighted score is ${result.overall}: academic ${scores[0]}, CV ${scores[1]}, statement ${scores[2]}. ${result.rules.join(' ')} The cited source pages remain available for tutor review.`
+        : needsReferences
+          ? 'References have not been assessed. The available section findings are preserved, but no complete weighted score can be calculated under these criteria.'
+          : flagMismatch
+            ? `Further review is required because the extracted final grade (71%) conflicts with the transcript (74%, page 2). ${scoreContext} Criteria v${rubric.version} applies.`
+            : `${result.recommendation} is recommended for this synthetic case. The weighted score is ${result.overall}: academic ${scores[0]}, CV ${scores[1]}, statement ${scores[2]}. ${result.rules.join(' ')} The cited source pages remain available for tutor review.`
   const startedAt = new Date().toISOString()
   return {
     id: crypto.randomUUID(),

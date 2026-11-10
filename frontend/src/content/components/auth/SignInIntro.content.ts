@@ -1,5 +1,5 @@
 import { brandingContent } from '../../branding.content'
 
 export const signInIntroContent = {
-  applicationReviewWorkspace: brandingContent.workspaceName,
+  workspaceName: brandingContent.workspaceName,
 } as const

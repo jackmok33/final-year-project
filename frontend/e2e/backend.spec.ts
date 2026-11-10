@@ -77,8 +77,20 @@ for (const viewport of [
     await page.getByRole('button', { name: 'Sign In', exact: true }).click()
     await page.goto('/applications/APP-2026-0143')
     await expect(
-      page.getByRole('heading', { name: 'CSML 26/27', exact: true, level: 1 }),
+      page.getByRole('heading', { name: '2 - Ashy Handgun - 39485584', exact: true, level: 1 }),
     ).toBeVisible()
+    await expect(page).toHaveURL(
+      /\/programmes\/programme-1\/intakes\/2026-27\/batches\/[^/?]+\/applications\/APP-2026-0143$/,
+    )
+    const breadcrumbs = page.getByRole('navigation', { name: 'Breadcrumb', exact: true })
+    await expect(breadcrumbs.getByRole('link')).toHaveText([
+      'Programme',
+      'CSML 26/27',
+      'Batch 1',
+      '2 - Ashy Handgun - 39485584',
+    ])
+    await expect(breadcrumbs.getByRole('link').last()).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('link', { name: 'Back', exact: true })).toHaveCount(0)
     await expect(page.getByText(/FastAPI connected/)).toHaveCount(0)
     const responsePromise = page.waitForResponse(
       (response) =>

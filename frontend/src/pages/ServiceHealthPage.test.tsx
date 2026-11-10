@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '../test/domSetup'
 import { apiMocks, queryResult, resetPageMocks } from '../test/pageMocks'
+import { renderPage } from '../test/renderPage'
 import { ServiceHealthPage } from './ServiceHealthPage'
 
 vi.mock('../app/api', async () => (await import('../test/pageMocks')).apiMocks)
@@ -32,8 +33,13 @@ describe('ServiceHealthPage', () => {
         inference: 'not configured',
       },
     })
-    render(<ServiceHealthPage />)
+    renderPage(<ServiceHealthPage />, '/admin/health', '*')
     expect(screen.getByRole('heading', { name: 'Service health', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Administration' })).toHaveAttribute('href', '/admin')
+    expect(screen.getByRole('link', { name: 'Service health' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
     expect(screen.getByText('Available', { exact: true })).toBeInTheDocument()
     expect(screen.getByText('ucl-application-review-api')).toBeInTheDocument()
     expect(screen.getByText('Mock', { exact: true })).toBeInTheDocument()
@@ -49,7 +55,7 @@ describe('ServiceHealthPage', () => {
   })
 
   it('reports absent configuration without inventing service details', () => {
-    render(<ServiceHealthPage />)
+    renderPage(<ServiceHealthPage />, '/admin/health', '*')
     expect(screen.getByRole('alert')).toHaveTextContent('No backend service has been configured.')
     expect(screen.getByText('Not configured', { exact: true })).toBeInTheDocument()
     expect(screen.queryByText('Mock', { exact: true })).not.toBeInTheDocument()
@@ -57,7 +63,7 @@ describe('ServiceHealthPage', () => {
 
   it('replaces an earlier success with the latest failed check', () => {
     healthResult({ state: 'unavailable', checkedAt, error: 'Cannot reach the backend service.' })
-    const view = render(<ServiceHealthPage />)
+    const view = renderPage(<ServiceHealthPage />, '/admin/health', '*')
     expect(screen.getByRole('alert')).toHaveTextContent('Cannot reach the backend service.')
     expect(screen.getByText('Unavailable', { exact: true })).toBeInTheDocument()
     healthResult({ state: 'not-configured', checkedAt }, true)
@@ -74,7 +80,7 @@ describe('ServiceHealthPage', () => {
       isFetching: false,
       refetch,
     })
-    render(<ServiceHealthPage />)
+    renderPage(<ServiceHealthPage />, '/admin/health', '*')
     expect(screen.getByRole('alert')).toHaveTextContent('Health check failed')
     await userEvent.click(screen.getByRole('button', { name: 'Refresh status' }))
     expect(refetch).toHaveBeenCalledOnce()

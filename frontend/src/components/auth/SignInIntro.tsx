@@ -16,7 +16,7 @@ export function SignInIntro() {
     >
       <UclLogo />
       <Typography variant="h2" component="h1">
-        {content.applicationReviewWorkspace}
+        {content.workspaceName}
       </Typography>
     </Stack>
   )

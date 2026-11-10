@@ -62,4 +62,25 @@ describe('assigned programme selection', () => {
     expect(result.current.isLoading).toBe(true)
     expect(result.current.error).toEqual({ data: 'Course lookup failed' })
   })
+  it('preserves the current course and intake while exposing an in-progress programme refresh', () => {
+    state.ui.programmeByUser[tutor.id] = otherProgramme.id
+    state.ui.intakeByUser[tutor.id] = { [otherProgramme.id]: '25/26' }
+    apiMocks.useProgrammesQuery.mockReturnValue({
+      ...queryResult([programme, otherProgramme]),
+      isFetching: true,
+    })
+    const { result, rerender } = renderHook(useWorkspace)
+    expect(result.current.isFetching).toBe(true)
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.programme).toEqual(otherProgramme)
+    expect(result.current.intakeYear).toBe('2025 / 26')
+    apiMocks.useProgrammesQuery.mockReturnValue({
+      ...queryResult([programme, otherProgramme]),
+      isFetching: false,
+    })
+    rerender()
+    expect(result.current.isFetching).toBe(false)
+    expect(result.current.programme).toEqual(otherProgramme)
+    expect(result.current.intakeYear).toBe('2025 / 26')
+  })
 })

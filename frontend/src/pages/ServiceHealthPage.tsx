@@ -25,6 +25,10 @@ export function ServiceHealthPage() {
   return (
     <Page
       title={content.title}
+      breadcrumbs={[
+        { title: content.administration, to: '/admin' },
+        { title: content.title, to: '/admin/health' },
+      ]}
       subtitle={content.subtitle}
       actions={
         <Button

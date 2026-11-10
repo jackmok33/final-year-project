@@ -37,7 +37,7 @@ describe('BatchList', () => {
     )
     expect(screen.getByRole('link', { name: 'Batch 1' })).toHaveAttribute(
       'href',
-      '/batches/batch%2Fone',
+      '/programmes/p/intakes/2026-27/batches/batch%2Fone',
     )
     const cells = within(screen.getAllByRole('row')[1]).getAllByRole('cell')
     expect(cells[1]).toHaveTextContent(/\d{1,2}\s+[A-Za-z]{3}\s+\d{4},\s+\d{2}:\d{2}/)

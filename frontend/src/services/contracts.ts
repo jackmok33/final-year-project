@@ -18,6 +18,11 @@ export interface ApplicationDetail {
   rubrics: Rubric[]
 }
 
+/** Source metadata for queue readiness; derive this without persisting duplicate document lists. */
+export interface ApplicationListItem extends Application {
+  documentTypes: DocumentType[]
+}
+
 export interface ProgrammeIntake {
   programmeId: string
   years: string[]
@@ -41,7 +46,7 @@ export interface QueryResults {
   programmes: Programme[]
   users: User[]
   programmeIntakes: ProgrammeIntake[]
-  applications: Application[]
+  applications: ApplicationListItem[]
   rubrics: RubricCollection
   application: ApplicationDetail
   batches: BatchSummary[]
@@ -90,4 +95,5 @@ export type Command =
 
 export interface CommandResult {
   id?: string
+  batchId?: string
 }
