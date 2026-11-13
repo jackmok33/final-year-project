@@ -1,6 +1,6 @@
 # Project context for agents
 
-Last reviewed: 5 November 2026. Applies to this project and its subdirectories.
+Last reviewed: 13 November 2026. Applies to this project and its subdirectories.
 Read this guide before editing, then inspect the relevant source. Newer user
 instructions take precedence. Keep this file focused on current conventions;
 verification history belongs in the maintained guides below.
@@ -15,13 +15,14 @@ scoring/recommendation routing, and tutors retain the final decision.
 
 - `frontend/`: React, TypeScript, Vite, MUI/Mantis, React Router, Redux Toolkit and
   RTK Query. Tutor/admin workflows persist in browser IndexedDB.
-- `backend/`: a stateless FastAPI health/mock-assessment scaffold and an independent
-  five-table PostgreSQL foundation. HTTP routes do not yet use the database.
+- `backend/`: a stateless FastAPI health/mock-assessment scaffold, optional async
+  Qwen client/connection probe and an independent five-table PostgreSQL foundation.
+  HTTP routes do not yet use the database. Live Qwen inference remains unverified.
 - Real authentication, server PDF upload/extraction, local AI inference, workers
   and PostgreSQL-backed application APIs remain future work.
 - Planned architecture: FastAPI/Python workers orchestrate evaluation and call a
-  separate Qwen endpoint on UCL GPU hardware. Hosting and continuous GPU access
-  are unconfirmed. PostgreSQL stores records and original PDFs as `bytea`;
+  separate Qwen HTTP endpoint. Deployment and continuous GPU access remain
+  unverified. PostgreSQL stores records and original PDFs as `bytea`;
   assessment JSONB and LangGraph checkpoints are planned. Do not make object
   storage a required MVP dependency.
 
@@ -344,8 +345,8 @@ batches/eight applicants; do not overwrite user data to restore those counts.
 
 ## FastAPI and PostgreSQL
 
-The scaffold exposes only `GET /api/v1/health` and
-`POST /api/v1/mock/assessments`. `app/services/evaluation.py` defines the replaceable
+The scaffold exposes `GET /api/v1/health`, `POST /api/v1/mock/assessments` and the
+opt-in `POST /api/v1/inference/probe`. `app/services/evaluation.py` defines the replaceable
 EvaluationService; `app/schemas.py` owns the HTTP schemas. Set ignored frontend
 `.env.local` to `VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1` and restart Vite
 for optional synthetic reassessment. Send only fixture IDs, document metadata,
@@ -355,6 +356,25 @@ fall back or save partial runs/corrections. Keep `evaluationSource: 'fastapi-moc
 and raw Offer/Further review/Reject responses. The mock API is not authentication,
 a persistent job service or document/decision access. Service health is a real
 read-only HTTP check; simulated service controls remain internal demo facilities.
+
+`app/services/qwen.py` owns the reusable async vLLM client. FastAPI lifespan owns
+its pooled HTTP connection; startup never calls the model or imports the database.
+`app/inference_config.py` reads optional server-only settings from the known
+backend `.env`, with process environment taking precedence. Configure a `/v1`
+URL, served alias and exactly one API key/key-file source. HTTP is loopback-only;
+remote URLs require HTTPS. Keys stay outside Git/frontend code. Redirects and
+environment proxies are disabled, deadlines/body/image/token limits are bounded,
+and generation is not automatically retried. Invalid, incomplete and unavailable
+responses raise typed errors with no fabricated fallback.
+
+The synthetic probe is disabled unless `QWEN_PROBE_ENABLED=true`; keep it local
+and disable it after connection testing. It accepts only text/json/image mode,
+checks the configured model alias and fixed synthetic output, and never saves an
+assessment. The normal `/health` contract still describes the mock assessment
+adapter, not Qwen readiness. Use the explicit probe for inference connectivity.
+Tests isolate real Qwen configuration and use fake transport/loopback HTTP only.
+LangGraph, PDF extraction and real applicant assessment remain unimplemented;
+do not route browser uploads to the synthetic assessor or connection probe.
 
 The expanded frontend document types and fourth score section are not implemented
 by the mock API or PostgreSQL upload schema yet. The mock adapter rejects positive
