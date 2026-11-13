@@ -111,8 +111,23 @@ class AssessmentRun(ApiModel):
 
 
 class BackendHealth(ApiModel):
+    """Synthetic assessment adapter status; the Qwen connection probe is separate."""
+
     status: Literal["ok"] = "ok"
     mode: Literal["mock"] = "mock"
     service: Literal["ucl-application-review-api"] = "ucl-application-review-api"
     database: Literal["not configured"] = "not configured"
     inference: Literal["not configured"] = "not configured"
+
+
+class InferenceProbeRequest(ApiModel):
+    mode: Literal["text", "json", "image"] = "text"
+
+
+class InferenceProbeResponse(ApiModel):
+    status: Literal["ok"] = "ok"
+    mode: Literal["text", "json", "image"]
+    model: str
+    text: str
+    data: dict | None
+    usage: dict[str, int] | None
