@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.inference_routes import IMAGE_FACTS
 from app.main import create_app
-from tests.inference_fakes import KEY, completion
+from tests.inference_fakes import KEY, OPENAI_KEY, OPENAI_SETTINGS, completion
 
 ENDPOINT = "/api/v1/inference/probe"
 
@@ -26,8 +26,11 @@ def test_probe_disabled_by_default_and_never_contacts_a_model(client):
     assert response.json()["detail"]["code"] == "INFERENCE_PROBE_DISABLED"
 
 
-def test_explicitly_enabled_but_unconfigured_is_not_a_fake_success(monkeypatch):
+@pytest.mark.parametrize("provider", ["qwen", "openai"])
+def test_explicitly_enabled_but_unconfigured_is_not_a_fake_success(monkeypatch, provider):
     enable(monkeypatch, configured=False)
+    monkeypatch.setenv("INFERENCE_PROVIDER", provider)
+    monkeypatch.setenv("INFERENCE_PROBE_ENABLED", "true")
     with TestClient(create_app()) as client:
         response = client.post(ENDPOINT, json={"mode": "text"})
     assert response.status_code == 503
@@ -65,6 +68,7 @@ def test_probe_checks_models_then_generates_with_fixed_synthetic_requests(monkey
         assert response.status_code == 200
         result = response.json()
         assert result["status"] == "ok"
+        assert result["provider"] == "qwen"
         assert result["mode"] == mode
         assert result["model"] == "admissions-qwen"
         assert KEY not in response.text
@@ -152,10 +156,10 @@ def test_pooled_client_is_closed_on_shutdown(monkeypatch):
     with TestClient(
         create_app(inference_transport=httpx.MockTransport(lambda request: None))
     ) as client:
-        qwen = client.app.state.qwen_client
+        qwen = client.app.state.inference_client
         assert not qwen._http.is_closed
     assert qwen._http.is_closed
-    assert client.app.state.qwen_client is None
+    assert client.app.state.inference_client is None
 
 
 def test_openapi_documents_probe_separately_from_assessments(client):
@@ -211,3 +215,107 @@ def test_backend_reaches_a_real_local_http_fake_vllm_server(monkeypatch):
         server.shutdown()
         thread.join(timeout=5)
         server.server_close()
+
+
+@pytest.mark.parametrize("mode", ["text", "json", "image"])
+def test_openai_switch_uses_same_probe_with_isolated_credentials(monkeypatch, mode):
+    enable(monkeypatch)
+    monkeypatch.setenv("INFERENCE_PROVIDER", "openai")
+    monkeypatch.setenv("INFERENCE_PROBE_ENABLED", "true")
+    monkeypatch.setenv("OPENAI_API_KEY", OPENAI_KEY)
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        assert request.url.host == "api.openai.com"
+        assert request.headers["authorization"] == "Bearer " + OPENAI_KEY
+        if request.method == "GET":
+            return httpx.Response(200, json={"data": [{"id": OPENAI_SETTINGS.model}]})
+        payload = json.loads(request.content)
+        assert payload["max_completion_tokens"] == 512
+        assert payload["reasoning_effort"] == "none"
+        assert payload["store"] is False
+        assert "chat_template_kwargs" not in payload
+        assert "max_tokens" not in payload
+        if mode == "text":
+            text = "OPENAI_CONNECTION_OK"
+        else:
+            text = json.dumps(IMAGE_FACTS if mode == "image" else {"connection": "ok"})
+        if mode == "image":
+            assert payload["messages"][0]["content"][1]["image_url"]["url"].startswith(
+                "data:image/png;base64,"
+            )
+        return httpx.Response(200, json=completion(text, model=OPENAI_SETTINGS.model))
+
+    with TestClient(create_app(inference_transport=httpx.MockTransport(respond))) as client:
+        assert calls == []
+        response = client.post(ENDPOINT, json={"mode": mode})
+    assert response.status_code == 200
+    assert response.json()["provider"] == "openai"
+    assert response.json()["model"] == OPENAI_SETTINGS.model
+    assert len(calls) == 2
+
+
+def test_qwen_failure_never_falls_back_to_a_configured_openai_key(monkeypatch):
+    enable(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", OPENAI_KEY)
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        assert request.url.host == "127.0.0.1"
+        assert request.headers["authorization"] == "Bearer " + KEY
+        raise httpx.ConnectError("Qwen is stopped")
+
+    with TestClient(create_app(inference_transport=httpx.MockTransport(respond))) as client:
+        response = client.post(ENDPOINT, json={})
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "INFERENCE_UNAVAILABLE"
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "credit_balance_exhausted",
+        "organization_spend_limit_exceeded",
+        "project_spend_limit_exceeded",
+        "organization_usage_limit_exceeded",
+        "insufficient_quota",
+        None,
+        "slow_down",
+        [],
+    ],
+)
+def test_openai_credit_failures_are_distinct_from_rate_limits_without_retries(monkeypatch, code):
+    monkeypatch.setenv("INFERENCE_PROVIDER", "openai")
+    monkeypatch.setenv("INFERENCE_PROBE_ENABLED", "true")
+    monkeypatch.setenv("OPENAI_API_KEY", OPENAI_KEY)
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        if request.method == "GET":
+            return httpx.Response(200, json={"data": [{"id": OPENAI_SETTINGS.model}]})
+        return httpx.Response(
+            429,
+            json={
+                "error": {
+                    "code": code,
+                    "type": "insufficient_quota" if code is None else "api_error",
+                    "message": "Private details " + OPENAI_KEY,
+                }
+            },
+        )
+
+    with TestClient(create_app(inference_transport=httpx.MockTransport(respond))) as client:
+        response = client.post(ENDPOINT, json={})
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == (
+        "INFERENCE_BUSY"
+        if code == "slow_down" or isinstance(code, list)
+        else "INFERENCE_QUOTA_EXHAUSTED"
+    )
+    assert OPENAI_KEY not in response.text
+    assert "Private details" not in response.text
+    assert len(calls) == 2

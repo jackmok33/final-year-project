@@ -1,4 +1,4 @@
-"""Server-side Qwen settings; loading these never contacts the model or database."""
+"""Server-side provider selection; loading never contacts a model or database."""
 
 import math
 import os
@@ -6,11 +6,15 @@ import re
 import stat
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+OPENAI_BASE_URL = "https://api.openai.com/v1"
+OPENAI_DEFAULT_MODEL = "gpt-6-luna"
+Provider = Literal["qwen", "openai"]
 
 
 class InferenceConfigurationError(ValueError):
@@ -18,16 +22,17 @@ class InferenceConfigurationError(ValueError):
 
 
 @dataclass(frozen=True)
-class QwenSettings:
+class InferenceSettings:
     base_url: str
     api_key: str = field(repr=False)
     model: str = "admissions-qwen"
     timeout_seconds: float = 90
+    provider: Provider = "qwen"
 
 
 @dataclass(frozen=True)
 class InferenceConfig:
-    qwen: QwenSettings | None = None
+    connection: InferenceSettings | None = None
     probe_enabled: bool = False
 
 
@@ -37,17 +42,26 @@ def load_inference_config() -> InferenceConfig:
     def get(name: str, default: str = "") -> str:
         return (values.get(name) or default).strip()
 
-    enabled = get("QWEN_PROBE_ENABLED", "false").lower()
+    provider = get("INFERENCE_PROVIDER", "qwen").lower()
+    if provider not in {"qwen", "openai"}:
+        raise InferenceConfigurationError("INFERENCE_PROVIDER must be qwen or openai.")
+    # Keep existing Qwen-only configuration working; the shared flag takes precedence.
+    flag = "INFERENCE_PROBE_ENABLED"
+    if flag not in values and provider == "qwen":
+        flag = "QWEN_PROBE_ENABLED"
+    enabled = get(flag, "false").lower()
     if enabled not in {"true", "false"}:
-        raise InferenceConfigurationError("QWEN_PROBE_ENABLED must be true or false.")
-    base_url = get("QWEN_BASE_URL")
-    key = get("QWEN_API_KEY")
-    key_file = get("QWEN_API_KEY_FILE")
-    if not any((base_url, key, key_file)):
+        raise InferenceConfigurationError(f"{flag} must be true or false.")
+    prefix = "QWEN" if provider == "qwen" else "OPENAI"
+    base_url = get("QWEN_BASE_URL") if provider == "qwen" else OPENAI_BASE_URL
+    key = get(f"{prefix}_API_KEY")
+    key_file = get(f"{prefix}_API_KEY_FILE")
+    if not any((key, key_file)) and (provider == "openai" or not base_url):
         return InferenceConfig(probe_enabled=enabled == "true")
     if not base_url or not (key or key_file) or (key and key_file):
         raise InferenceConfigurationError(
-            "Set QWEN_BASE_URL and exactly one of QWEN_API_KEY or QWEN_API_KEY_FILE."
+            f"Configure the {prefix} endpoint and exactly one of "
+            f"{prefix}_API_KEY or {prefix}_API_KEY_FILE."
         )
     try:
         url = urlsplit(base_url)
@@ -79,24 +93,27 @@ def load_inference_config() -> InferenceConfig:
             key = path.read_text().strip()
         except (OSError, UnicodeError, ValueError):
             raise InferenceConfigurationError(
-                "QWEN_API_KEY_FILE must be a readable regular file with mode 600 or stricter."
+                f"{prefix}_API_KEY_FILE must be a readable regular file with mode 600 or stricter."
             ) from None
-    if not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", key):
+    key_limit = 256 if provider == "qwen" else 1024
+    if not re.fullmatch(rf"[A-Za-z0-9_-]{{32,{key_limit}}}", key):
         raise InferenceConfigurationError(
-            "The Qwen API key must be a 32–256 character URL-safe secret."
+            f"{prefix}_API_KEY must be a 32–{key_limit} character URL-safe secret."
         )
-    model = get("QWEN_MODEL", "admissions-qwen")
+    model = get(
+        f"{prefix}_MODEL", "admissions-qwen" if provider == "qwen" else OPENAI_DEFAULT_MODEL
+    )
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,199}", model):
-        raise InferenceConfigurationError("QWEN_MODEL must be a valid served model name.")
+        raise InferenceConfigurationError(f"{prefix}_MODEL must be a valid model name.")
     try:
-        timeout = float(get("QWEN_TIMEOUT_SECONDS", "90"))
+        timeout = float(get(f"{prefix}_TIMEOUT_SECONDS", "90"))
         if not math.isfinite(timeout) or not 1 <= timeout <= 180:
             raise ValueError
     except ValueError:
         raise InferenceConfigurationError(
-            "QWEN_TIMEOUT_SECONDS must be between 1 and 180."
+            f"{prefix}_TIMEOUT_SECONDS must be between 1 and 180."
         ) from None
     return InferenceConfig(
-        qwen=QwenSettings(base_url.rstrip("/"), key, model, timeout),
+        connection=InferenceSettings(base_url.rstrip("/"), key, model, timeout, provider),
         probe_enabled=enabled == "true",
     )

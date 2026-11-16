@@ -1,8 +1,9 @@
-"""Stateless vLLM HTTP client. No agents, scoring, cloud lifecycle or model loading."""
+"""Bounded Chat Completions client for Qwen/vLLM and explicit OpenAI testing."""
 
 import base64
 import json
 import math
+import re
 import struct
 from dataclasses import dataclass
 from typing import Annotated, Literal
@@ -11,12 +12,19 @@ import anyio
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from app.inference_config import QwenSettings
+from app.inference_config import InferenceSettings
 
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
 MAX_PROMPT_CHARACTERS = 16000
 MAX_OUTPUT_TOKENS = 512
+OPENAI_QUOTA_CODES = {
+    "credit_balance_exhausted",
+    "organization_spend_limit_exceeded",
+    "project_spend_limit_exceeded",
+    "organization_usage_limit_exceeded",
+    "insufficient_quota",
+}
 
 
 class InferenceError(RuntimeError):
@@ -84,11 +92,11 @@ def _image_url(raw: bytes) -> str:
     return "data:image/png;base64," + base64.b64encode(raw).decode("ascii")
 
 
-class QwenClient:
+class InferenceClient:
     """One pooled client per backend lifespan; each generation has separate messages."""
 
     def __init__(
-        self, settings: QwenSettings, *, transport: httpx.AsyncBaseTransport | None = None
+        self, settings: InferenceSettings, *, transport: httpx.AsyncBaseTransport | None = None
     ):
         self.settings = settings
         self._http = httpx.AsyncClient(
@@ -107,6 +115,19 @@ class QwenClient:
     async def __aexit__(self, *_):
         await self._http.aclose()
 
+    async def _read_json(self, response: httpx.Response) -> dict:
+        raw = bytearray()
+        async for chunk in response.aiter_bytes(chunk_size=65536):
+            raw.extend(chunk)
+            if len(raw) > MAX_RESPONSE_BYTES:
+                raise InferenceError(
+                    "INFERENCE_INVALID_RESPONSE", "The inference response exceeded its limit."
+                )
+        value = _parse_json(raw)
+        if not isinstance(value, dict):
+            raise ValueError
+        return value
+
     async def _request(self, route: str, payload: dict | None = None) -> dict:
         try:
             # HTTPX read timeouts are per chunk; also bound the entire operation.
@@ -117,36 +138,52 @@ class QwenClient:
                     status = response.status_code
                     if status in {401, 403}:
                         raise InferenceError(
-                            "INFERENCE_AUTH_FAILED", "Qwen rejected backend credentials."
+                            "INFERENCE_AUTH_FAILED",
+                            "The inference provider rejected backend credentials.",
                         )
+                    if status == 429 and self.settings.provider == "openai":
+                        try:
+                            error = (await self._read_json(response)).get("error")
+                        except (ValueError, UnicodeError, RecursionError):
+                            error = None
+                        if isinstance(error, dict) and (
+                            (
+                                isinstance(error.get("code"), str)
+                                and error["code"] in OPENAI_QUOTA_CODES
+                            )
+                            or error.get("type") == "insufficient_quota"
+                        ):
+                            raise InferenceError(
+                                "INFERENCE_QUOTA_EXHAUSTED",
+                                "OpenAI API credits or usage limits prevent requests.",
+                                503,
+                            )
                     if status in {429, 503}:
-                        raise InferenceError("INFERENCE_BUSY", "Qwen is busy or not ready.", 503)
+                        raise InferenceError(
+                            "INFERENCE_BUSY", "The inference provider is busy or not ready.", 503
+                        )
                     if status != 200:
                         raise InferenceError(
-                            "INFERENCE_HTTP_ERROR", "Qwen returned an unsuccessful response."
+                            "INFERENCE_HTTP_ERROR",
+                            "The inference provider returned an unsuccessful response.",
                         )
-                    raw = bytearray()
-                    async for chunk in response.aiter_bytes(chunk_size=65536):
-                        raw.extend(chunk)
-                        if len(raw) > MAX_RESPONSE_BYTES:
-                            raise InferenceError(
-                                "INFERENCE_INVALID_RESPONSE", "Qwen response exceeded its limit."
-                            )
-                    value = _parse_json(raw)
-                    if not isinstance(value, dict) or "error" in value:
+                    value = await self._read_json(response)
+                    if "error" in value:
                         raise ValueError
                     return value
         except (httpx.TimeoutException, TimeoutError):
             raise InferenceError(
-                "INFERENCE_TIMEOUT", "Qwen did not respond before the deadline.", 504
+                "INFERENCE_TIMEOUT",
+                "The inference provider did not respond before the deadline.",
+                504,
             ) from None
         except httpx.RequestError:
             raise InferenceError(
-                "INFERENCE_UNAVAILABLE", "Cannot reach the Qwen endpoint.", 503
+                "INFERENCE_UNAVAILABLE", "Cannot reach the inference endpoint.", 503
             ) from None
         except (ValueError, UnicodeError, RecursionError):
             raise InferenceError(
-                "INFERENCE_INVALID_RESPONSE", "Qwen returned invalid JSON."
+                "INFERENCE_INVALID_RESPONSE", "The inference provider returned invalid JSON."
             ) from None
 
     async def check_model(self) -> None:
@@ -154,13 +191,14 @@ class QwenClient:
         models = value.get("data")
         if not isinstance(models, list):
             raise InferenceError(
-                "INFERENCE_INVALID_RESPONSE", "Qwen returned an invalid model list."
+                "INFERENCE_INVALID_RESPONSE",
+                "The inference provider returned an invalid model list.",
             )
         if not any(
             isinstance(item, dict) and item.get("id") == self.settings.model for item in models
         ):
             raise InferenceError(
-                "INFERENCE_MODEL_UNAVAILABLE", "The configured Qwen model is not served.", 503
+                "INFERENCE_MODEL_UNAVAILABLE", "The configured model is not available.", 503
             )
 
     async def generate(
@@ -195,22 +233,38 @@ class QwenClient:
         payload = {
             "model": self.settings.model,
             "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": 0,
             "stream": False,
-            "chat_template_kwargs": {"enable_thinking": False},
         }
+        if self.settings.provider == "qwen":
+            payload.update(
+                max_tokens=max_tokens,
+                temperature=0,
+                chat_template_kwargs={"enable_thinking": False},
+            )
+        else:
+            payload.update(max_completion_tokens=max_tokens, reasoning_effort="none", store=False)
         if json_output:
             payload["response_format"] = {"type": "json_object"}
         value = await self._request("chat/completions", payload)
         try:
             completion = _Completion.model_validate(value)
             choice = completion.choices[0]
-            if completion.model != self.settings.model or not choice.message.content.strip():
+            same_model = completion.model == self.settings.model
+            if self.settings.provider == "openai" and not re.search(
+                r"-\d{4}-\d{2}-\d{2}$", self.settings.model
+            ):
+                # OpenAI may report the dated snapshot behind a requested alias.
+                same_model = same_model or bool(
+                    re.fullmatch(
+                        re.escape(self.settings.model) + r"-\d{4}-\d{2}-\d{2}", completion.model
+                    )
+                )
+            if not same_model or not choice.message.content.strip():
                 raise ValueError
             if choice.finish_reason != "stop":
                 raise InferenceError(
-                    "INFERENCE_INCOMPLETE_RESPONSE", "Qwen did not finish its response."
+                    "INFERENCE_INCOMPLETE_RESPONSE",
+                    "The inference provider did not finish its response.",
                 )
             data = None
             if json_output:
@@ -219,7 +273,8 @@ class QwenClient:
                     raise ValueError
         except (ValidationError, ValueError, RecursionError):
             raise InferenceError(
-                "INFERENCE_INVALID_RESPONSE", "Qwen response did not match the requested format."
+                "INFERENCE_INVALID_RESPONSE",
+                "The inference response did not match the requested format.",
             ) from None
         return Generation(
             model=completion.model,

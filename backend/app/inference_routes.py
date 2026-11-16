@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.schemas import InferenceProbeRequest, InferenceProbeResponse
-from app.services.qwen import InferenceError, QwenClient
+from app.services.inference import InferenceClient, InferenceError
 
 router = APIRouter(prefix="/api/v1/inference", tags=["Development inference probe"])
 PROBE_IMAGE = Path(__file__).resolve().parent / "fixtures/qwen-probe.png"
@@ -17,7 +17,7 @@ IMAGE_FACTS = {
 }
 
 
-def get_probe_client(request: Request) -> QwenClient:
+def get_probe_client(request: Request) -> InferenceClient:
     if not getattr(request.app.state, "inference_probe_enabled", False):
         raise HTTPException(
             404,
@@ -26,13 +26,13 @@ def get_probe_client(request: Request) -> QwenClient:
                 "message": "The development probe is disabled.",
             },
         )
-    client = getattr(request.app.state, "qwen_client", None)
+    client = getattr(request.app.state, "inference_client", None)
     if client is None:
         raise HTTPException(
             503,
             detail={
                 "code": "INFERENCE_NOT_CONFIGURED",
-                "message": "Configure the backend Qwen endpoint and API key.",
+                "message": "Configure the selected inference provider and its API key.",
             },
         )
     return client
@@ -44,22 +44,25 @@ def get_probe_client(request: Request) -> QwenClient:
     responses={
         404: {"description": "Development probe disabled"},
         502: {"description": "Upstream credentials, response format or probe check failed"},
-        503: {"description": "Qwen unconfigured, unreachable, busy or model unavailable"},
-        504: {"description": "Qwen request deadline exceeded"},
+        503: {"description": "Provider unconfigured, unreachable, busy or model unavailable"},
+        504: {"description": "Inference request deadline exceeded"},
     },
 )
 async def probe(
     request: InferenceProbeRequest,
-    client: Annotated[QwenClient, Depends(get_probe_client)],
+    client: Annotated[InferenceClient, Depends(get_probe_client)],
 ) -> InferenceProbeResponse:
     """Fixed synthetic requests only. Disabled by default; run the backend on loopback."""
     try:
         await client.check_model()
         if request.mode == "text":
-            result = await client.generate(
-                "Reply with exactly QWEN_CONNECTION_OK and nothing else."
+            marker = (
+                "QWEN_CONNECTION_OK"
+                if client.settings.provider == "qwen"
+                else "OPENAI_CONNECTION_OK"
             )
-            matched = result.text.strip() == "QWEN_CONNECTION_OK"
+            result = await client.generate(f"Reply with exactly {marker} and nothing else.")
+            matched = result.text.strip() == marker
         elif request.mode == "json":
             result = await client.generate(
                 'Return exactly this JSON object: {"connection":"ok"}.', json_output=True
@@ -75,13 +78,15 @@ async def probe(
             matched = result.data == IMAGE_FACTS
         if not matched:
             raise InferenceError(
-                "INFERENCE_PROBE_MISMATCH", "Qwen responded but did not pass the synthetic probe."
+                "INFERENCE_PROBE_MISMATCH",
+                "The model responded but did not pass the synthetic probe.",
             )
     except InferenceError as error:
         raise HTTPException(
             error.status_code, detail={"code": error.code, "message": str(error)}
         ) from None
     return InferenceProbeResponse(
+        provider=client.settings.provider,
         mode=request.mode,
         model=result.model,
         text=result.text,

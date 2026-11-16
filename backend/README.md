@@ -1,11 +1,11 @@
-# FastAPI backend, Qwen client and PostgreSQL foundation
+# FastAPI backend, inference client and PostgreSQL foundation
 
 This milestone proves **React → FastAPI → assessment response → existing review UI**.
 The HTTP API is a local, stateless scaffold using predefined synthetic cases.
 An independent PostgreSQL foundation now stores accounts, workspaces, applications
-and original PDF bytes. The HTTP routes do not use it yet. An optional Qwen HTTP
-client and synthetic connection probe are implemented; the real AWS endpoint has
-not been tested. LangChain, LangGraph, real authentication and PDF assessment are
+and original PDF bytes. The HTTP routes do not use it yet. An optional inference
+client and synthetic connection probe support Qwen and explicit OpenAI testing;
+the real AWS endpoint has not been tested. LangChain, LangGraph, real authentication and PDF assessment are
 not connected. The existing browser dataset, histories, session data and original
 PDFs are preserved.
 
@@ -52,7 +52,7 @@ The original run remains in history and refresh retains both runs. Removing
 | --- | --- |
 | `GET /api/v1/health` | Confirms FastAPI is reachable; reports the mock assessment adapter's database/inference integration, not Qwen connectivity. |
 | `POST /api/v1/mock/assessments` | Validates synthetic case/document references and read-only criteria context, then returns an assessment run. |
-| `POST /api/v1/inference/probe` | Opt-in fixed synthetic text/JSON/image checks against the configured Qwen endpoint. Disabled by default. |
+| `POST /api/v1/inference/probe` | Opt-in fixed synthetic text/JSON/image checks against the selected provider. Disabled by default; response names the provider. |
 
 The mock assessment POST body contains `applicationId`, `criteria` (ID, version, weights,
 thresholds, margin and entry rule), `documents` (IDs, types and page counts),
@@ -82,9 +82,9 @@ Existing tutor/programme checks run in the browser demo before a request, and
 are not server authentication. CORS permits local development/preview origins;
 override the comma-separated `UCL_CORS_ORIGINS` for a different local port.
 
-## Qwen client and local connection probe
+## Inference client and provider switch
 
-`app/services/qwen.py` provides the reusable async `QwenClient.generate()` method.
+`app/services/inference.py` provides the reusable async `InferenceClient.generate()` method.
 It accepts a prompt, optional system prompt and one optional rendered PNG page;
 JSON mode returns a parsed object. Every call builds separate messages. There is
 no conversation history, agent workflow or scoring inside the client.
@@ -95,16 +95,22 @@ No configuration leaves the client unavailable; partial/invalid configuration
 fails startup with a setting-specific error that does not print secrets.
 Process environment overrides the known `backend/.env` file, independently of cwd.
 The existing pinned HTTPX dependency is reused; no model or agent packages are needed.
+Set `INFERENCE_PROVIDER=qwen` (the default) or `INFERENCE_PROVIDER=openai` in the
+server environment or ignored `backend/.env`. Only the selected provider's key,
+model and timeout settings are read. Startup does not choose a provider based on
+which key is available, and failures never switch providers or silently spend
+OpenAI credits. Provider changes require a backend restart, not a frontend switch.
 
 After deploying the VM and opening its SSH tunnel, add these to your **existing,
 ignored `backend/.env`**, preserving the database settings:
 
 ```dotenv
+INFERENCE_PROVIDER=qwen
+INFERENCE_PROBE_ENABLED=true
 QWEN_BASE_URL=http://127.0.0.1:18000/v1
 QWEN_MODEL=admissions-qwen
 QWEN_API_KEY_FILE=~/.config/admissions-qwen/api.key
 QWEN_TIMEOUT_SECONDS=90
-QWEN_PROBE_ENABLED=true
 ```
 
 The key file must contain the same Bearer API key configured on the vLLM server,
@@ -114,6 +120,35 @@ with mode 600 or stricter. The local VM deployment helper creates it during its
 the other empty. Never put the key in a frontend `VITE_*` setting. Leave URL/key
 empty while preparing locally without a model. Restart FastAPI after
 configuration changes.
+
+For temporary OpenAI testing, use:
+
+```dotenv
+INFERENCE_PROVIDER=openai
+INFERENCE_PROBE_ENABLED=true
+OPENAI_MODEL=gpt-6-luna
+OPENAI_TIMEOUT_SECONDS=90
+# Set OPENAI_API_KEY in this ignored file, or set OPENAI_API_KEY_FILE instead.
+```
+
+OpenAI requests go only to `https://api.openai.com/v1`; Qwen's URL/key and any
+`OPENAI_BASE_URL` variable do not redirect them. Supply exactly one of
+`OPENAI_API_KEY` and `OPENAI_API_KEY_FILE`; key files require mode 600 or stricter.
+The key needs permission to read models and create Chat Completions. This profile
+uses GPT-6 Luna with `reasoning_effort=none`, at most 512 output tokens, and
+`store=false`. Other model choices must support these parameters, vision and JSON
+mode for all three probes. Tests use Chat Completions to exercise the same HTTP
+contract as vLLM. OpenAI API usage consumes your API credits/billing; the key stays
+on the backend. Only the fixed synthetic examples are sent by the probe.
+
+The shared probe flag takes precedence over the old `QWEN_PROBE_ENABLED` setting.
+The old flag remains supported for Qwen configurations that do not set the shared
+flag; it cannot enable OpenAI probes. Merely adding an OpenAI key does not enable
+OpenAI or make a request.
+
+Without API credits, keep probes disabled and run `python -m pytest -q` instead.
+It exercises both providers with fake responses and makes no paid API calls.
+Actual OpenAI tests require usable API credits/billing and the configured key.
 
 With FastAPI bound to `127.0.0.1:8000`, test through the backend:
 
@@ -126,21 +161,25 @@ Repeat with `"mode":"json"` and `"mode":"image"`. Each checks `/v1/models` for t
 served alias, then calls `/v1/chat/completions`. Text must return a known marker;
 JSON must return a known object; image mode reads the bundled synthetic PNG and
 checks its three facts. `status: "ok"` requires the corresponding check to pass.
-This proves connectivity and simple instruction/image handling, not admissions
-quality. The PNG reuses the deployment package's synthetic page.
+Responses identify `provider` (`qwen` or `openai`) and the model that answered;
+OpenAI may return the dated snapshot behind a requested alias. Qwen still requires
+the configured served alias exactly. This proves connectivity and simple
+instruction/image handling, not admissions quality. The PNG reuses the deployment
+package's synthetic page.
 
 The probe accepts only its mode, with no arbitrary prompts, model URLs, PDF uploads
 or applicant IDs. It is an unauthenticated **local development diagnostic**;
-keep the backend on loopback and set `QWEN_PROBE_ENABLED=false` after testing.
+keep the backend on loopback and set `INFERENCE_PROBE_ENABLED=false` after testing.
 It neither calls the mock evaluator nor saves runs or scores. The existing frontend
 continues using its current mock contract; `/health` does not probe the model.
 
 The initial client limits are: combined system/user text at most
 16,000 characters (not an exact token budget), output at most 512 tokens, one PNG
 at most 2 MiB/1024 pixels per edge and responses at most 2 MiB. HTTPX phase timeouts
-and a whole-request deadline bound waits. Context-length errors still come from
-vLLM; these client limits do not prove every request fits the 8,192-token context.
-HTTP is restricted to a loopback tunnel; other hosts require verified HTTPS.
+and a whole-request deadline bound waits. Context-length errors come from the
+selected provider; these client limits do not prove every request fits Qwen's
+8,192-token context. Qwen HTTP is restricted to a loopback tunnel; other hosts
+require verified HTTPS. OpenAI uses its fixed official HTTPS endpoint.
 Redirects and environment proxies are disabled. No generation request is retried
 automatically because a timed-out request might already have used GPU time.
 Raw upstream errors, request bodies and credentials are not logged or returned.
@@ -150,14 +189,20 @@ Errors return `detail.code` and `detail.message`: 404 for a disabled probe; 503 
 missing configuration/unreachable/busy/missing-model; 504 for timeouts; and 502
 for rejected upstream credentials, HTTP errors, invalid/incomplete output or a
 failed synthetic check. Invalid probe bodies return 422.
+OpenAI credit, spend and usage-limit failures return 503 with
+`INFERENCE_QUOTA_EXHAUSTED`, separately from temporary rate limits. They are not
+retried, and only the bounded error code is inspected; raw provider error messages
+are not exposed.
 
 The default Python suite tests the wire contract with fake responses and a real
 loopback HTTP fake server. It never connects to AWS or a real Qwen model, and
-isolates any developer's Qwen environment/file configuration. Real GPU memory fit,
+isolates both providers' environment/file configuration. Real GPU memory fit,
 model output and the SSH connection still require live deployment acceptance checks.
 LangGraph integration, document extraction and real admissions evaluation come later.
 
 References: [vLLM chat API](https://docs.vllm.ai/en/latest/serving/online_serving/openai_compatible_server/),
+[OpenAI Chat Completions](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create),
+[GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna),
 [HTTPX async clients](https://www.python-httpx.org/async/),
 [HTTPX timeout semantics](https://www.python-httpx.org/advanced/timeouts/) and
 [FastAPI lifespan](https://fastapi.tiangolo.com/advanced/events/).
@@ -169,7 +214,7 @@ app/main.py                 App factory and CORS configuration
 app/routes.py               HTTP routes and evaluator dependency
 app/schemas.py              Validated requests/responses and OpenAPI models
 app/services/evaluation.py  EvaluationService protocol, mock evaluator and scoring
-app/services/qwen.py        Pooled async vLLM client, validation and bounded failures
+app/services/inference.py   Shared Qwen/OpenAI client, validation and bounded failures
 app/inference_config.py     Optional server-only URL/key/timeout configuration
 app/inference_routes.py     Disabled-by-default synthetic connection probe
 app/fixtures/              Fixed synthetic PNG for the image probe
@@ -338,6 +383,16 @@ The test's `python3` must have these dependencies; alternatively set
 the HTTP response, visible result, refresh, original PDF citation navigation,
 accessibility and an unavailable-backend error. Existing unit tests run without a
 backend; the standalone browser suite exercises demo mode.
+
+Verified on 16 November 2026 for the provider switch: **174 Python tests passed**,
+with **57 opt-in PostgreSQL tests skipped**. The suite covers both request formats,
+separate keys and configuration, provider-identifying probe responses, OpenAI
+snapshot aliases, exhausted-credit/spend-limit errors and absence of automatic
+provider fallback. All model responses came from fake transports or the loopback
+fake server; **no paid OpenAI API calls were made**. Ruff lint/format and whitespace
+checks and all three existing FastAPI browser workflows passed. Actual OpenAI
+responses still require a funded API account, and Qwen's AWS/GPU deployment
+remains unverified. LangGraph remains deferred.
 
 Verified on 13 November 2026 for the Qwen client milestone: **144 Python tests
 passed**, with **57 opt-in PostgreSQL tests skipped**. The suite includes actual

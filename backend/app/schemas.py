@@ -126,6 +126,7 @@ class InferenceProbeRequest(ApiModel):
 
 class InferenceProbeResponse(ApiModel):
     status: Literal["ok"] = "ok"
+    provider: Literal["qwen", "openai"]
     mode: Literal["text", "json", "image"]
     model: str
     text: str

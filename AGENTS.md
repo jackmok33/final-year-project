@@ -1,6 +1,6 @@
 # Project context for agents
 
-Last reviewed: 13 November 2026. Applies to this project and its subdirectories.
+Last reviewed: 16 November 2026. Applies to this project and its subdirectories.
 Read this guide before editing, then inspect the relevant source. Newer user
 instructions take precedence. Keep this file focused on current conventions;
 verification history belongs in the maintained guides below.
@@ -16,7 +16,7 @@ scoring/recommendation routing, and tutors retain the final decision.
 - `frontend/`: React, TypeScript, Vite, MUI/Mantis, React Router, Redux Toolkit and
   RTK Query. Tutor/admin workflows persist in browser IndexedDB.
 - `backend/`: a stateless FastAPI health/mock-assessment scaffold, optional async
-  Qwen client/connection probe and an independent five-table PostgreSQL foundation.
+  inference client/connection probe and an independent five-table PostgreSQL foundation.
   HTTP routes do not yet use the database. Live Qwen inference remains unverified.
 - Real authentication, server PDF upload/extraction, local AI inference, workers
   and PostgreSQL-backed application APIs remain future work.
@@ -357,22 +357,29 @@ and raw Offer/Further review/Reject responses. The mock API is not authenticatio
 a persistent job service or document/decision access. Service health is a real
 read-only HTTP check; simulated service controls remain internal demo facilities.
 
-`app/services/qwen.py` owns the reusable async vLLM client. FastAPI lifespan owns
-its pooled HTTP connection; startup never calls the model or imports the database.
+`app/services/inference.py` owns the reusable async Qwen/OpenAI client. FastAPI
+lifespan owns its pooled HTTP connection; startup never calls the model or imports the database.
 `app/inference_config.py` reads optional server-only settings from the known
-backend `.env`, with process environment taking precedence. Configure a `/v1`
-URL, served alias and exactly one API key/key-file source. HTTP is loopback-only;
-remote URLs require HTTPS. Keys stay outside Git/frontend code. Redirects and
+backend `.env`, with process environment taking precedence. Configure a Qwen
+`/v1` URL, served alias and exactly one API key/key-file source.
+`INFERENCE_PROVIDER=qwen` is the default; `openai` explicitly selects independent
+`OPENAI_*` settings and a fixed `https://api.openai.com/v1` endpoint for testing.
+The OpenAI test profile uses GPT-6 Luna, reasoning disabled, bounded completion
+tokens and `store=false`. It consumes API credits only when explicitly probed;
+there is no automatic provider fallback. Qwen HTTP is loopback-only; remote URLs
+require HTTPS. Keys stay outside Git/frontend code. Redirects and
 environment proxies are disabled, deadlines/body/image/token limits are bounded,
 and generation is not automatically retried. Invalid, incomplete and unavailable
 responses raise typed errors with no fabricated fallback.
 
-The synthetic probe is disabled unless `QWEN_PROBE_ENABLED=true`; keep it local
+The synthetic probe is disabled unless `INFERENCE_PROBE_ENABLED=true`; keep it local
 and disable it after connection testing. It accepts only text/json/image mode,
 checks the configured model alias and fixed synthetic output, and never saves an
-assessment. The normal `/health` contract still describes the mock assessment
-adapter, not Qwen readiness. Use the explicit probe for inference connectivity.
-Tests isolate real Qwen configuration and use fake transport/loopback HTTP only.
+assessment. Responses identify the actual provider/model; an OpenAI result does
+not verify Qwen. Legacy `QWEN_PROBE_ENABLED` applies only when the shared flag is
+absent and Qwen is selected. The normal `/health` contract still describes the
+mock assessment adapter, not Qwen readiness. Use the explicit probe for inference connectivity.
+Tests isolate both providers' configuration and use fake transport/loopback HTTP only.
 LangGraph, PDF extraction and real applicant assessment remain unimplemented;
 do not route browser uploads to the synthetic assessor or connection probe.
 

@@ -7,13 +7,13 @@ from app.main import create_app
 
 
 @pytest.fixture(autouse=True)
-def isolate_qwen_configuration(monkeypatch, tmp_path):
+def isolate_inference_configuration(monkeypatch, tmp_path):
     # A developer's real model URL/key must never affect the default test suite.
     from app import inference_config
 
     monkeypatch.setattr(inference_config, "BACKEND_DIR", tmp_path)
     for name in list(os.environ):
-        if name.startswith("QWEN_"):
+        if name.startswith(("QWEN_", "OPENAI_", "INFERENCE_")):
             monkeypatch.delenv(name)
 
 

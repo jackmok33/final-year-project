@@ -6,11 +6,11 @@ import anyio
 import httpx
 import pytest
 
-from app.inference_config import QwenSettings
+from app.inference_config import InferenceSettings
 from app.inference_routes import PROBE_IMAGE
-from app.services import qwen
-from app.services.qwen import InferenceError, QwenClient
-from tests.inference_fakes import KEY, SETTINGS, completion
+from app.services import inference
+from app.services.inference import InferenceClient, InferenceError
+from tests.inference_fakes import KEY, OPENAI_SETTINGS, SETTINGS, completion
 
 
 @pytest.mark.anyio
@@ -24,7 +24,7 @@ async def test_actual_request_contract_and_separate_contexts():
         calls.append(json.loads(request.content))
         return httpx.Response(200, json=completion())
 
-    async with QwenClient(SETTINGS, transport=httpx.MockTransport(respond)) as client:
+    async with InferenceClient(SETTINGS, transport=httpx.MockTransport(respond)) as client:
         result = await client.generate("First prompt", system_prompt="First agent")
         await client.generate("Second prompt")
         assert result.text == "Test response"
@@ -60,7 +60,7 @@ async def test_image_is_inline_not_a_remote_url_and_json_is_parsed():
         )
         return httpx.Response(200, json=completion('{"grade":82}'))
 
-    async with QwenClient(SETTINGS, transport=httpx.MockTransport(respond)) as client:
+    async with InferenceClient(SETTINGS, transport=httpx.MockTransport(respond)) as client:
         assert (
             await client.generate("Return JSON from this image", image_png=image, json_output=True)
         ).data == {"grade": 82}
@@ -82,7 +82,7 @@ async def test_model_alias_must_be_served(payload, code):
         assert request.url.path == "/v1/models"
         return httpx.Response(200, json=payload)
 
-    async with QwenClient(SETTINGS, transport=httpx.MockTransport(respond)) as client:
+    async with InferenceClient(SETTINGS, transport=httpx.MockTransport(respond)) as client:
         if code:
             with pytest.raises(InferenceError) as error:
                 await client.check_model()
@@ -117,7 +117,7 @@ async def test_http_failures_do_not_retry_follow_redirects_or_echo_bodies(
             headers={"location": "https://another.example/v1"},
         )
 
-    async with QwenClient(SETTINGS, transport=httpx.MockTransport(respond)) as client:
+    async with InferenceClient(SETTINGS, transport=httpx.MockTransport(respond)) as client:
         with pytest.raises(InferenceError) as error:
             await client.generate("Test")
     assert error.value.code == code
@@ -139,7 +139,7 @@ async def test_transport_failures_are_sanitized(exception, code, status):
     def respond(request):
         raise exception
 
-    async with QwenClient(SETTINGS, transport=httpx.MockTransport(respond)) as client:
+    async with InferenceClient(SETTINGS, transport=httpx.MockTransport(respond)) as client:
         with pytest.raises(InferenceError) as error:
             await client.generate("Test")
     assert error.value.code == code
@@ -156,8 +156,8 @@ async def test_total_deadline_catches_a_slow_drip_response():
             yield b"}"
 
     transport = httpx.MockTransport(lambda request: httpx.Response(200, stream=SlowBody()))
-    async with QwenClient(
-        QwenSettings(SETTINGS.base_url, KEY, timeout_seconds=0.02), transport=transport
+    async with InferenceClient(
+        InferenceSettings(SETTINGS.base_url, KEY, timeout_seconds=0.02), transport=transport
     ) as client:
         with pytest.raises(InferenceError) as error:
             await client.generate("Test")
@@ -166,14 +166,14 @@ async def test_total_deadline_catches_a_slow_drip_response():
 
 @pytest.mark.anyio
 async def test_response_limit_applies_without_content_length(monkeypatch):
-    monkeypatch.setattr(qwen, "MAX_RESPONSE_BYTES", 100)
+    monkeypatch.setattr(inference, "MAX_RESPONSE_BYTES", 100)
 
     class LargeBody(httpx.AsyncByteStream):
         async def __aiter__(self):
             yield b"x" * 200
 
     transport = httpx.MockTransport(lambda request: httpx.Response(200, stream=LargeBody()))
-    async with QwenClient(SETTINGS, transport=transport) as client:
+    async with InferenceClient(SETTINGS, transport=transport) as client:
         with pytest.raises(InferenceError) as error:
             await client.generate("Test")
     assert error.value.code == "INFERENCE_INVALID_RESPONSE"
@@ -185,7 +185,7 @@ async def test_response_limit_applies_without_content_length(monkeypatch):
 )
 async def test_invalid_response_envelopes(raw):
     transport = httpx.MockTransport(lambda request: httpx.Response(200, content=raw))
-    async with QwenClient(SETTINGS, transport=transport) as client:
+    async with InferenceClient(SETTINGS, transport=transport) as client:
         with pytest.raises(InferenceError) as error:
             await client.generate("Test")
     assert error.value.code == "INFERENCE_INVALID_RESPONSE"
@@ -206,7 +206,7 @@ async def test_malformed_generation_is_rejected(overrides):
     transport = httpx.MockTransport(
         lambda request: httpx.Response(200, json=completion(**overrides))
     )
-    async with QwenClient(SETTINGS, transport=transport) as client:
+    async with InferenceClient(SETTINGS, transport=transport) as client:
         with pytest.raises(InferenceError) as error:
             await client.generate("Test")
     assert error.value.code == "INFERENCE_INVALID_RESPONSE"
@@ -217,7 +217,7 @@ async def test_truncated_generation_never_becomes_a_result():
     body = completion()
     body["choices"][0]["finish_reason"] = "length"
     transport = httpx.MockTransport(lambda request: httpx.Response(200, json=body))
-    async with QwenClient(SETTINGS, transport=transport) as client:
+    async with InferenceClient(SETTINGS, transport=transport) as client:
         with pytest.raises(InferenceError) as error:
             await client.generate("Test")
     assert error.value.code == "INFERENCE_INCOMPLETE_RESPONSE"
@@ -229,7 +229,7 @@ async def test_truncated_generation_never_becomes_a_result():
 )
 async def test_json_mode_requires_a_complete_json_object(text):
     transport = httpx.MockTransport(lambda request: httpx.Response(200, json=completion(text)))
-    async with QwenClient(SETTINGS, transport=transport) as client:
+    async with InferenceClient(SETTINGS, transport=transport) as client:
         with pytest.raises(InferenceError) as error:
             await client.generate("Return JSON", json_output=True)
     assert error.value.code == "INFERENCE_INVALID_RESPONSE"
@@ -240,7 +240,7 @@ async def test_json_mode_preserves_finite_numbers():
     transport = httpx.MockTransport(
         lambda request: httpx.Response(200, json=completion('{"ratio":0.5}'))
     )
-    async with QwenClient(SETTINGS, transport=transport) as client:
+    async with InferenceClient(SETTINGS, transport=transport) as client:
         result = await client.generate("Return JSON", json_output=True)
     assert result.data == {"ratio": 0.5}
 
@@ -257,7 +257,7 @@ async def test_json_mode_preserves_finite_numbers():
         {"prompt": "Test", "max_tokens": 513},
         {"prompt": "Test", "max_tokens": True},
         {"prompt": "Test", "image_png": b"not-an-image"},
-        {"prompt": "Test", "image_png": b"x" * (qwen.MAX_IMAGE_BYTES + 1)},
+        {"prompt": "Test", "image_png": b"x" * (inference.MAX_IMAGE_BYTES + 1)},
         {
             "prompt": "Test",
             "image_png": b"\x89PNG\r\n\x1a\n"
@@ -269,7 +269,56 @@ async def test_json_mode_preserves_finite_numbers():
 async def test_invalid_inputs_never_send_a_request(kwargs):
     calls = []
     transport = httpx.MockTransport(lambda request: calls.append(request))
-    async with QwenClient(SETTINGS, transport=transport) as client:
+    async with InferenceClient(SETTINGS, transport=transport) as client:
         with pytest.raises(ValueError):
             await client.generate(**kwargs)
     assert calls == []
+
+
+@pytest.mark.anyio
+async def test_openai_payload_omits_qwen_options_and_disables_storage_and_reasoning():
+    def respond(request):
+        assert str(request.url) == "https://api.openai.com/v1/chat/completions"
+        assert request.headers["authorization"] == "Bearer " + OPENAI_SETTINGS.api_key
+        payload = json.loads(request.content)
+        assert payload == {
+            "model": OPENAI_SETTINGS.model,
+            "messages": [{"role": "user", "content": "Return JSON"}],
+            "stream": False,
+            "max_completion_tokens": 128,
+            "reasoning_effort": "none",
+            "store": False,
+            "response_format": {"type": "json_object"},
+        }
+        return httpx.Response(200, json=completion('{"ok":true}', model=OPENAI_SETTINGS.model))
+
+    async with InferenceClient(OPENAI_SETTINGS, transport=httpx.MockTransport(respond)) as client:
+        result = await client.generate("Return JSON", json_output=True, max_tokens=128)
+    assert result.data == {"ok": True}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "provider,requested,returned,accepted",
+    [
+        ("openai", "gpt-6-luna", "gpt-6-luna-2026-11-01", True),
+        ("openai", "gpt-6-luna", "gpt-6-astra", False),
+        ("openai", "gpt-6-luna", "gpt-6-luna-other", False),
+        ("openai", "gpt-6-luna-2026-11-01", "gpt-6-luna-2026-11-02", False),
+        ("qwen", "admissions-qwen", "admissions-qwen-2026-11-01", False),
+    ],
+)
+async def test_only_openai_aliases_can_resolve_to_dated_snapshots(
+    provider, requested, returned, accepted
+):
+    settings = InferenceSettings(SETTINGS.base_url, KEY, model=requested, provider=provider)
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json=completion(model=returned))
+    )
+    async with InferenceClient(settings, transport=transport) as client:
+        if accepted:
+            assert (await client.generate("Test")).model == returned
+        else:
+            with pytest.raises(InferenceError) as error:
+                await client.generate("Test")
+            assert error.value.code == "INFERENCE_INVALID_RESPONSE"

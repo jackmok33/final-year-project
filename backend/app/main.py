@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.inference_config import load_inference_config
 from app.inference_routes import router as inference_router
 from app.routes import router
-from app.services.qwen import QwenClient
+from app.services.inference import InferenceClient
 
 
 def create_app(*, inference_transport: httpx.AsyncBaseTransport | None = None) -> FastAPI:
@@ -16,22 +16,22 @@ def create_app(*, inference_transport: httpx.AsyncBaseTransport | None = None) -
     async def lifespan(app: FastAPI):
         config = load_inference_config()
         app.state.inference_probe_enabled = config.probe_enabled
-        app.state.qwen_client = None
-        if config.qwen is None:
+        app.state.inference_client = None
+        if config.connection is None:
             yield
         else:
-            async with QwenClient(config.qwen, transport=inference_transport) as client:
-                app.state.qwen_client = client
+            async with InferenceClient(config.connection, transport=inference_transport) as client:
+                app.state.inference_client = client
                 try:
                     yield
                 finally:
-                    app.state.qwen_client = None
+                    app.state.inference_client = None
 
     app = FastAPI(
         title="UCL Application Review API · Development scaffold",
-        version="0.2.0",
+        version="0.3.0",
         description=(
-            "Synthetic assessments and an opt-in Qwen connection probe. "
+            "Synthetic assessments and an opt-in Qwen/OpenAI connection probe. "
             "No authentication, persistent application API or real admissions assessment."
         ),
         lifespan=lifespan,

@@ -1,9 +1,13 @@
 """Shared synthetic vLLM wire fixtures; these never provide admissions assessments."""
 
-from app.inference_config import QwenSettings
+from app.inference_config import OPENAI_BASE_URL, OPENAI_DEFAULT_MODEL, InferenceSettings
 
 KEY = "test-key-" + "a" * 40
-SETTINGS = QwenSettings("http://127.0.0.1:18000/v1", KEY)
+SETTINGS = InferenceSettings("http://127.0.0.1:18000/v1", KEY)
+OPENAI_KEY = "sk-test-" + "b" * 100
+OPENAI_SETTINGS = InferenceSettings(
+    OPENAI_BASE_URL, OPENAI_KEY, model=OPENAI_DEFAULT_MODEL, provider="openai"
+)
 
 
 def completion(text="Test response", **overrides):

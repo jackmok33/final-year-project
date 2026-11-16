@@ -16,7 +16,7 @@ def configure(monkeypatch, **values):
 
 def test_no_configuration_is_optional_and_probe_is_disabled():
     config = load_inference_config()
-    assert config.qwen is None
+    assert config.connection is None
     assert config.probe_enabled is False
 
 
@@ -27,8 +27,8 @@ def test_dotenv_is_cwd_independent_and_environment_overrides_it(monkeypatch, tmp
     monkeypatch.setenv("QWEN_MODEL", "environment-model")
     monkeypatch.chdir(tmp_path.parent)
     config = load_inference_config()
-    assert config.qwen.base_url == "http://localhost:18000/v1"
-    assert config.qwen.model == "environment-model"
+    assert config.connection.base_url == "http://localhost:18000/v1"
+    assert config.connection.model == "environment-model"
     assert KEY not in repr(config)
     assert "QWEN_API_KEY" not in __import__("os").environ
 
@@ -37,7 +37,7 @@ def test_environment_can_explicitly_clear_dotenv_values(monkeypatch, tmp_path):
     (tmp_path / ".env").write_text(f"QWEN_BASE_URL=http://localhost:18000/v1\nQWEN_API_KEY={KEY}\n")
     monkeypatch.setenv("QWEN_BASE_URL", "")
     monkeypatch.setenv("QWEN_API_KEY", "")
-    assert load_inference_config().qwen is None
+    assert load_inference_config().connection is None
 
 
 @pytest.mark.parametrize(
@@ -45,7 +45,7 @@ def test_environment_can_explicitly_clear_dotenv_values(monkeypatch, tmp_path):
 )
 def test_private_tunnel_or_verified_https_url(monkeypatch, url):
     configure(monkeypatch, QWEN_BASE_URL=url)
-    assert load_inference_config().qwen.base_url == url.rstrip("/")
+    assert load_inference_config().connection.base_url == url.rstrip("/")
 
 
 @pytest.mark.parametrize(
@@ -100,7 +100,7 @@ def test_mode_600_deployment_key_file_is_supported(monkeypatch, tmp_path):
     key.chmod(0o600)
     configure(monkeypatch, QWEN_API_KEY="", QWEN_API_KEY_FILE=str(key), QWEN_PROBE_ENABLED="true")
     config = load_inference_config()
-    assert config.qwen.api_key == KEY
+    assert config.connection.api_key == KEY
     assert config.probe_enabled is True
     assert KEY not in repr(config)
 
@@ -123,3 +123,68 @@ def test_bad_key_file_is_rejected_without_path_or_contents(monkeypatch, tmp_path
         load_inference_config()
     assert str(path) not in str(error.value)
     assert KEY not in str(error.value)
+
+
+def test_openai_selection_uses_only_openai_credentials_and_official_endpoint(monkeypatch):
+    from app.inference_config import OPENAI_BASE_URL, OPENAI_DEFAULT_MODEL
+    from tests.inference_fakes import OPENAI_KEY
+
+    configure(monkeypatch, QWEN_API_KEY="unused-invalid-key")
+    monkeypatch.setenv("INFERENCE_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", OPENAI_KEY)
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://untrusted.example/v1")
+    monkeypatch.setenv("INFERENCE_PROBE_ENABLED", "true")
+    config = load_inference_config()
+    assert config.connection.provider == "openai"
+    assert config.connection.base_url == OPENAI_BASE_URL
+    assert config.connection.api_key == OPENAI_KEY
+    assert config.connection.model == OPENAI_DEFAULT_MODEL
+    assert config.probe_enabled is True
+    assert OPENAI_KEY not in repr(config)
+
+
+@pytest.mark.parametrize("provider", ["qwen", "openai"])
+def test_inactive_provider_key_never_enables_a_connection(monkeypatch, provider):
+    monkeypatch.setenv("INFERENCE_PROVIDER", provider)
+    monkeypatch.setenv("OPENAI_API_KEY" if provider == "qwen" else "QWEN_API_KEY", KEY)
+    assert load_inference_config().connection is None
+
+
+def test_shared_probe_flag_overrides_legacy_qwen_flag(monkeypatch):
+    configure(monkeypatch, QWEN_PROBE_ENABLED="true", INFERENCE_PROBE_ENABLED="false")
+    assert load_inference_config().probe_enabled is False
+
+
+def test_legacy_qwen_flag_cannot_enable_openai_probes(monkeypatch):
+    monkeypatch.setenv("INFERENCE_PROVIDER", "openai")
+    monkeypatch.setenv("QWEN_PROBE_ENABLED", "true")
+    assert load_inference_config().probe_enabled is False
+
+
+@pytest.mark.parametrize("value", ["unknown", "qwen,openai"])
+def test_unknown_provider_is_rejected(monkeypatch, value):
+    monkeypatch.setenv("INFERENCE_PROVIDER", value)
+    with pytest.raises(InferenceConfigurationError, match="INFERENCE_PROVIDER"):
+        load_inference_config()
+
+
+def test_openai_key_file_accepts_long_project_keys(monkeypatch, tmp_path):
+    key = "sk-proj-" + "c" * 300
+    path = tmp_path / "openai.key"
+    path.write_text(key)
+    path.chmod(0o600)
+    monkeypatch.setenv("INFERENCE_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY_FILE", str(path))
+    assert load_inference_config().connection.api_key == key
+    monkeypatch.setenv("OPENAI_API_KEY", KEY)
+    with pytest.raises(InferenceConfigurationError, match="exactly one"):
+        load_inference_config()
+
+
+@pytest.mark.parametrize("key", ["short", "x" * 1025, "x" * 40 + "\nheader"])
+def test_invalid_openai_key_is_not_echoed(monkeypatch, key):
+    monkeypatch.setenv("INFERENCE_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", key)
+    with pytest.raises(InferenceConfigurationError) as error:
+        load_inference_config()
+    assert key not in str(error.value)
