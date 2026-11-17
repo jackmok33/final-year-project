@@ -280,7 +280,7 @@ New model instances receive UUID strings on insert; existing IDs such as
 | `programmes` | Named workspace, case-insensitive unique code, optional creator ownership. Names can repeat. |
 | `programme_memberships` | Composite `(user_id, programme_id)` key; assignment and ownership are separate. |
 | `applications` | Workspace, candidate reference and submitting tutor. Candidate references can repeat. No assessment fields. |
-| `documents` | Original `bytea` plus metadata. At most one transcript/CV/statement per application. |
+| `documents` | Original `bytea` plus metadata. Six document categories; singleton types are unique per application and references may repeat. |
 
 Database constraints enforce non-blank required labels, trimmed names/codes,
 lowercase trimmed emails, foreign keys, document type, canonical PDF MIME type,
@@ -288,6 +288,40 @@ file sizes from one byte through 20 MiB, 1–100 pages, lowercase 64-character
 hexadecimal hashes and exact stored byte length. Hashes are not unique. PDF
 readability, calculating the true hash and the **combined 100-page application limit** must be enforced by
 the upcoming upload service; these table checks do not parse PDF files.
+
+### Document categories and migration
+
+The document schema now matches the frontend's six categories:
+
+| `document_type` | Documents per application |
+| --- | --- |
+| `transcript` | At most one |
+| `cv` | At most one |
+| `statement` | At most one |
+| `application_form` | At most one |
+| `english_test` | At most one |
+| `reference` | Multiple, each with its own document ID |
+
+Documents remain individual linked rows containing their original PDF bytes.
+Original filenames are metadata, not identifiers; references can share filenames
+or hashes. The database allows incomplete document sets. Readiness, PDF validation
+and combined page limits belong to the future upload/application service.
+
+Migration `20261117_0002` expands the allowed types and replaces the old unique
+constraint with a partial unique index of the same name,
+`uq_documents_application_type`, excluding references. The separate full
+`ix_documents_application_id` index covers all documents for application lookups
+and deletion cascades. Existing IDs, bytes, metadata and timestamps are unchanged.
+Run `alembic upgrade head` and `alembic check` explicitly after configuring the
+database; FastAPI startup does not apply migrations.
+
+Downgrade to `20261015_0001` restores the original three-category schema only when
+all rows are transcript/CV/statement documents. It locks the document table and
+refuses the downgrade if any application form, English test or reference exists.
+It never deletes or relabels documents to make a downgrade succeed.
+This schema change adds no upload/download endpoints or frontend persistence
+integration; those remain the next milestone. The synthetic assessment HTTP
+schemas and evaluator still support only their existing three-category fixtures.
 
 Programme deletion cascades to memberships, applications and PDFs; application
 deletion cascades to PDFs. Deleting a user removes memberships but is restricted
@@ -383,6 +417,16 @@ The test's `python3` must have these dependencies; alternatively set
 the HTTP response, visible result, refresh, original PDF citation navigation,
 accessibility and an unavailable-backend error. Existing unit tests run without a
 backend; the standalone browser suite exercises demo mode.
+
+Verified on 17 November 2026 for the document schema: **254 Python tests passed**,
+including **80 PostgreSQL integration tests**, using a disposable PostgreSQL 18.6
+container and a dedicated test database. Checks cover all six document types,
+singleton uniqueness, multiple references, binary round trips, reference deletion
+cascades, full/partial indexes and schema/model parity. Legacy rows survive
+downgrade/upgrade unchanged; downgrades with new document categories fail without
+changing rows or the schema. Ruff lint/format and whitespace checks passed.
+Development data and browser storage were not modified; upload/download endpoints
+and frontend database integration remain unimplemented.
 
 Verified on 16 November 2026 for the provider switch: **174 Python tests passed**,
 with **57 opt-in PostgreSQL tests skipped**. The suite covers both request formats,

@@ -1,6 +1,6 @@
 # Project context for agents
 
-Last reviewed: 16 November 2026. Applies to this project and its subdirectories.
+Last reviewed: 17 November 2026. Applies to this project and its subdirectories.
 Read this guide before editing, then inspect the relevant source. Newer user
 instructions take precedence. Keep this file focused on current conventions;
 verification history belongs in the maintained guides below.
@@ -383,9 +383,16 @@ Tests isolate both providers' configuration and use fake transport/loopback HTTP
 LangGraph, PDF extraction and real applicant assessment remain unimplemented;
 do not route browser uploads to the synthetic assessor or connection probe.
 
+PostgreSQL's document schema supports transcript, CV, statement, application form,
+English test and reference PDFs. A partial unique index permits multiple references
+while keeping the other five types unique per application; a full application-ID
+index also covers references. Migration `20261117_0002` preserves existing rows;
+downgrade refuses new categories instead of deleting or relabelling PDFs.
+Upload/download endpoints and frontend database integration remain future work.
+
 The expanded frontend document types and fourth score section are not implemented
-by the mock API or PostgreSQL upload schema yet. The mock adapter rejects positive
-reference weights before HTTP; a zero-weight reference field is omitted along
+by the mock API yet. The mock adapter rejects positive reference weights before
+HTTP; a zero-weight reference field is omitted along
 with extra document metadata to retain the legacy synthetic request shape. Do not
 silently fall back or imply that the server assessed uploaded references.
 
@@ -414,8 +421,9 @@ and no applications/documents, independently of browser examples. Read the backe
 guide for connection URLs and inspection commands; commit placeholders only.
 
 Keep textual/UUID-compatible IDs, timezone-aware timestamps, role/unique/FK/check
-constraints, original PDF `bytea`, per-application document-type uniqueness and
-specified deletion cascades/attribution restrictions. Database constraints alone
+constraints, original PDF `bytea`, per-application singleton-type uniqueness,
+repeatable references and specified deletion cascades/attribution restrictions.
+Database constraints alone
 establish neither PDF readability, true SHA calculation nor the combined page
 limit; those belong to the future upload service. Keep mutable databases, Python
 virtual environments and model weights outside OneDrive.

@@ -16,7 +16,7 @@ def test_migration_downgrade_upgrade_and_model_consistency(db_engine, migration_
     assert set(inspect(db_engine).get_table_names()) == DOMAIN_TABLES | {"alembic_version"}
     command.check(migration_config)
     with db_engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261015_0001"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261117_0002"
 
 
 def test_column_types_nullability_and_defaults(db_engine):

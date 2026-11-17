@@ -7,10 +7,10 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
-    UniqueConstraint,
     func,
     text,
 )
@@ -26,8 +26,18 @@ if TYPE_CHECKING:
 class Document(Base):
     __tablename__ = "documents"
     __table_args__ = (
-        UniqueConstraint("application_id", "document_type", name="uq_documents_application_type"),
-        CheckConstraint("document_type IN ('transcript', 'cv', 'statement')", name="type_allowed"),
+        Index(
+            "uq_documents_application_type",
+            "application_id",
+            "document_type",
+            unique=True,
+            postgresql_where=text("document_type <> 'reference'"),
+        ),
+        CheckConstraint(
+            "document_type IN "
+            "('transcript', 'cv', 'statement', 'application_form', 'english_test', 'reference')",
+            name="type_allowed",
+        ),
         CheckConstraint("filename ~ '[^[:space:]]'", name="filename_nonblank"),
         CheckConstraint("content_type = 'application/pdf'", name="content_type_pdf"),
         CheckConstraint("size_bytes > 0 AND size_bytes <= 20971520", name="size_range"),
@@ -38,7 +48,7 @@ class Document(Base):
 
     id: Mapped[str] = mapped_column(String(200), primary_key=True, default=new_id)
     application_id: Mapped[str] = mapped_column(
-        String(200), ForeignKey("applications.id", ondelete="CASCADE")
+        String(200), ForeignKey("applications.id", ondelete="CASCADE"), index=True
     )
     document_type: Mapped[str] = mapped_column(Text)
     filename: Mapped[str] = mapped_column(Text)
