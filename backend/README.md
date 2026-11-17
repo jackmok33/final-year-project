@@ -1,9 +1,11 @@
 # FastAPI backend, inference client and PostgreSQL foundation
 
 This milestone proves **React → FastAPI → assessment response → existing review UI**.
-The HTTP API is a local, stateless scaffold using predefined synthetic cases.
-An independent PostgreSQL foundation now stores accounts, workspaces, applications
-and original PDF bytes. The HTTP routes do not use it yet. An optional inference
+The assessment API is a local, stateless scaffold using predefined synthetic cases.
+An opt-in document API now stores and retrieves original PDFs through PostgreSQL,
+with per-tutor Bearer tokens and server-side ownership checks. The browser still
+uses IndexedDB; its prototype login is separate from these API credentials.
+The database also has account, workspace and application tables. An optional inference
 client and synthetic connection probe support Qwen and explicit OpenAI testing;
 the real AWS endpoint has not been tested. LangChain, LangGraph, real authentication and PDF assessment are
 not connected. The existing browser dataset, histories, session data and original
@@ -53,6 +55,9 @@ The original run remains in history and refresh retains both runs. Removing
 | `GET /api/v1/health` | Confirms FastAPI is reachable; reports the mock assessment adapter's database/inference integration, not Qwen connectivity. |
 | `POST /api/v1/mock/assessments` | Validates synthetic case/document references and read-only criteria context, then returns an assessment run. |
 | `POST /api/v1/inference/probe` | Opt-in fixed synthetic text/JSON/image checks against the selected provider. Disabled by default; response names the provider. |
+| `POST /api/v1/applications/{id}/documents` | Token-protected upload of one original PDF into an existing, owned application. |
+| `GET /api/v1/applications/{id}/documents` | Token-protected metadata list; PDF bytes are not included. |
+| `GET /api/v1/documents/{id}` | Token-protected download of the original PDF bytes. |
 
 The mock assessment POST body contains `applicationId`, `criteria` (ID, version, weights,
 thresholds, margin and entry rule), `documents` (IDs, types and page counts),
@@ -81,6 +86,112 @@ tests. It exposes no applicant records, original PDFs or decision operations.
 Existing tutor/programme checks run in the browser demo before a request, and
 are not server authentication. CORS permits local development/preview origins;
 override the comma-separated `UCL_CORS_ORIGINS` for a different local port.
+
+## Document storage API
+
+The document routes are disabled (404) until `DOCUMENT_API_TOKENS_FILE` is set in
+the server environment or ignored `backend/.env`. This private JSON file maps
+SHA-256 digests of random Bearer tokens to existing database user IDs. API tokens
+are independent of Qwen/OpenAI keys and the prototype frontend login. No client
+`userId`, membership list or role claim establishes server identity.
+
+Run the explicit database migrations first (`alembic upgrade head`). The API
+does not migrate, seed, connect to or import the database at startup. Its database
+engine is created lazily on the first authenticated document request and disposed
+on shutdown. Missing/broken database configuration produces a sanitised 503;
+there is no fallback storage or simulated upload result.
+
+Create a local credential file outside the repository, for example by running
+this once. It refuses to overwrite an existing file and prints the token once:
+
+```sh
+python - <<'PY'
+import hashlib, json, os, secrets
+from pathlib import Path
+
+path = Path.home() / '.config/admissions-documents/tokens.json'
+path.parent.mkdir(parents=True, exist_ok=True)
+token = secrets.token_urlsafe(32)
+descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+with os.fdopen(descriptor, 'w') as stream:
+    json.dump({hashlib.sha256(token.encode()).hexdigest(): 'tutor-a'}, stream)
+print(token)
+PY
+```
+
+Then set `DOCUMENT_API_TOKENS_FILE=~/.config/admissions-documents/tokens.json` in
+the existing backend `.env` and restart FastAPI. File permissions must be 600 or
+stricter; symlinks, duplicate digests, plaintext token keys and malformed files
+fail startup without printing their values. At most 100 digests are supported.
+To revoke/rotate a token, change its digest mapping and restart the backend.
+Account deactivation, tutor-role removal and programme ownership changes are
+checked against PostgreSQL on every operation and take effect without a restart.
+
+Every operation requires an **active tutor who owns the application's programme**
+(`programmes.created_by`). Membership alone grants no access; admin permission
+alone grants no access; an unowned programme grants no access. Tutors with both
+roles can access their own programmes. Invalid tokens return 401; inactive,
+missing or non-tutor accounts return 403; missing and inaccessible records return
+the same 404. Use loopback for local tests and HTTPS for remote access.
+
+The seed contains no applications and its example programmes are unowned. These
+routes intentionally do not create programmes/applications or accept browser-only
+application IDs. For a synthetic API test, explicitly create a dedicated owned
+programme/application in the development database, for example after seeding:
+
+```sql
+INSERT INTO programmes (id, name, code, year, created_by)
+VALUES ('document-api-demo', 'Document API demo', 'DOCUMENT-API-DEMO', '2026-27', 'tutor-a');
+INSERT INTO applications (id, programme_id, candidate_reference, created_by)
+VALUES ('document-api-demo-app', 'document-api-demo', 'SYNTHETIC-DOC-001', 'tutor-a');
+```
+
+Use the generated token as `DOCUMENT_API_TOKEN` in your local shell. Send one PDF
+per POST as a raw `application/pdf` body, with `documentType` and a plain Unicode
+PDF `filename` in the query. This is **not multipart or ZIP upload**:
+
+```sh
+curl --fail-with-body \
+  -H "Authorization: Bearer ${DOCUMENT_API_TOKEN:?Set the generated token first}" \
+  -H 'Content-Type: application/pdf' \
+  --data-binary @/absolute/path/to/cv.pdf \
+  'http://127.0.0.1:8000/api/v1/applications/document-api-demo-app/documents?documentType=cv&filename=cv.pdf'
+
+curl --fail-with-body -H "Authorization: Bearer $DOCUMENT_API_TOKEN" \
+  http://127.0.0.1:8000/api/v1/applications/document-api-demo-app/documents
+
+curl --fail-with-body -H "Authorization: Bearer $DOCUMENT_API_TOKEN" \
+  http://127.0.0.1:8000/api/v1/documents/DOCUMENT_ID --output downloaded.pdf
+```
+
+Successful uploads return 201, metadata and a `Location` download path. Metadata
+contains `id`, `applicationId`, `documentType`, `filename`, `contentType`,
+`sizeBytes`, `pageCount`, `sha256` and `uploadedAt`; list responses are arrays of
+the same shape. Download returns `application/pdf`, an encoded attachment filename
+and the original bytes. Document responses use `private, no-store`; listing and
+denied downloads do not fetch the PDF blobs. Swagger `/docs` also exposes the
+Bearer scheme and binary PDF request/response.
+
+The server enforces 20 MiB per PDF, 1–100 pages per document and at most 100 pages
+per application. It parses PDFs with pinned pypdf in a separate process, rejects
+encrypted/unreadable files, calculates the hash/page count and retains the exact
+uploaded bytes. Parsing has a ten-second deadline and an eight-second CPU limit;
+Linux also imposes a 512 MiB process address-space limit. The body-read deadline
+is 60 seconds and checks streamed bytes even without a Content-Length header.
+At most two uploads run per backend process; extra concurrent uploads receive a
+503 busy response before their bodies are read. The caller decides whether to retry.
+
+All six document categories are supported. Singleton duplicates return 409;
+references may repeat. Application-row locks serialize uploads before checking
+the combined page total. Permissions are checked again after parsing and the
+insert/commit is atomic. Invalid metadata/PDF/page totals return 422, size failures
+413, wrong media types 415, interrupted bodies 400, body timeouts 408 and storage
+or parser availability failures 503. Error details contain stable codes and
+sanitised messages. PostgreSQL statements/locks have bounded waits. No request
+invokes a model, saves an assessment or changes the browser's existing data.
+
+Interactive server login, frontend HTTP persistence, programme/application APIs,
+batch/ZIP ingestion and AI assessment remain separate milestones.
 
 ## Inference client and provider switch
 
@@ -217,6 +328,12 @@ app/services/evaluation.py  EvaluationService protocol, mock evaluator and scori
 app/services/inference.py   Shared Qwen/OpenAI client, validation and bounded failures
 app/inference_config.py     Optional server-only URL/key/timeout configuration
 app/inference_routes.py     Disabled-by-default synthetic connection probe
+app/document_routes.py      Token-protected original PDF upload/list/download
+app/document_config.py      Private hashed-token configuration; no DB imports
+app/document_dependencies.py Server identity and lazy, lifespan-owned DB resources
+app/services/documents.py   Ownership checks, atomic storage and application locks
+app/services/pdf_validation.py Filename, original bytes, hash and bounded validation
+app/services/pdf_worker.py  Isolated PDF parser; never rewrites uploaded files
 app/fixtures/              Fixed synthetic PNG for the image probe
 app/db.py                  Lazy database configuration, engine, sessions and ORM base
 app/models/                Five SQLAlchemy table models and relationships
@@ -233,10 +350,11 @@ permissions and persistence. A configured backend failure surfaces an error and
 does not silently fall back to locally generated scores or save a partial run.
 Newly uploaded PDFs stay in the explicit real-assessment-unavailable path.
 
-The next milestone can add PDF upload/download services and connect frontend
-workspace/application/document persistence to these tables. Assessment runs,
+The document API implements PDF upload/list/download for existing database
+applications. A later milestone can connect frontend workspace/application/document
+persistence to these tables. Assessment runs,
 fixed criteria, decisions and correction history remain later MVP milestones,
-along with real server authentication and worker integration with the Qwen client.
+along with interactive server authentication and worker integration with the Qwen client.
 The mock request accepts browser criteria context only for this transition;
 the full backend must load trusted criteria and document identities itself.
 This small contract is not the final API for the entire application.
@@ -286,8 +404,8 @@ Database constraints enforce non-blank required labels, trimmed names/codes,
 lowercase trimmed emails, foreign keys, document type, canonical PDF MIME type,
 file sizes from one byte through 20 MiB, 1–100 pages, lowercase 64-character
 hexadecimal hashes and exact stored byte length. Hashes are not unique. PDF
-readability, calculating the true hash and the **combined 100-page application limit** must be enforced by
-the upcoming upload service; these table checks do not parse PDF files.
+readability, calculating the true hash and the **combined 100-page application limit**
+are enforced by the document upload service; the table checks do not parse PDF files.
 
 ### Document categories and migration
 
@@ -319,16 +437,16 @@ Downgrade to `20261015_0001` restores the original three-category schema only wh
 all rows are transcript/CV/statement documents. It locks the document table and
 refuses the downgrade if any application form, English test or reference exists.
 It never deletes or relabels documents to make a downgrade succeed.
-This schema change adds no upload/download endpoints or frontend persistence
-integration; those remain the next milestone. The synthetic assessment HTTP
+The schema migration itself adds no endpoints; the opt-in document API above now
+provides file storage. Frontend persistence remains independent. The synthetic assessment HTTP
 schemas and evaluator still support only their existing three-category fixtures.
 
 Programme deletion cascades to memberships, applications and PDFs; application
 deletion cascades to PDFs. Deleting a user removes memberships but is restricted
 if they created a programme or submitted an application. Deactivation preserves
 attribution. Foreign-key lookups have leading primary/unique or explicit indexes.
-Membership alone does not implement authorization: future services must require
-an active tutor **and** workspace membership; admin status grants no applicant access.
+The document API requires an active tutor **and** programme ownership;
+membership and admin status alone grant no applicant access.
 
 The explicit seed inserts the same four frontend demo accounts (`tutor-a`,
 `tutor-b`, `admin-a`, inactive `former-tutor`), two shared example programmes and
@@ -417,6 +535,16 @@ The test's `python3` must have these dependencies; alternatively set
 the HTTP response, visible result, refresh, original PDF citation navigation,
 accessibility and an unavailable-backend error. Existing unit tests run without a
 backend; the standalone browser suite exercises demo mode.
+
+Verified on 17 November 2026 for the document API: **330 Python tests passed**
+against the exact staged code, including all opt-in PostgreSQL integration tests
+in a disposable PostgreSQL 18.6 container. Coverage includes real upload/list/
+download round trips, all six categories, hashed-token identity, active tutor and
+ownership checks, immediate role/ownership changes, invalid/encrypted PDFs,
+streamed size limits, commit rollback, concurrent page/uniqueness enforcement,
+metadata-only reads, startup isolation and resource cleanup. All three existing
+FastAPI browser workflows and Ruff lint/format/whitespace checks passed. No model
+calls were made; development data and browser persistence were preserved.
 
 Verified on 17 November 2026 for the document schema: **254 Python tests passed**,
 including **80 PostgreSQL integration tests**, using a disposable PostgreSQL 18.6
