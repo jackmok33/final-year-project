@@ -12,7 +12,7 @@ import anyio
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from app.inference_config import InferenceSettings
+from app.inference.config import InferenceSettings
 
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 MAX_IMAGE_BYTES = 2 * 1024 * 1024

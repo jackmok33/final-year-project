@@ -6,7 +6,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.inference_routes import IMAGE_FACTS
+from app.inference.routes import IMAGE_FACTS
 from app.main import create_app
 from tests.inference_fakes import KEY, OPENAI_KEY, OPENAI_SETTINGS, completion
 

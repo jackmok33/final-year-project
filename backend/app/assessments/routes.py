@@ -2,12 +2,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.schemas import AssessmentRun, BackendHealth, MockAssessmentRequest
-from app.services.evaluation import (
+from app.assessments.mock import (
     EvaluationService,
     MockEvaluationService,
     UnsupportedMockCase,
 )
+from app.assessments.schemas import AssessmentRun, BackendHealth, MockAssessmentRequest
 
 router = APIRouter(prefix="/api/v1")
 

@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
 
-BACKEND_DIR = Path(__file__).resolve().parents[1]
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 OPENAI_BASE_URL = "https://api.openai.com/v1"
 OPENAI_DEFAULT_MODEL = "gpt-6-luna"
 Provider = Literal["qwen", "openai"]

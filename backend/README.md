@@ -228,7 +228,7 @@ batch/ZIP ingestion and AI assessment remain separate milestones.
 
 ## Inference client and provider switch
 
-`app/services/inference.py` provides the reusable async `InferenceClient.generate()` method.
+`app/inference/client.py` provides the reusable async `InferenceClient.generate()` method.
 It accepts a prompt, optional system prompt and one optional rendered PNG page;
 JSON mode returns a parsed object. Every call builds separate messages. There is
 no conversation history, agent workflow or scoring inside the client.
@@ -351,42 +351,39 @@ References: [vLLM chat API](https://docs.vllm.ai/en/latest/serving/online_servin
 [HTTPX timeout semantics](https://www.python-httpx.org/advanced/timeouts/) and
 [FastAPI lifespan](https://fastapi.tiangolo.com/advanced/events/).
 
-## Structure and next integration boundaries
+## Where to find the code
 
 ```text
-app/main.py                 App factory and CORS configuration
-app/routes.py               HTTP routes and evaluator dependency
-app/schemas.py              Validated requests/responses and OpenAPI models
-app/services/evaluation.py  EvaluationService protocol, mock evaluator and scoring
-app/services/inference.py   Shared Qwen/OpenAI client, validation and bounded failures
-app/inference_config.py     Optional server-only URL/key/timeout configuration
-app/inference_routes.py     Disabled-by-default synthetic connection probe
-app/document_routes.py      Token-protected original PDF upload/list/download
-app/document_config.py      Private hashed-token configuration; no DB imports
-app/document_dependencies.py Server identity and lazy, lifespan-owned DB resources
-app/services/documents.py   Ownership checks, atomic storage and application locks
-app/services/pdf_validation.py Filename, original bytes, hash and bounded validation
-app/services/pdf_worker.py  Isolated PDF parser; never rewrites uploaded files
-app/fixtures/              Fixed synthetic PNG for the image probe
-app/db.py                  Lazy database configuration, engine, sessions and ORM base
-app/models/                Five SQLAlchemy table models and relationships
-app/seed.py                Explicit empty-dataset demo bootstrap
-alembic/                   Versioned table migrations, independent of app startup
-compose.yaml               Local PostgreSQL 18.6 and persistent named volume
-tests/                     HTTP/configuration tests and opt-in PostgreSQL integration tests
+app/
+  main.py          FastAPI wiring, lifespan, CORS and error responses
+  auth/            Token loading and database permission checks
+  workspace/       Accounts, programmes, criteria, applications, batches and snapshot
+  documents/       Original PDF endpoints, storage and isolated validation
+  assessments/     Synthetic evaluator, persisted runs, decisions and corrections
+  inference/       Model client, configuration and synthetic connection probe
+  models/          SQLAlchemy tables and relationships
+  dependencies.py  Bearer identity and lazy PostgreSQL sessions for HTTP routes
+  transactions.py Shared transaction boundaries, timeouts and safe database errors
+  api.py           Shared validation types and API errors
+  audit.py         Write audit entries in the caller's transaction
+  db.py            Database configuration, engine and ORM base
+  seed.py          Explicit empty-dataset demo bootstrap
+  import_browser.py  Explicit migration from a browser test-data export
+alembic/           Versioned schema migrations
+tests/             API/configuration tests and opt-in PostgreSQL integration tests
 ```
 
-`get_evaluation_service()` is the replacement seam for a future evaluator. The
-frontend transport lives in `src/services/httpAdmissions.ts`; PostgreSQL owns
-records and review history while RTK Query caches current in-memory reads.
-The backend enforces permissions and trusted criteria/document selection. A configured backend failure surfaces an error and
-does not silently fall back to locally generated scores or save a partial run.
-Newly uploaded PDFs stay in the explicit real-assessment-unavailable path.
+Start with the feature's `routes.py` and follow its call to the operation. For
+example, `workspace/routes.py` hands applicant uploads to `workspace/uploads.py`
+for multipart validation and to `workspace/applications.py` for the atomic save.
+`assessments/review_routes.py` sends decisions to `assessments/review.py`, which
+checks ownership and the current run before saving. The route modules load database
+operations on demand so FastAPI can start and serve diagnostics without PostgreSQL.
 
-The document API implements PDF upload/list/download for existing database
-applications. Connected review routes load trusted stored criteria/document identities
-and persist each run/correction/decision transactionally. Real inference and workers
-remain future milestones.
+Put new assessment orchestration in `assessments/` as it is implemented. The
+model endpoint client belongs in `inference/`, and original PDF handling belongs in
+`documents/`. Persisted review operations currently use only the synthetic evaluator
+for known fixtures. Real assessment and background workers remain future work.
 
 ## PostgreSQL: start, migrate and seed
 
@@ -418,7 +415,7 @@ the volume and is not part of normal startup or verification.
 
 Migrations create eight domain tables plus Alembic's technical `alembic_version`.
 FastAPI never creates tables, runs migrations or seeds data. SQLAlchemy models
-describe database rows; `app/schemas.py` remains the separate HTTP contract.
+describe database rows. Each feature's `schemas.py` defines its HTTP contracts.
 New model instances receive UUID strings on insert; existing IDs such as
 `tutor-a`, `programme-1` and `APP-2026-0143` are supported.
 

@@ -1,20 +1,14 @@
-"""The small HTTP contract; JSON uses the frontend's existing camelCase fields."""
+"""Synthetic assessment request and result contracts."""
 
-from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-from pydantic.alias_generators import to_camel
+from pydantic import Field, model_validator
+
+from app.api import ApiModel, Identifier, Score
 
 SectionKey = Literal["academic", "cv", "statement"]
 DocumentType = Literal["transcript", "cv", "statement"]
 Outcome = Literal["Offer", "Reject", "Further review"]
-Score = Annotated[float, Field(ge=0, le=100, allow_inf_nan=False)]
-Identifier = Annotated[str, Field(min_length=1, max_length=200)]
-
-
-class ApiModel(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
 
 
 class CriteriaContext(ApiModel):
@@ -121,91 +115,6 @@ class BackendHealth(ApiModel):
     inference: Literal["not configured"] = "not configured"
 
 
-class InferenceProbeRequest(ApiModel):
-    mode: Literal["text", "json", "image"] = "text"
-
-
-class InferenceProbeResponse(ApiModel):
-    status: Literal["ok"] = "ok"
-    provider: Literal["qwen", "openai"]
-    mode: Literal["text", "json", "image"]
-    model: str
-    text: str
-    data: dict | None
-    usage: dict[str, int] | None
-
-
-StoredDocumentType = Literal[
-    "transcript", "cv", "statement", "application_form", "english_test", "reference"
-]
-
-
-class StoredDocument(ApiModel):
-    id: Identifier
-    application_id: Identifier
-    document_type: StoredDocumentType
-    filename: str
-    content_type: Literal["application/pdf"]
-    size_bytes: int
-    page_count: int
-    sha256: str
-    uploaded_at: datetime
-
-
-class ProgrammeCreate(ApiModel):
-    name: Annotated[str, Field(min_length=1, max_length=100)]
-
-
-class CriteriaUpdate(ApiModel):
-    expected_id: Identifier
-    weights: dict[Literal["academic", "cv", "statement", "references"], Score]
-    reject_below: Score
-    offer_from: Score
-    margin: Score
-    mandatory_rule: str
-
-    @model_validator(mode="after")
-    def valid_weights(self) -> Self:
-        if (
-            not {"academic", "cv", "statement"}.issubset(self.weights)
-            or abs(sum(self.weights.values()) - 100) > 0.001
-        ):
-            raise ValueError("Section weights must total 100% and include the three core sections.")
-        if self.reject_below >= self.offer_from:
-            raise ValueError("The rejection threshold must be below the offer threshold.")
-        return self
-
-
-class AccountUpdate(ApiModel):
-    name: Annotated[str, Field(min_length=1, max_length=100)]
-    email: Annotated[
-        str, Field(min_length=3, max_length=320, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
-    ]
-    roles: Annotated[list[Literal["tutor", "admin"]], Field(min_length=1, max_length=2)]
-    active: bool
-
-
-class UploadPart(ApiModel):
-    type: StoredDocumentType
-    file_index: Annotated[int, Field(ge=0, le=999, strict=True)]
-
-
-class ApplicantManifest(ApiModel):
-    candidate: Annotated[str, Field(min_length=1, max_length=200)]
-    documents: Annotated[list[UploadPart], Field(min_length=1, max_length=100)]
-
-
-class ApplicationManifest(ApplicantManifest):
-    intake_year: Annotated[str, Field(min_length=1, max_length=200)]
-    batch_id: Identifier | None = None
-
-
-class BatchManifest(ApiModel):
-    intake_year: Annotated[str, Field(min_length=1, max_length=200)]
-    filename: Annotated[str, Field(min_length=1, max_length=255)]
-    applications: Annotated[list[ApplicantManifest], Field(min_length=1, max_length=100)]
-
-
 class DecisionRequest(ApiModel):
     run_id: Identifier
     outcome: Literal["Unconditional", "Conditional", "Reject"]
@@ -218,7 +127,3 @@ class CorrectionRequest(ApiModel):
     reason: Annotated[str, Field(min_length=1, max_length=10000)]
     document_id: Identifier
     page: Annotated[int, Field(ge=1, le=100, strict=True)]
-
-
-class DeleteApplicationRequest(ApiModel):
-    confirmed: Literal[True]

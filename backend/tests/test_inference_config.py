@@ -1,6 +1,6 @@
 import pytest
 
-from app.inference_config import InferenceConfigurationError, load_inference_config
+from app.inference.config import InferenceConfigurationError, load_inference_config
 
 KEY = "test-key-" + "a" * 40
 
@@ -126,7 +126,7 @@ def test_bad_key_file_is_rejected_without_path_or_contents(monkeypatch, tmp_path
 
 
 def test_openai_selection_uses_only_openai_credentials_and_official_endpoint(monkeypatch):
-    from app.inference_config import OPENAI_BASE_URL, OPENAI_DEFAULT_MODEL
+    from app.inference.config import OPENAI_BASE_URL, OPENAI_DEFAULT_MODEL
     from tests.inference_fakes import OPENAI_KEY
 
     configure(monkeypatch, QWEN_API_KEY="unused-invalid-key")

@@ -345,21 +345,22 @@ applicants; default counts must never overwrite saved records.
 The connected frontend always uses `services/httpAdmissions.ts`. Vite proxies
 `/api` to port 8000; an ignored VITE_API_BASE_URL can override the server URL.
 Production needs a same-origin reverse proxy or HTTPS API. There is no local mode.
-`app/workspace_routes.py` exposes authenticated workspace/me, course, account,
-criteria, multipart applicant/batch, deletion, evaluation/correction/decision routes.
-`app/services/workspace.py` enforces active roles/single-owner access, immutable
-criteria, current successful runs, source validation and atomic writes. Admin
-permission alone grants no applicant/PDF access. Uploads enforce bounded multipart
-parts/deadlines, original validation and whole-batch transactionality.
+`app/workspace/` owns workspace reads, courses, accounts, criteria and applicant/batch
+operations. `app/assessments/` owns review runs, decisions, corrections and the synthetic
+evaluator. Each feature keeps its HTTP routes and schemas next to its operations.
+`app/auth/permissions.py` owns active-account and single-owner checks.
+`app/transactions.py` owns database timeouts, commit/rollback and safe error mapping.
+Admin permission alone grants no applicant/PDF access. Uploads enforce bounded
+multipart parts/deadlines, original validation and whole-batch transactionality.
 Imported known fixtures may use stored criteria/documents with the synthetic
 assessor; new uploads cannot receive fabricated assessments. HTTP failures never
 save partial corrections/runs. Legacy public health/mock endpoints remain local
 diagnostics, and the inference probe stays separately opt-in. Public `/health`
 reports the mock integration contract, not actual PostgreSQL/Qwen readiness.
 
-`app/services/inference.py` owns the reusable async Qwen/OpenAI client. FastAPI
+`app/inference/client.py` owns the reusable async Qwen/OpenAI client. FastAPI
 lifespan owns its pooled HTTP connection; startup never calls the model or imports the database.
-`app/inference_config.py` reads optional server-only settings from the known
+`app/inference/config.py` reads optional server-only settings from the known
 backend `.env`, with process environment taking precedence. Configure a Qwen
 `/v1` URL, served alias and exactly one API key/key-file source.
 `INFERENCE_PROVIDER=qwen` is the default; `openai` explicitly selects independent
@@ -388,14 +389,14 @@ English test and reference PDFs. A partial unique index permits multiple referen
 while keeping the other five types unique per application; a full application-ID
 index also covers references. Migration `20261117_0002` preserves existing rows;
 downgrade refuses new categories instead of deleting or relabelling PDFs.
-`app/document_routes.py` provides token-protected upload/list/download for existing
+`app/documents/routes.py` provides token-protected upload/list/download for existing
 database applications. `DOCUMENT_API_TOKENS_FILE` enables the routes and maps
 SHA-256 token digests to stored user IDs; it must be a private regular JSON file.
 Tokens are frontend account credentials, separate from Qwen/OpenAI credentials. Active tutor
 role and `Programme.created_by` ownership are checked server-side on every call;
 membership/admin permission alone grants no access. Database resources are lazy,
-lifespan-owned and never imported/connected at startup. `services/documents.py`
-owns transactions and application locks; `services/pdf_validation.py` and its
+lifespan-owned and never imported/connected at startup. `app/documents/service.py`
+uses the shared transactions and application locks. `app/documents/pdf_validation.py` and its
 bounded child parser validate PDFs without rewriting originals. Uploads enforce
 20 MiB, 1–100 pages per document and 100 combined pages, and calculate hashes/counts
 server-side. Extra concurrent uploads receive a busy response (two per process).

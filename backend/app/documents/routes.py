@@ -8,17 +8,24 @@ from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import ClientDisconnect
 
-from app.document_dependencies import document_service, document_subject
-from app.document_errors import DocumentError
-from app.document_limits import MAX_PDF_BYTES, UPLOAD_TIMEOUT_SECONDS
-from app.schemas import StoredDocument, StoredDocumentType
-from app.services.pdf_validation import validate_filename, validate_pdf
+from app.api import ApiError
+from app.dependencies import AuthenticatedSubject, DatabaseSessions
+from app.documents.limits import MAX_PDF_BYTES, UPLOAD_TIMEOUT_SECONDS
+from app.documents.pdf_validation import validate_filename, validate_pdf
+from app.documents.schemas import StoredDocument, StoredDocumentType
 
 router = APIRouter(prefix="/api/v1", tags=["Documents"])
-Subject = Annotated[str, Depends(document_subject)]
-Service = Annotated[Any, Depends(document_service)]
 RecordId = Annotated[str, Path(min_length=1, max_length=200)]
 PRIVATE_HEADERS = {"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"}
+
+
+def document_service(sessions: DatabaseSessions) -> Any:
+    from app.documents.service import DocumentService
+
+    return DocumentService(sessions)
+
+
+Service = Annotated[Any, Depends(document_service)]
 
 
 async def _read_pdf(request: Request) -> bytes:
@@ -26,29 +33,29 @@ async def _read_pdf(request: Request) -> bytes:
         request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
         != "application/pdf"
     ):
-        raise DocumentError(415, "DOCUMENT_MEDIA_TYPE", "Send the original PDF as application/pdf.")
+        raise ApiError(415, "DOCUMENT_MEDIA_TYPE", "Send the original PDF as application/pdf.")
     length = request.headers.get("content-length")
     if length is not None:
         try:
             if len(length) > 20 or int(length) < 0:
                 raise ValueError
             if int(length) > MAX_PDF_BYTES:
-                raise DocumentError(413, "DOCUMENT_SIZE_LIMIT", "PDFs must be at most 20 MiB.")
+                raise ApiError(413, "DOCUMENT_SIZE_LIMIT", "PDFs must be at most 20 MiB.")
         except ValueError:
-            raise DocumentError(400, "DOCUMENT_LENGTH_INVALID", "Invalid content length.") from None
+            raise ApiError(400, "DOCUMENT_LENGTH_INVALID", "Invalid content length.") from None
     body = bytearray()
     try:
         with anyio.fail_after(UPLOAD_TIMEOUT_SECONDS):
             async for chunk in request.stream():
                 if len(body) + len(chunk) > MAX_PDF_BYTES:
-                    raise DocumentError(413, "DOCUMENT_SIZE_LIMIT", "PDFs must be at most 20 MiB.")
+                    raise ApiError(413, "DOCUMENT_SIZE_LIMIT", "PDFs must be at most 20 MiB.")
                 body.extend(chunk)
     except TimeoutError:
-        raise DocumentError(
+        raise ApiError(
             408, "DOCUMENT_UPLOAD_TIMEOUT", "The PDF upload exceeded its deadline."
         ) from None
     except ClientDisconnect:
-        raise DocumentError(
+        raise ApiError(
             400, "DOCUMENT_UPLOAD_INTERRUPTED", "The PDF upload was interrupted."
         ) from None
     return bytes(body)
@@ -69,7 +76,7 @@ async def upload_document(
     application_id: RecordId,
     request: Request,
     response: Response,
-    subject: Subject,
+    subject: AuthenticatedSubject,
     service: Service,
     document_type: Annotated[StoredDocumentType, Query(alias="documentType")],
     filename: Annotated[str, Query(min_length=1, max_length=255)],
@@ -79,7 +86,7 @@ async def upload_document(
     try:
         request.app.state.document_upload_slots.acquire_nowait()
     except anyio.WouldBlock:
-        raise DocumentError(
+        raise ApiError(
             503, "DOCUMENT_UPLOAD_BUSY", "Document uploads are busy. Try again later."
         ) from None
     try:
@@ -97,7 +104,7 @@ async def upload_document(
 
 @router.get("/applications/{application_id}/documents", response_model=list[StoredDocument])
 def list_documents(
-    application_id: RecordId, response: Response, subject: Subject, service: Service
+    application_id: RecordId, response: Response, subject: AuthenticatedSubject, service: Service
 ) -> list[StoredDocument]:
     response.headers.update(PRIVATE_HEADERS)
     return service.list_documents(subject, application_id)
@@ -110,7 +117,9 @@ def list_documents(
         200: {"content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}}
     },
 )
-def download_document(document_id: RecordId, subject: Subject, service: Service) -> Response:
+def download_document(
+    document_id: RecordId, subject: AuthenticatedSubject, service: Service
+) -> Response:
     document, contents = service.download(subject, document_id)
     filename = quote(document.filename, safe="")
     return Response(

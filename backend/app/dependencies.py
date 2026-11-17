@@ -1,34 +1,34 @@
-"""Document authentication and lazy DB resources; imports no SQLAlchemy at startup."""
+"""Bearer authentication and lazy PostgreSQL sessions for protected routes."""
 
 from typing import Annotated, Any
 
-from fastapi import Depends, Request
+from fastapi import Depends, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.document_errors import DocumentError
+from app.api import ApiError
 
 bearer = HTTPBearer(auto_error=False, scheme_name="DocumentBearer")
 
 
-def document_subject(
+def authenticated_subject(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
 ) -> str:
     access = getattr(request.app.state, "document_access", None)
     if access is None:
-        raise DocumentError(404, "DOCUMENT_API_DISABLED", "The document API is disabled.")
+        raise ApiError(404, "DOCUMENT_API_DISABLED", "The document API is disabled.")
     subject = access.identify(credentials.credentials) if credentials is not None else None
     if subject is None:
-        raise DocumentError(
-            401, "DOCUMENT_AUTH_REQUIRED", "A valid document API token is required."
-        )
+        raise ApiError(401, "DOCUMENT_AUTH_REQUIRED", "A valid document API token is required.")
     return subject
 
 
-def document_service(request: Request, subject: Annotated[str, Depends(document_subject)]) -> Any:
+AuthenticatedSubject = Annotated[str, Depends(authenticated_subject)]
+
+
+def get_database_sessions(request: Request, subject: AuthenticatedSubject) -> Any:
     # No database URL, import or connection is needed for ordinary mock/health requests.
     from app.db import create_db_engine, session_factory
-    from app.services.documents import DocumentService
 
     state = request.app.state
     with state.document_database_lock:
@@ -36,9 +36,16 @@ def document_service(request: Request, subject: Annotated[str, Depends(document_
             try:
                 engine = create_db_engine()
             except ValueError:
-                raise DocumentError(
+                raise ApiError(
                     503, "DOCUMENT_STORAGE_UNAVAILABLE", "Configure the document database."
                 ) from None
             state.document_database = engine
             state.document_sessions = session_factory(engine)
-    return DocumentService(state.document_sessions)
+    return state.document_sessions
+
+
+DatabaseSessions = Annotated[Any, Depends(get_database_sessions)]
+
+
+def private_response(response: Response) -> None:
+    response.headers["Cache-Control"] = "private, no-store"

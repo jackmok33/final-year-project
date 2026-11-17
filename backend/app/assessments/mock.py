@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 from uuid import uuid4
 
-from app.schemas import (
+from app.assessments.schemas import (
     AssessmentRun,
     Citation,
     CriteriaContext,

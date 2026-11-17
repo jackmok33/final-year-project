@@ -3,9 +3,9 @@ import subprocess
 
 import pytest
 
-from app.document_errors import DocumentError
-from app.services import pdf_validation
-from app.services.pdf_validation import validate_filename, validate_pdf
+from app.api import ApiError
+from app.documents import pdf_validation
+from app.documents.pdf_validation import validate_filename, validate_pdf
 from tests.document_fixtures import make_pdf
 
 
@@ -29,14 +29,14 @@ def test_real_pdf_parser_preserves_original_bytes_and_counts_pages(pages):
     ],
 )
 def test_invalid_or_encrypted_pdfs_are_rejected(contents):
-    with pytest.raises(DocumentError) as error:
+    with pytest.raises(ApiError) as error:
         validate_pdf(contents)
     assert error.value.status_code == 422
 
 
 @pytest.mark.parametrize("contents", [b"", b"x" * (20 * 1024 * 1024 + 1)])
 def test_byte_limits_are_enforced_before_parsing(contents):
-    with pytest.raises(DocumentError) as error:
+    with pytest.raises(ApiError) as error:
         validate_pdf(contents)
     assert error.value.status_code == 413
 
@@ -49,7 +49,7 @@ def test_worker_failure_is_bounded_and_sanitised(monkeypatch, exception, status)
         raise exception
 
     monkeypatch.setattr(pdf_validation.subprocess, "run", fail)
-    with pytest.raises(DocumentError) as error:
+    with pytest.raises(ApiError) as error:
         validate_pdf(make_pdf())
     assert error.value.status_code == status
     assert "private" not in error.value.message
@@ -68,7 +68,7 @@ def test_worker_failure_is_bounded_and_sanitised(monkeypatch, exception, status)
     ],
 )
 def test_unsafe_filenames_are_rejected(filename):
-    with pytest.raises(DocumentError):
+    with pytest.raises(ApiError):
         validate_filename(filename)
 
 

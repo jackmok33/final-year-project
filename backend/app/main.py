@@ -8,14 +8,15 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.document_config import load_document_access
-from app.document_errors import DocumentError
-from app.document_routes import router as document_router
-from app.inference_config import load_inference_config
-from app.inference_routes import router as inference_router
-from app.routes import router
-from app.services.inference import InferenceClient
-from app.workspace_routes import router as workspace_router
+from app.api import ApiError
+from app.assessments.review_routes import router as review_router
+from app.assessments.routes import router
+from app.auth.tokens import load_document_access
+from app.documents.routes import router as document_router
+from app.inference.client import InferenceClient
+from app.inference.config import load_inference_config
+from app.inference.routes import router as inference_router
+from app.workspace.routes import router as workspace_router
 
 
 def create_app(*, inference_transport: httpx.AsyncBaseTransport | None = None) -> FastAPI:
@@ -68,9 +69,10 @@ def create_app(*, inference_transport: httpx.AsyncBaseTransport | None = None) -
     app.include_router(inference_router)
     app.include_router(document_router)
     app.include_router(workspace_router)
+    app.include_router(review_router)
 
-    @app.exception_handler(DocumentError)
-    async def document_error_handler(request: Request, error: DocumentError):
+    @app.exception_handler(ApiError)
+    async def api_error_handler(request: Request, error: ApiError):
         headers = {"Cache-Control": "private, no-store"}
         if error.status_code == 401:
             headers["WWW-Authenticate"] = "Bearer"
