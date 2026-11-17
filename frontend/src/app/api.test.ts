@@ -165,7 +165,7 @@ describe('RTK Query service adapter', () => {
     const store = makeStore()
     vi.mocked(admissionsService.query).mockRejectedValue(new Error('Storage unavailable'))
     await expect(store.dispatch(admissionsApi.endpoints.me.initiate()).unwrap()).rejects.toEqual({
-      status: 'DEMO_ERROR',
+      status: 'SERVICE_ERROR',
       data: 'Storage unavailable',
     })
     vi.mocked(admissionsService.command).mockRejectedValue('unexpected')

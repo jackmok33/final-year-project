@@ -7,12 +7,17 @@ from app.models import Document
 
 pytestmark = pytest.mark.postgres
 INITIAL_REVISION = "20261015_0001"
-DOCUMENT_REVISION = "20261117_0002"
+DOCUMENT_REVISION = "20261117_0003"
 
 
 def document_rows(engine):
     with engine.connect() as connection:
-        return connection.execute(text("SELECT * FROM documents ORDER BY id")).all()
+        return connection.execute(
+            text(
+                "SELECT id, application_id, document_type, filename, content_type, "
+                "size_bytes, page_count, sha256, pdf_bytes, uploaded_at FROM documents ORDER BY id"
+            )
+        ).all()
 
 
 def current_revision(engine):

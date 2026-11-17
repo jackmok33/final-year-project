@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import type { ApplicationDetail } from './contracts'
 import { application, detail, tutor } from '../test/fixtures'
 import { admissionsService } from './admissions'
-import { authorizedFile, commandDemo, queryDemo } from './demo'
+import { httpAdmissionsService } from './httpAdmissions'
+const queryDemo = vi.mocked(httpAdmissionsService.query)
+const commandDemo = vi.mocked(httpAdmissionsService.command)
+const authorizedFile = vi.mocked(httpAdmissionsService.originalDocument)
 
-vi.mock('./demo', () => ({
-  queryDemo: vi.fn(),
-  commandDemo: vi.fn(),
-  authorizedFile: vi.fn(),
+vi.mock('./httpAdmissions', () => ({
+  httpAdmissionsService: { query: vi.fn(), command: vi.fn(), originalDocument: vi.fn() },
 }))
 
 beforeEach(() => vi.resetAllMocks())

@@ -1,8 +1,8 @@
 import type { Command, CommandResult, Query, QueryResult } from './contracts'
-import { authorizedFile, commandDemo, queryDemo } from './demo'
+import { httpAdmissionsService } from './httpAdmissions'
 
 /** The frontend service port; implementations own transport and permission checks.
- * userId is prototype browser context, not server authentication.
+ * userId guards late UI results; the Bearer token establishes server identity.
  */
 export interface AdmissionsService {
   query<Q extends Query>(query: Q, userId: string | null): Promise<QueryResult<Q>>
@@ -10,10 +10,4 @@ export interface AdmissionsService {
   originalDocument(id: string, userId: string | null): Promise<Blob>
 }
 
-// Keep adapter selection here so RTK Query and PDF consumers can share a future
-// HTTP implementation. The current adapter still persists data in this browser.
-export const admissionsService: AdmissionsService = {
-  query: queryDemo,
-  command: commandDemo,
-  originalDocument: authorizedFile,
-}
+export const admissionsService: AdmissionsService = httpAdmissionsService

@@ -33,7 +33,7 @@ describe('Redux session and interface state', () => {
   it.each(['[]', 'null', '{"tutor-a":123}', '{"tutor-a":{"programme-1":24}}'])(
     'ignores corrupt intake preferences: %s',
     async (raw) => {
-      sessionStorage.setItem('ucl-demo-intakes', raw)
+      sessionStorage.setItem('ucl-backend-intakes', raw)
       const { store } = await import('./store')
       expect(store.getState().ui.intakeByUser).toEqual({})
     },
@@ -41,15 +41,17 @@ describe('Redux session and interface state', () => {
   it('persists sign-in/out without persisting PDFs or API records', async () => {
     const { store, signIn, signOut } = await import('./store')
     expect(store.getState().session.userId).toBeNull()
+    const { saveBackendSession } = await import('../services/backendSession')
+    saveBackendSession('tutor-a', 'a'.repeat(40))
     store.dispatch(signIn('tutor-a'))
     expect(store.getState().session.userId).toBe('tutor-a')
-    expect(sessionStorage.getItem('ucl-demo-user')).toBe('tutor-a')
+    expect(JSON.parse(sessionStorage.getItem('ucl-backend-auth')!).userId).toBe('tutor-a')
     expect(Object.keys(sessionStorage)).toEqual(
-      expect.arrayContaining(['ucl-demo-user', 'ucl-demo-workspaces']),
+      expect.arrayContaining(['ucl-backend-auth', 'ucl-backend-workspaces']),
     )
     store.dispatch(signOut())
     expect(store.getState().session.userId).toBeNull()
-    expect(sessionStorage.getItem('ucl-demo-user')).toBeNull()
+    expect(sessionStorage.getItem('ucl-backend-auth')).toBeNull()
   })
   it('stores workspace preferences independently for each user and restores after reload', async () => {
     let mod = await import('./store')
@@ -68,7 +70,7 @@ describe('Redux session and interface state', () => {
   it.each(['bad JSON', '[]', 'null', '{"tutor-a":123}'])(
     'ignores corrupt workspace preferences: %s',
     async (raw) => {
-      sessionStorage.setItem('ucl-demo-workspaces', raw)
+      sessionStorage.setItem('ucl-backend-workspaces', raw)
       const { store } = await import('./store')
       expect(store.getState().ui.programmeByUser).toEqual({})
     },

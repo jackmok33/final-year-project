@@ -15,6 +15,7 @@ from app.inference_config import load_inference_config
 from app.inference_routes import router as inference_router
 from app.routes import router
 from app.services.inference import InferenceClient
+from app.workspace_routes import router as workspace_router
 
 
 def create_app(*, inference_transport: httpx.AsyncBaseTransport | None = None) -> FastAPI:
@@ -44,10 +45,11 @@ def create_app(*, inference_transport: httpx.AsyncBaseTransport | None = None) -
 
     app = FastAPI(
         title="UCL Application Review API · Development scaffold",
-        version="0.4.0",
+        version="0.5.0",
         description=(
-            "Synthetic assessments, optional inference probes and token-protected PDF storage. "
-            "No browser login integration or real admissions assessment."
+            "Token-protected PostgreSQL workspaces, applications, originals and review history. "
+            "Synthetic assessments and optional inference probes; "
+            "real admissions AI is not connected."
         ),
         lifespan=lifespan,
     )
@@ -59,12 +61,13 @@ def create_app(*, inference_transport: httpx.AsyncBaseTransport | None = None) -
         CORSMiddleware,
         allow_origins=[origin.strip() for origin in origins.split(",") if origin.strip()],
         allow_credentials=False,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Content-Type", "Authorization"],
     )
     app.include_router(router)
     app.include_router(inference_router)
     app.include_router(document_router)
+    app.include_router(workspace_router)
 
     @app.exception_handler(DocumentError)
     async def document_error_handler(request: Request, error: DocumentError):

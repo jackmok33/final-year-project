@@ -14,17 +14,15 @@ The intended evaluators return structured evidence; deterministic code owns
 scoring/recommendation routing, and tutors retain the final decision.
 
 - `frontend/`: React, TypeScript, Vite, MUI/Mantis, React Router, Redux Toolkit and
-  RTK Query. Tutor/admin workflows persist in browser IndexedDB.
-- `backend/`: a stateless FastAPI health/mock-assessment scaffold, optional async
-  inference client/connection probe and a five-table PostgreSQL foundation.
-  Opt-in document routes use PostgreSQL with per-tutor API tokens; the browser
-  still uses IndexedDB. Live Qwen inference remains unverified.
-- Interactive server login, PDF extraction, local AI inference, workers
-  and PostgreSQL-backed application APIs remain future work.
+  RTK Query. Tutor/admin workflows use authenticated FastAPI/PostgreSQL; only
+  tab credentials and interface preferences remain in sessionStorage.
+- `backend/`: FastAPI, per-account Bearer tokens, PostgreSQL workspace/application/
+  document/review APIs, and optional async inference client/connection probe.
+  Live Qwen inference, extraction, LangGraph and password/SSO remain future work.
 - Planned architecture: FastAPI/Python workers orchestrate evaluation and call a
   separate Qwen HTTP endpoint. Deployment and continuous GPU access remain
   unverified. PostgreSQL stores records and original PDFs as `bytea`;
-  assessment JSONB and LangGraph checkpoints are planned. Do not make object
+  Assessment history uses JSONB; LangGraph checkpoints are planned. Do not make object
   storage a required MVP dependency.
 
 Read the maintained guide for the area being changed:
@@ -89,21 +87,24 @@ Paths here are relative to `frontend/src/`:
   Callers release them after completion/failure, including after navigation.
 - `services/errors.ts`: shared local/RTK/HTTP error normalisation. Do not load API
   initialisation into a visual component merely to format an error.
-- `services/demo.ts` and `services/demo/`: browser implementation, permission checks,
-  migration/recovery, cross-tab lock and atomic record/PDF transactions. Preserve
-  existing saved-data upgrades, attribution and failure atomicity.
-- `services/backend.ts` validates unknown mock HTTP results in named groups and
-  normalises nullable optional fields on a copy; `evaluation.ts` selects evaluator.
+- `services/httpAdmissions.ts`: sole production adapter; explicit REST mapping,
+  staged PDF/ZIP resolution and validated workspace read projections.
+  `backendSession.ts` keeps tab credentials only; server identity comes from the
+  Bearer token, never the passed userId. Guard late results after account changes.
+- `services/workspaceResponse.ts`: validate unknown server envelopes and linked
+  record relationships before Redux/UI. No fallback to browser storage.
+- `services/demo.ts`, `services/demo/`, `storage.ts`, `seed.ts`, `migration.ts`,
+  `evaluation.ts` and `backend.ts`: legacy regression/migration fixtures only;
+  do not reconnect them to runtime screens or the production service adapter.
 - `domain/applicationSummary.ts` counts current classified decisions. Callers own
   programme/intake/batch scoping. `domain/documentLimits.ts` owns PDF size/page rules
   shared by forms, parsing and ZIP import.
 
-A future HTTP adapter implements `AdmissionsService` and is selected in
-`admissions.ts`; screens retain their handlers. Resolve staged files in that
-adapter and validate/map server responses to the shared contracts. The command
-union is not an existing REST API specification. Obsolete browser backup/restore,
-reset, model-toggle and admin programme-management commands are removed. Real server
-authentication/permissions must not trust the demo `userId` argument or frontend guards.
+The HTTP adapter is selected unconditionally in `admissions.ts`. Screens retain
+handlers; files stay outside Redux. Explicit backend routes own authorisation,
+validation and atomic persistence. The command union is not a REST specification.
+Do not trust demo userId claims/frontend guards as server identity. Normal startup
+never creates sample records, imports browser data or resets PostgreSQL.
 
 ## Interface and routes
 
@@ -171,11 +172,11 @@ model/delete/backup/restore/reset commands and simulated health/audit queries ar
 removed. Keep recordAudit and stored audit/model fields used by current workflows
 and migrations; never reset saved data to simplify UI.
 
-- Login uses email and any nonempty prototype password (for example `demo`). It
-  matches active existing accounts; passwords are neither authenticated nor saved.
-  Account-help links do not implement registration, reset or real UCL sign-in.
-  Example emails are `tutor@demo.ucl.local`, `tutor.b@demo.ucl.local` and
-  `admin@demo.ucl.local`; read the seed/README for current editable account data.
+- Login uses the active database email and its issued access token. A prototype
+  password no longer signs in. Tokens are private account credentials, kept in
+  per-tab sessionStorage and cleared on logout. Help does not enumerate accounts.
+  Password reset/SSO are unimplemented. Test emails remain tutor@demo.ucl.local,
+  tutor.b@demo.ucl.local and admin@demo.ucl.local; issue tokens separately for new users.
 - Programme (`/programmes`) shows direct programme/intake cards such as CSML 26/27.
   Stored full course names/IDs remain. The sidebar lists compact programme/intake
   links; account, role, Change password and Logout are in the header avatar menu.
@@ -305,25 +306,20 @@ and migrations; never reset saved data to simplify UI.
 
 ## Storage, uploads and compatibility
 
-Never reset browser data to make a UI change or screenshot match. Dataset schema
-v2 supports v1 migration; IndexedDB schema version is separate. Preserve IDs,
-PDF bytes, runs, corrections, tutor decisions and criteria versions. Session identity
-and per-account programme/intake selection use sessionStorage. Recover interrupted
-simulated evaluations using stored deadlines rather than disposable timers.
+PostgreSQL owns all active business records and original PDF bytes. Never reset
+saved records to simplify a UI change. Migration `20261117_0003` adds batches,
+immutable rubrics, audit events, intake/batch links, PDF ordering and review_state
+JSONB (runs/corrections/decisions). `app.import_browser` explicitly imports an
+exported version-2 dataset with base64 originals in one transaction, validating
+hash/size/pages and rejecting conflicting applicants/PDFs/criteria. It is a one-off
+migration CLI, never an HTTP route or startup operation. Preserve IDs, original
+bytes, criteria, histories and attribution. Actual backups stay outside Git.
+The old browser database remains untouched as a backup and is not read at runtime.
 
-Ownership migration preserves an explicit owner, otherwise uses the creation-audit
-actor, then an assigned active tutor, then an assigned inactive tutor. Rebuild
-compatibility lists from ownership; genuinely unassigned metadata stays unowned.
-Existing browser records still receive the same saved-data upgrades.
-
-Sample defaults must survive fresh and older browser profiles without recreating
-user-deleted/edited courses or batches. Honour deletion audits/tombstones and ID/
-code/rubric conflicts. `addSampleCourseBatches()` checks actual data and completes
-`sample-csml-batches-v2` atomically only when defaults exist/are inserted; the older
-v1 marker alone is insufficient. Conflicts stay retryable. Samples use
-`SAMPLE-CSML-01` through `SAMPLE-CSML-03`, not sequential uploaded references.
-Existing IDs/old fixture references remain supported. Default CSML 26/27 has three
-batches/eight applicants; do not overwrite user data to restore those counts.
+Legacy storage/ownership/sample upgrades remain tested for exported data and
+synthetic test fixtures only. Do not generate new browser samples or resurrect
+deleted programmes/batches on login. Migrated CSML 26/27 has three batches/eight
+applicants; default counts must never overwrite saved records.
 
 - ZIP import accepts applicant folders (optionally inside a common outer folder)
   with all six document categories. Reference filenames require a recognisable
@@ -346,17 +342,20 @@ batches/eight applicants; do not overwrite user data to restore those counts.
 
 ## FastAPI and PostgreSQL
 
-The scaffold exposes `GET /api/v1/health`, `POST /api/v1/mock/assessments` and the
-opt-in `POST /api/v1/inference/probe`. `app/services/evaluation.py` defines the replaceable
-EvaluationService; `app/schemas.py` owns the HTTP schemas. Set ignored frontend
-`.env.local` to `VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1` and restart Vite
-for optional synthetic reassessment. Send only fixture IDs, document metadata,
-grade/model state and read-only criteria context; no applicant names, tutor notes
-or PDF bytes. Uploaded PDFs remain unassessed. HTTP failures must not silently
-fall back or save partial runs/corrections. Keep `evaluationSource: 'fastapi-mock'`
-and raw Offer/Further review/Reject responses. The mock API is not authentication,
-a persistent job service or document/decision access. Service health is a real
-read-only HTTP check; simulated service controls remain internal demo facilities.
+The connected frontend always uses `services/httpAdmissions.ts`. Vite proxies
+`/api` to port 8000; an ignored VITE_API_BASE_URL can override the server URL.
+Production needs a same-origin reverse proxy or HTTPS API. There is no local mode.
+`app/workspace_routes.py` exposes authenticated workspace/me, course, account,
+criteria, multipart applicant/batch, deletion, evaluation/correction/decision routes.
+`app/services/workspace.py` enforces active roles/single-owner access, immutable
+criteria, current successful runs, source validation and atomic writes. Admin
+permission alone grants no applicant/PDF access. Uploads enforce bounded multipart
+parts/deadlines, original validation and whole-batch transactionality.
+Imported known fixtures may use stored criteria/documents with the synthetic
+assessor; new uploads cannot receive fabricated assessments. HTTP failures never
+save partial corrections/runs. Legacy public health/mock endpoints remain local
+diagnostics, and the inference probe stays separately opt-in. Public `/health`
+reports the mock integration contract, not actual PostgreSQL/Qwen readiness.
 
 `app/services/inference.py` owns the reusable async Qwen/OpenAI client. FastAPI
 lifespan owns its pooled HTTP connection; startup never calls the model or imports the database.
@@ -392,7 +391,7 @@ downgrade refuses new categories instead of deleting or relabelling PDFs.
 `app/document_routes.py` provides token-protected upload/list/download for existing
 database applications. `DOCUMENT_API_TOKENS_FILE` enables the routes and maps
 SHA-256 token digests to stored user IDs; it must be a private regular JSON file.
-Tokens are separate from browser login and Qwen/OpenAI credentials. Active tutor
+Tokens are frontend account credentials, separate from Qwen/OpenAI credentials. Active tutor
 role and `Programme.created_by` ownership are checked server-side on every call;
 membership/admin permission alone grants no access. Database resources are lazy,
 lifespan-owned and never imported/connected at startup. `services/documents.py`
@@ -400,8 +399,8 @@ owns transactions and application locks; `services/pdf_validation.py` and its
 bounded child parser validate PDFs without rewriting originals. Uploads enforce
 20 MiB, 1–100 pages per document and 100 combined pages, and calculate hashes/counts
 server-side. Extra concurrent uploads receive a busy response (two per process).
-Frontend HTTP persistence, interactive login and application/programme APIs remain
-future work; never treat browser-only IDs or demo user claims as server identity.
+Frontend HTTP persistence and application/programme APIs are connected. Interactive
+password/SSO login remains future work; never trust client role/userId claims.
 
 The expanded frontend document types and fourth score section are not implemented
 by the mock API yet. The mock adapter rejects positive reference weights before
@@ -409,12 +408,11 @@ HTTP; a zero-weight reference field is omitted along
 with extra document metadata to retain the legacy synthetic request shape. Do not
 silently fall back or imply that the server assessed uploaded references.
 
-The five domain tables are users, programmes, programme_memberships, applications
-and documents. SQLAlchemy models in `backend/app/models/` are separate from
+The eight domain tables are users, programmes, programme_memberships, applications,
+documents, rubrics, upload_batches and audit_events. SQLAlchemy models in `backend/app/models/` are separate from
 Pydantic HTTP schemas. Use lazy synchronous Psycopg 3 sessions; never migrate,
 seed or call `create_all()` at FastAPI startup. Use explicit Alembic migrations.
-The older membership schema does not override the frontend's single-owner policy
-when future HTTP integration is implemented.
+The older membership schema does not override server-enforced single-owner policy.
 
 Use Docker CLI; the user does not want screen control for Docker. From `backend/`,
 prepare ignored `.env` from `.env.example` with real local credentials, then run:
@@ -470,46 +468,17 @@ are 95% lines, 90% statements/functions and 85% branches. Imported Mantis source
 outside application coverage totals and has companion/browser checks. Install
 Chromium on a fresh machine; if the temporary runtime exists, set
 `PLAYWRIGHT_BROWSERS_PATH=/private/tmp/ucl-admissions-browsers`.
-Standalone E2E builds with `--mode e2e` to clear the optional API URL and serves
-production output on port 4173. Do not rebuild `dist` during that suite. FastAPI
+Both E2E suites require distinct development/test DATABASE_URL and TEST_DATABASE_URL
+values; the test name must end in `_test`. CLI setup migrates/resets only that test
+database and imports synthetic fixtures. Never use the migrated development data
+or run database suites concurrently. E2E mode uses FastAPI on 8001 and serves
+production output on 4173. Do not rebuild `dist` during that suite. FastAPI
 browser checks own ports 8001/5174 and accept `UCL_BACKEND_PYTHON`; use an executable
 with installed backend dependencies. Backend checks from `backend/` are
 `python -m pytest -q`, `ruff check .` and `ruff format --check .`; PostgreSQL tests
 add `--run-postgres` only after the dedicated database safeguards are satisfied.
 
-Latest frontend verification (5 November, final PR review/default Mantis breadcrumbs): 877 tests
-across 105 companions pass; coverage is 98.65% lines, 97.46% statements, 97.93%
-functions and 93.47% branches. Standard/e2e builds, lint/format, structure and
-whitespace pass. All 21 standalone and three FastAPI browser workflows pass with
-axe, permissions, health recovery, uploads, correction/decision/criteria flows
-and PDF hash checks. New checks cover breadcrumb navigation/current headings,
-legacy bookmark preservation, forged ancestors, route preference precedence and
-descriptive intake round-tripping. Desktop applicant/bookmarked evidence and
-narrow-screen focused breadcrumbs were visually inspected. No saved data was reset.
-The 1 November runtime audit verified 199 reachable modules with no orphan runtime files or
-cycles; two type-only contracts are outside that graph. All direct runtime
-dependencies and registered content fields have consumers. All 68 original Mantis
-source/layout hashes and consumer paths verify. Independent reviews found no
-actionable issues. Backend unit/Ruff/PostgreSQL suites were not rerun. See the
-verification guide for dated history and limits.
-
-Origin is `https://github.com/jackmok33/final-year-project.git`. Inspect current
-branch, status and remote state before committing; use `codex/` branches by default.
-Respect requested scope and preserve unrelated backend/planning changes. Keep
-credentials, dependencies, generated output, coverage/reports, local Figma snapshots
-and macOS metadata out of commits. Root `.gitignore` owns shared ignore rules;
-do not hide real source changes just to shorten status. Some local planning/design
-assets are untracked and may not exist in a GitHub clone. Keep maintained Markdown,
-agent context, scripts, lockfiles and canonical Figma state eligible for version control.
-
-## Figma references
-
-Prefer Figma MCP for design work and load the required Figma skills. The current
-review file is `T0kdTyHiQDCy4NCIge7ssx` in the final year project team. MCP located
-final page `50:27395`, then reached quota; do not claim its final node/token mapping
-was retrieved. The supplied desktop export is
-`/Users/jack_1/Downloads/UCL Application Review Workspace — Frontend Review.png`,
-with later accepted UI changes recorded in the frontend guides. The earlier file
-is `JUJzxkc6pTAUdqLOhBMhPu`. Inspect live state before resuming and respect the user's
-deletions. Saved `design/figma/` scripts are snapshots, not safe to replay over the
-current file. Do not recreate mobile presentation frames without a request.
+Current verification and dated evidence are maintained in `frontend/VERIFICATION.md`
+and `backend/README.md`. Re-run the required checks after changing the connected
+HTTP, schema, permissions or upload paths. Do not use historical counts as proof
+of current results.

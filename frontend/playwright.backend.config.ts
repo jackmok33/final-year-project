@@ -1,5 +1,14 @@
 import { defineConfig } from '@playwright/test'
 
+import {
+  prepareBrowserFixture,
+  backendPython,
+  backendRoot,
+  fixtureFile,
+  tokenFile,
+} from './e2e/helpers/server'
+await prepareBrowserFixture()
+
 // This suite owns separate ports and does not replace the user's running app/data.
 export default defineConfig({
   testDir: './e2e',
@@ -10,10 +19,11 @@ export default defineConfig({
   use: { baseURL: 'http://127.0.0.1:5174', trace: 'retain-on-failure' },
   webServer: [
     {
-      command: `"${process.env.UCL_BACKEND_PYTHON ?? 'python3'}" -m uvicorn app.main:app --host 127.0.0.1 --port 8001`,
-      cwd: '../backend',
+      command: `"${backendPython}" -B -m tests.workspace_test_data --backup "${fixtureFile}" --serve`,
+      cwd: backendRoot,
       url: 'http://127.0.0.1:8001/api/v1/health',
-      env: { UCL_CORS_ORIGINS: 'http://127.0.0.1:5174' },
+      timeout: 120000,
+      env: { DOCUMENT_API_TOKENS_FILE: tokenFile, UCL_CORS_ORIGINS: 'http://127.0.0.1:5174' },
       reuseExistingServer: false,
     },
     {

@@ -69,7 +69,7 @@ export function DemoSignIn({
               placeholder={content.passwordPlaceholder}
               value={password}
               onChange={(event) => onPasswordChange(event.target.value)}
-              autoComplete="current-password"
+              autoComplete="off"
               slotProps={{
                 htmlInput: { 'aria-label': content.password },
                 input: {

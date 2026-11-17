@@ -1,15 +1,14 @@
 # FastAPI backend, inference client and PostgreSQL foundation
 
-This milestone proves **React → FastAPI → assessment response → existing review UI**.
-The assessment API is a local, stateless scaffold using predefined synthetic cases.
-An opt-in document API now stores and retrieves original PDFs through PostgreSQL,
-with per-tutor Bearer tokens and server-side ownership checks. The browser still
-uses IndexedDB; its prototype login is separate from these API credentials.
-The database also has account, workspace and application tables. An optional inference
-client and synthetic connection probe support Qwen and explicit OpenAI testing;
-the real AWS endpoint has not been tested. LangChain, LangGraph, real authentication and PDF assessment are
-not connected. The existing browser dataset, histories, session data and original
-PDFs are preserved.
+The React frontend now uses authenticated FastAPI routes and PostgreSQL for all
+business records and original PDFs. Per-account Bearer tokens establish server
+identity; active tutor ownership protects applications, evidence and decisions.
+The browser retains only tab credentials and interface preferences.
+
+The database stores immutable criteria, batches, accounts, applications and review
+history alongside PDF `bytea`. Synthetic examples can be re-evaluated; real uploaded
+documents remain unassessed until extraction/Qwen/LangGraph are connected. Password
+login/SSO and live Qwen deployment remain separate work.
 
 ## Start
 
@@ -30,23 +29,56 @@ pins the runtime and test dependencies used for this scaffold.
 - Interactive API documentation: <http://127.0.0.1:8000/docs>
 - OpenAPI contract: <http://127.0.0.1:8000/openapi.json>
 
-In another terminal, enable the optional frontend adapter:
+First configure/migrate PostgreSQL and issue account tokens as below. Start the
+frontend in another terminal with `cd frontend && npm run dev`. Vite proxies `/api`
+to port 8000 by default; `VITE_API_BASE_URL` is an optional URL override, not a mode
+switch. Sign in with the database email and its issued access token.
+
+## Connected workspace API
+
+All routes below require the private `DOCUMENT_API_TOKENS_FILE` configuration and
+a Bearer token. Unknown tokens fail before database access. Never trust a client
+userId, role or membership list. Admins can manage accounts but receive no other
+tutor's application/document data. All modifications commit before success.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/v1/workspace`, `GET /api/v1/me` | Authorised metadata/history and account identity; no PDF bytes |
+| `POST /api/v1/programmes` | Create a privately owned course and initial criteria |
+| `PUT /api/v1/programmes/{id}/criteria` | Optimistic, immutable numeric criteria version |
+| `POST /api/v1/accounts`, `PUT /api/v1/accounts/{id}` | Admin account changes with last-active-admin protection |
+| `POST /api/v1/programmes/{id}/applications` | Multipart applicant manifest plus original PDF parts |
+| `POST /api/v1/programmes/{id}/batches` | Multipart batch manifest plus original PDF parts; one transaction |
+| `DELETE /api/v1/applications/{id}` | Confirmed owner deletion and cascading originals |
+| `POST /api/v1/applications/{id}/evaluations` | Save a synthetic fixture run using trusted stored criteria/documents |
+| `POST /api/v1/applications/{id}/corrections` | Validate a source/reason and append correction/new synthetic run atomically |
+| `POST /api/v1/applications/{id}/decisions` | Record an outcome on the latest available run; flags stay advisory |
+
+Application multipart fields are `manifest` (JSON) and repeated `file` parts. Each
+manifest document has `type` and `fileIndex`; every file must be referenced exactly
+once. Individual manifests include candidate, intakeYear and optional batchId;
+batch manifests include filename, intakeYear and applications. Only references
+repeat. The server validates original PDFs and limits independently; an invalid
+part rejects the whole applicant/batch. ZIP containers are unpacked and bounded by
+the frontend and never stored. Request bodies/spool files, parsing time, per-PDF
+size/pages and combined application pages are bounded. Upload slots limit concurrency.
+
+## One-off browser migration
+
+Export the existing version-2 dataset plus original PDFs to a private JSON file
+`{"dataset": {...}, "files": {"document-id": "base64 PDF"}}`, then run explicitly:
 
 ```sh
-cd frontend
-cp .env.example .env.local
-npm run dev
+python -m app.import_browser /absolute/path/to/browser-backup.json
 ```
 
-Use Node 24+. Restart Vite after changing `.env.local`. Sign in as
-`tutor@demo.ucl.local`, open `APP-2026-0143`, and choose **Re-run AI evaluation**.
-The frontend sends an HTTP request and renders the returned score (88.5),
-recommendation and explanation. The UI projects raw Offer to Unconditional;
-original PDFs are available in View documents. Runs retain
-`evaluationSource: "fastapi-mock"` in their
-saved data; the frontend no longer displays a connection notice.
-The original run remains in history and refresh retains both runs. Removing
-`VITE_API_BASE_URL` restores standalone browser evaluation.
+Take a PostgreSQL backup first. This validates original SHA-256/page/size metadata
+and imports IDs, ownership, criteria, batches, runs, corrections, decisions and
+audit attribution in one transaction. Identical re-imports are idempotent;
+conflicting existing applicants/PDFs/criteria fail and roll back. Initial seed
+accounts/unowned courses can be adopted by their matching IDs. It is an explicit
+migration, not a merge tool for two independently edited live datasets. Keep the
+export outside Git. Opening the frontend never imports or resets browser data.
 
 ## Small API contract
 
@@ -79,12 +111,13 @@ separate `SAMPLE-CSML` namespace; ordinary uploaded applications are not fixture
 Responses use the existing frontend `AssessmentRun` shape with
 `evaluationSource: "fastapi-mock"` and `simulated: true`. Nullable scores remain
 null. Results are computed synchronously and returned as `awaiting review` or
-`failed`; there is no job queue, worker or server-side run storage yet.
+`failed`; there is no job queue or worker. The connected evaluation route saves returned
+synthetic runs in PostgreSQL.
 
 The endpoint is unauthenticated and intended only for local synthetic integration
 tests. It exposes no applicant records, original PDFs or decision operations.
-Existing tutor/programme checks run in the browser demo before a request, and
-are not server authentication. CORS permits local development/preview origins;
+The connected routes above enforce token identity and ownership themselves;
+the legacy synthetic endpoint does not grant access to records. CORS permits local development/preview origins;
 override the comma-separated `UCL_CORS_ORIGINS` for a different local port.
 
 ## Document storage API
@@ -92,7 +125,7 @@ override the comma-separated `UCL_CORS_ORIGINS` for a different local port.
 The document routes are disabled (404) until `DOCUMENT_API_TOKENS_FILE` is set in
 the server environment or ignored `backend/.env`. This private JSON file maps
 SHA-256 digests of random Bearer tokens to existing database user IDs. API tokens
-are independent of Qwen/OpenAI keys and the prototype frontend login. No client
+are the frontend account credentials and are independent of Qwen/OpenAI keys. No client
 `userId`, membership list or role claim establishes server identity.
 
 Run the explicit database migrations first (`alembic upgrade head`). The API
@@ -135,8 +168,8 @@ missing or non-tutor accounts return 403; missing and inaccessible records retur
 the same 404. Use loopback for local tests and HTTPS for remote access.
 
 The seed contains no applications and its example programmes are unowned. These
-routes intentionally do not create programmes/applications or accept browser-only
-application IDs. For a synthetic API test, explicitly create a dedicated owned
+single-document routes require an existing database application. The connected
+workspace routes create programmes/applicants and accept only authorised stored IDs. For a synthetic API test, explicitly create a dedicated owned
 programme/application in the development database, for example after seeding:
 
 ```sql
@@ -344,24 +377,21 @@ tests/                     HTTP/configuration tests and opt-in PostgreSQL integr
 ```
 
 `get_evaluation_service()` is the replacement seam for a future evaluator. The
-frontend transport lives in `src/services/backend.ts`; `evaluation.ts` selects
-HTTP or browser fixtures, while RTK Query and the demo service retain UI state,
-permissions and persistence. A configured backend failure surfaces an error and
+frontend transport lives in `src/services/httpAdmissions.ts`; PostgreSQL owns
+records and review history while RTK Query caches current in-memory reads.
+The backend enforces permissions and trusted criteria/document selection. A configured backend failure surfaces an error and
 does not silently fall back to locally generated scores or save a partial run.
 Newly uploaded PDFs stay in the explicit real-assessment-unavailable path.
 
 The document API implements PDF upload/list/download for existing database
-applications. A later milestone can connect frontend workspace/application/document
-persistence to these tables. Assessment runs,
-fixed criteria, decisions and correction history remain later MVP milestones,
-along with interactive server authentication and worker integration with the Qwen client.
-The mock request accepts browser criteria context only for this transition;
-the full backend must load trusted criteria and document identities itself.
-This small contract is not the final API for the entire application.
+applications. Connected review routes load trusted stored criteria/document identities
+and persist each run/correction/decision transactionally. Real inference and workers
+remain future milestones.
 
 ## PostgreSQL: start, migrate and seed
 
-The database is optional for the current mock API. Install the pinned dependencies
+PostgreSQL is required by the connected frontend. The legacy synthetic probe can
+still run without it. Install the pinned dependencies
 as above, start Docker Desktop, and run the following **from `backend/`**:
 
 ```sh
@@ -386,7 +416,7 @@ cluster beneath that directory. No host database directory is mounted in the rep
 `docker compose up -d --wait` recreates it with the same data. `down -v` destroys
 the volume and is not part of normal startup or verification.
 
-Migrations create five domain tables plus Alembic's technical `alembic_version`.
+Migrations create eight domain tables plus Alembic's technical `alembic_version`.
 FastAPI never creates tables, runs migrations or seeds data. SQLAlchemy models
 describe database rows; `app/schemas.py` remains the separate HTTP contract.
 New model instances receive UUID strings on insert; existing IDs such as
@@ -397,7 +427,10 @@ New model instances receive UUID strings on insert; existing IDs such as
 | `users` | Unique normalized email, at least one of tutor/admin, active flag. Both roles may be true. No passwords or sign-in implementation. |
 | `programmes` | Named workspace, case-insensitive unique code, optional creator ownership. Names can repeat. |
 | `programme_memberships` | Composite `(user_id, programme_id)` key; assignment and ownership are separate. |
-| `applications` | Workspace, candidate reference and submitting tutor. Candidate references can repeat. No assessment fields. |
+| `applications` | Workspace, candidate reference and submitting tutor. Candidate references can repeat. Intake/batch and review_state JSONB preserve runs/corrections/decisions. |
+| `upload_batches` | Intake-scoped uploads and immutable original batch metadata. |
+| `rubrics` | Immutable per-course numeric criteria versions. |
+| `audit_events` | Preserved actor/action/target/time attribution. |
 | `documents` | Original `bytea` plus metadata. Six document categories; singleton types are unique per application and references may repeat. |
 
 Database constraints enforce non-blank required labels, trimmed names/codes,
@@ -423,7 +456,7 @@ The document schema now matches the frontend's six categories:
 Documents remain individual linked rows containing their original PDF bytes.
 Original filenames are metadata, not identifiers; references can share filenames
 or hashes. The database allows incomplete document sets. Readiness, PDF validation
-and combined page limits belong to the future upload/application service.
+and combined page limits are enforced by the upload/application service.
 
 Migration `20261117_0002` expands the allowed types and replaces the old unique
 constraint with a partial unique index of the same name,
@@ -497,7 +530,7 @@ refuses the development database even through another hostname, and rejects
 non-test database names before any migration/truncation. An explicitly requested
 but unreachable database fails the tests; it is not silently skipped. Tests own
 the dedicated test dataset and must not run concurrently with other test writers.
-They migrate/downgrade, truncate the five test tables, check schema/model parity,
+They migrate/downgrade, truncate only the eight test tables, check schema/model parity,
 exercise constraints and deletion, round-trip binary bytes, and verify seed
 idempotence/rollback. They never clear the development database.
 
@@ -534,7 +567,10 @@ The test's `python3` must have these dependencies; alternatively set
 `UCL_BACKEND_PYTHON` to the virtual environment's Python executable. It verifies
 the HTTP response, visible result, refresh, original PDF citation navigation,
 accessibility and an unavailable-backend error. Existing unit tests run without a
-backend; the standalone browser suite exercises demo mode.
+backend; both browser suites now use disposable PostgreSQL fixtures.
+Set distinct DATABASE_URL and TEST_DATABASE_URL values before either browser suite;
+the latter must end in `_test`. Their CLI setup refuses development URLs before
+resetting/migrating the test database. Never run database suites concurrently.
 
 Verified on 17 November 2026 for the document API: **330 Python tests passed**
 against the exact staged code, including all opt-in PostgreSQL integration tests
@@ -596,3 +632,20 @@ The scaffold uses FastAPI's documented [response models](https://fastapi.tiangol
 The storage foundation follows the [SQLAlchemy ORM guide](https://docs.sqlalchemy.org/en/21/orm/quickstart.html),
 [Alembic migration tutorial](https://alembic.sqlalchemy.org/en/latest/tutorial.html)
 and [official PostgreSQL image layout](https://github.com/docker-library/docs/blob/master/postgres/README.md#pgdata).
+
+## Connected PostgreSQL verification — 17 November 2026
+
+The frontend now uses PostgreSQL through the authenticated workspace API. The
+existing browser test data was explicitly migrated after a database backup:
+four accounts, three programmes, nine applications, 25 original PDFs, three
+rubrics, four batches and 19 audit events. All PDF hashes and application
+histories matched the source; the browser database was left untouched. Private
+backup files and token credentials are outside Git.
+
+All 343 backend tests pass, including isolated PostgreSQL migration/model parity,
+atomic upload/batch rollback, ownership isolation, original-byte round trips,
+criteria concurrency, last-admin protection, import idempotence/conflict rollback
+and persisted correction/decision histories. Ruff lint/format pass. The frontend
+passes 942 unit tests plus 21 main and three API-recovery browser workflows using
+disposable PostgreSQL with IndexedDB disabled. New uploads remain unassessed;
+no Qwen/OpenAI calls or AWS resources were used.

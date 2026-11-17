@@ -6,7 +6,16 @@ from alembic import command
 from app.db import Base
 
 pytestmark = pytest.mark.postgres
-DOMAIN_TABLES = {"users", "programmes", "programme_memberships", "applications", "documents"}
+DOMAIN_TABLES = {
+    "users",
+    "programmes",
+    "programme_memberships",
+    "applications",
+    "documents",
+    "upload_batches",
+    "rubrics",
+    "audit_events",
+}
 
 
 def test_migration_downgrade_upgrade_and_model_consistency(db_engine, migration_config):
@@ -16,7 +25,7 @@ def test_migration_downgrade_upgrade_and_model_consistency(db_engine, migration_
     assert set(inspect(db_engine).get_table_names()) == DOMAIN_TABLES | {"alembic_version"}
     command.check(migration_config)
     with db_engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261117_0002"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261117_0003"
 
 
 def test_column_types_nullability_and_defaults(db_engine):
@@ -25,7 +34,16 @@ def test_column_types_nullability_and_defaults(db_engine):
         columns = {column["name"]: column for column in inspector.get_columns(table)}
         assert set(columns) == set(Base.metadata.tables[table].columns.keys())
         for name, column in columns.items():
-            assert column["nullable"] == (table == "programmes" and name == "created_by")
+            assert column["nullable"] == (
+                (table, name)
+                in {
+                    ("programmes", "created_by"),
+                    ("programmes", "active_rubric_id"),
+                    ("applications", "batch_id"),
+                    ("applications", "fixture"),
+                    ("upload_batches", "uploaded_by"),
+                }
+            )
             if name == "id" or name.endswith("_id") or name == "created_by":
                 assert isinstance(column["type"], String) and column["type"].length == 200
             if name.endswith("_at"):
@@ -49,6 +67,11 @@ def test_foreign_key_lookup_indexes_and_delete_rules(db_engine):
         ("applications", "programme_id"): "CASCADE",
         ("applications", "created_by"): "RESTRICT",
         ("documents", "application_id"): "CASCADE",
+        ("programmes", "active_rubric_id"): "SET NULL",
+        ("applications", "batch_id"): "SET NULL",
+        ("upload_batches", "programme_id"): "CASCADE",
+        ("upload_batches", "uploaded_by"): "RESTRICT",
+        ("rubrics", "programme_id"): "CASCADE",
     }
     for table in DOMAIN_TABLES:
         indexes = inspector.get_indexes(table)

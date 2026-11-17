@@ -1,85 +1,81 @@
 // @vitest-environment jsdom
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '../test/domSetup'
 import { administrator, tutor } from '../test/fixtures'
-import { apiMocks, dispatch, queryResult, resetPageMocks } from '../test/pageMocks'
+import { apiMocks, dispatch, resetPageMocks } from '../test/pageMocks'
 import { renderPage } from '../test/renderPage'
+import { authenticateBackend } from '../services/httpAdmissions'
+import { saveBackendSession } from '../services/backendSession'
 import { LoginPage } from './LoginPage'
 vi.mock('../app/api', async () => (await import('../test/pageMocks')).apiMocks)
 vi.mock('../app/store', async () => (await import('../test/pageMocks')).storeMocks)
 vi.mock('../hooks/redux', async () => (await import('../test/pageMocks')).reduxMocks)
-vi.mock('../hooks/useWorkspace', async () => ({
-  useWorkspace: (await import('../test/pageMocks')).workspaceMock,
-}))
-describe('Mantis sign-in', () => {
-  beforeEach(() => {
-    resetPageMocks()
-  })
+vi.mock('../services/httpAdmissions', () => ({ authenticateBackend: vi.fn() }))
+vi.mock('../services/backendSession', () => ({ saveBackendSession: vi.fn() }))
+beforeEach(() => {
+  resetPageMocks()
+  vi.mocked(authenticateBackend).mockReset()
+  vi.mocked(saveBackendSession).mockReset()
+})
+async function submit() {
+  await userEvent.type(screen.getByRole('textbox', { name: 'Email' }), tutor.email)
+  await userEvent.type(screen.getByLabelText('Access token', { exact: true }), 'a'.repeat(40))
+  await userEvent.click(screen.getByRole('button', { name: 'Sign In' }))
+}
+describe('server account sign-in', () => {
   it.each([
-    ['tutor', tutor, '/programmes'],
-    ['admin', administrator, '/admin/users'],
-  ] as const)('signs in a %s and clears cached data', async (_role, account, destination) => {
-    apiMocks.useAccountsQuery.mockReturnValue(queryResult([account]))
+    [tutor, '/programmes'],
+    [administrator, '/admin/users'],
+  ] as const)('opens the correct workspace for %j', async (account, destination) => {
+    vi.mocked(authenticateBackend).mockResolvedValue(account)
     renderPage(<LoginPage />, '/login', '/login')
-    expect(screen.getByRole('img', { name: 'UCL' })).toBeInTheDocument()
-    await userEvent.type(screen.getByRole('textbox', { name: 'Email' }), account.email)
-    await userEvent.type(screen.getByLabelText('Password', { exact: true }), 'demo')
-    await userEvent.click(screen.getByRole('button', { name: 'Sign In' }))
+    await submit()
+    await waitFor(() => expect(screen.getByLabelText('Current URL')).toHaveTextContent(destination))
+    expect(saveBackendSession).toHaveBeenCalledWith(account.id, 'a'.repeat(40))
     expect(dispatch.mock.calls).toEqual([
       [{ type: 'api/reset' }],
       [{ type: 'session/signIn', payload: account.id }],
     ])
-    expect(screen.getByLabelText('Current URL')).toHaveTextContent(destination)
+    expect(apiMocks.useAccountsQuery).not.toHaveBeenCalled()
   })
-  it('lists only active prototype accounts and fills the chosen email', async () => {
-    apiMocks.useAccountsQuery.mockReturnValue(
-      queryResult([
-        tutor,
-        administrator,
-        { ...tutor, id: 'former', name: 'Former tutor', active: false },
-      ]),
+  it('shows server access failures and allows retry', async () => {
+    vi.mocked(authenticateBackend).mockRejectedValue(new Error('Access denied'))
+    renderPage(<LoginPage />)
+    await submit()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Access denied')
+    expect(saveBackendSession).not.toHaveBeenCalled()
+    await userEvent.type(screen.getByRole('textbox', { name: 'Email' }), 'x')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+  it('waits for authentication and ignores a late result after navigation', async () => {
+    let resolve!: (value: typeof tutor) => void
+    vi.mocked(authenticateBackend).mockReturnValue(
+      new Promise((r) => {
+        resolve = r
+      }),
     )
-    renderPage(<LoginPage />, '/login', '/login')
-    await userEvent.click(screen.getByRole('button', { name: "I don't have an account" }))
-    const help = screen.getByRole('dialog', { name: 'Available accounts' })
-    expect(within(help).getAllByRole('listitem')).toHaveLength(2)
-    expect(screen.queryByText('Former tutor')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: new RegExp(administrator.name) }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue(administrator.email)
-  })
-  it('uses the shared Mantis dialog for help and restores keyboard focus on close', async () => {
-    renderPage(<LoginPage />, '/login', '/login')
-    const trigger = screen.getByRole('button', { name: 'Forgot password?' })
-    await userEvent.click(trigger)
-    expect(screen.getByRole('dialog', { name: 'Access your account' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Close help' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(trigger).toHaveFocus()
-    expect(dispatch).not.toHaveBeenCalled()
-  })
-  it('rejects unknown emails and disables sign-in without active accounts', async () => {
-    const view = renderPage(<LoginPage />, '/login', '/login')
-    await userEvent.type(screen.getByRole('textbox', { name: 'Email' }), 'unknown@example.test')
-    await userEvent.type(screen.getByLabelText('Password', { exact: true }), 'demo')
-    await userEvent.click(screen.getByRole('button', { name: 'Sign In' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('No active account matches this email.')
-    expect(dispatch).not.toHaveBeenCalled()
-    apiMocks.useAccountsQuery.mockReturnValue(queryResult([{ ...tutor, active: false }]))
-    view.rerender(<LoginPage />)
-    expect(screen.getByRole('button', { name: 'Sign In' })).toBeDisabled()
-  })
-  it('shows loading and query errors', () => {
-    apiMocks.useAccountsQuery.mockReturnValue({ isLoading: true })
-    const view = renderPage(<LoginPage />, '/login', '/login')
+    const view = renderPage(<LoginPage />)
+    await submit()
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
-    apiMocks.useAccountsQuery.mockReturnValue({
-      isLoading: false,
-      error: { data: 'Accounts unavailable' },
-    })
-    view.rerender(<LoginPage />)
-    expect(screen.getByText('Accounts unavailable')).toBeInTheDocument()
+    view.unmount()
+    resolve(tutor)
+    await Promise.resolve()
+    expect(saveBackendSession).not.toHaveBeenCalled()
+    expect(dispatch).not.toHaveBeenCalled()
+  })
+  it.each([
+    ['Need access?', 'Account access'],
+    ['Access token help', 'Access your account'],
+    ['About Us', 'About Us'],
+    ['Terms and Conditions', 'Terms and Conditions'],
+  ])('opens %s help and restores focus', async (triggerName, title) => {
+    renderPage(<LoginPage />)
+    const trigger = screen.getByRole('button', { name: triggerName })
+    await userEvent.click(trigger)
+    expect(screen.getByRole('dialog', { name: title })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Close help' }))
+    await waitFor(() => expect(trigger).toHaveFocus())
   })
 })

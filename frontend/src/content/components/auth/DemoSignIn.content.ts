@@ -1,12 +1,12 @@
 export const demoSignInContent = {
   signIn: 'Sign in',
   signInAction: 'Sign In',
-  noAccount: "I don't have an account",
+  noAccount: 'Need access?',
   email: 'Email',
-  password: 'Password',
+  password: 'Access token',
   emailPlaceholder: 'Enter your email',
-  passwordPlaceholder: 'Enter your password',
-  showPassword: 'Show password',
-  hidePassword: 'Hide password',
-  forgotPassword: 'Forgot password?',
+  passwordPlaceholder: 'Enter your account access token',
+  showPassword: 'Show access token',
+  hidePassword: 'Hide access token',
+  forgotPassword: 'Access token help',
 } as const

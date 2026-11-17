@@ -1,3 +1,4 @@
+import { resetBackend, accountToken } from './helpers/server'
 import { test, expect, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import { PDFDocument } from 'pdf-lib'
@@ -6,6 +7,15 @@ import { readFile } from 'node:fs/promises'
 import { dataset } from './helpers/dataset'
 
 const csmlIntakePath = '/programmes/programme-1/intakes/2026-27'
+
+test.beforeEach(async ({ page }) => {
+  await resetBackend()
+  await page.addInitScript(() => {
+    indexedDB.open = () => {
+      throw new Error('Browser persistence is disabled in connected tests.')
+    }
+  })
+})
 
 async function sampleApplicationPath(page: Page, id = 'APP-2026-0142') {
   const application = (await dataset(page)).applications.find((app) => app.id === id)!
@@ -44,7 +54,7 @@ async function login(page: Page, role = 'tutor-a') {
           ? 'tutor.b@demo.ucl.local'
           : 'tutor@demo.ucl.local',
     )
-  await page.getByLabel('Password', { exact: true }).fill('demo')
+  await page.getByLabel('Access token', { exact: true }).fill(accountToken(role))
   await page.getByRole('button', { name: 'Sign In', exact: true }).click()
   await expect(page.locator('main h1')).toHaveText(role === 'admin-a' ? 'Users' : 'Programme')
 }
@@ -68,35 +78,25 @@ async function pdf(pages = 1) {
 }
 async function storedPdfHashes(page: Page) {
   return page.evaluate(async () => {
-    const { keys, files } = await new Promise<{ keys: IDBValidKey[]; files: Blob[] }>(
-      (resolve, reject) => {
-        const request = indexedDB.open('ucl-admissions-demo', 1)
-        request.onerror = () => reject(request.error)
-        request.onsuccess = () => {
-          const db = request.result
-          const transaction = db.transaction('files')
-          const store = transaction.objectStore('files')
-          const keys = store.getAllKeys()
-          const files = store.getAll()
-          transaction.onerror = () => {
-            db.close()
-            reject(transaction.error)
-          }
-          transaction.oncomplete = () => {
-            db.close()
-            resolve({ keys: keys.result, files: files.result })
-          }
-        }
-      },
-    )
+    const session = JSON.parse(sessionStorage.getItem('ucl-backend-auth')!)
+    const headers = { Authorization: `Bearer ${session.token}` }
+    const base = 'http://127.0.0.1:8001/api/v1'
+    const data = await (await fetch(base + '/workspace', { headers })).json()
     return Promise.all(
-      files.map(async (file, index) => ({
-        id: String(keys[index]),
-        size: file.size,
-        sha256: [...new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))]
-          .map((byte) => byte.toString(16).padStart(2, '0'))
-          .join(''),
-      })),
+      data.documents.map(async (doc: { id: string }) => {
+        const file = await (
+          await fetch(base + '/documents/' + encodeURIComponent(doc.id), { headers })
+        ).blob()
+        return {
+          id: doc.id,
+          size: file.size,
+          sha256: [
+            ...new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer())),
+          ]
+            .map((byte) => byte.toString(16).padStart(2, '0'))
+            .join(''),
+        }
+      }),
     )
   })
 }
@@ -367,7 +367,7 @@ test('programme cards and sidebar intake links keep records separated through re
   await expect(page.locator('main h1')).toHaveText('ML 26/27')
 })
 
-test('account menu opens the password form and logs out without changing prototype credentials', async ({
+test('account menu opens the password form and logs out without changing account credentials', async ({
   page,
 }, info) => {
   await login(page)
@@ -640,17 +640,17 @@ test('an individual applicant joins the selected batch without fabricated assess
     .getByLabel('Upload CV', { exact: true })
     .setInputFiles({ name: 'cv.pdf', mimeType: 'application/pdf', buffer: await pdf() })
   await page.getByRole('button', { name: 'Create application', exact: true }).click()
-  await expect(page).toHaveURL(/\/applications\/APP-/)
+  await expect(page).toHaveURL(/\/applications\/[a-f0-9-]{36}$/)
   const app = (await dataset(page)).applications.find((a) => a.candidate === 'New applicant')!
   expect(app.batchId).toBe(decodeURIComponent(batchId))
   expect(app.runs).toEqual([])
   await page.getByRole('button', { name: 'Request evaluation', exact: true }).click()
-  const summary = page.getByRole('region', { name: 'Application review' })
-  await expect(summary.getByText('—', { exact: true })).toHaveCount(2)
-  await expect(summary.getByText('Pending', { exact: true })).toBeVisible()
-  expect(
-    (await dataset(page)).applications.find((a) => a.id === app.id)!.runs.at(-1)?.overall,
-  ).toBeNull()
+  await expect(page.getByRole('alert')).toContainText(
+    'Real document assessment is not connected yet.',
+  )
+  await expect(page.getByRole('region', { name: 'Application review' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Decision', exact: true })).toHaveCount(0)
+  expect((await dataset(page)).applications.find((a) => a.id === app.id)!.runs).toEqual([])
 })
 
 test('six document categories preserve both references and four score panels without rewriting history', async ({
@@ -696,7 +696,7 @@ test('six document categories preserve both references and four score panels wit
   await audit(page)
   await page.screenshot({ path: info.outputPath('expanded-document-upload.png'), fullPage: true })
   await page.getByRole('button', { name: 'Create application', exact: true }).click()
-  await expect(page).toHaveURL(/\/applications\/APP-/)
+  await expect(page).toHaveURL(/\/applications\/[a-f0-9-]{36}$/)
   const saved = await dataset(page)
   const app = saved.applications.find((a) => a.candidate === 'SYN-FULL-PACKET')!
   expect(app.documentIds).toHaveLength(7)
@@ -803,12 +803,14 @@ test('owner deletion requires confirmation and removes only that applicant', asy
 test('course-owner and administrator access checks survive direct links and sign-in changes', async ({
   page,
 }) => {
+  await login(page)
+  const forbiddenApplicationPath = await sampleApplicationPath(page)
+  await signOut(page)
   await login(page, 'tutor-b')
   await expect(page.locator('main').getByRole('link', { name: /^Open / })).toHaveCount(0)
-  const forbiddenApplicationPath = await sampleApplicationPath(page)
   for (const path of ['/applications/APP-2026-0142', `${forbiddenApplicationPath}/evidence`]) {
     await page.goto(path)
-    await expect(page.getByText(/tutor access/i)).toBeVisible()
+    await expect(page.getByText(/tutor access|application not found/i)).toBeVisible()
     await expect(page.getByRole('tab')).toHaveCount(0)
     await expect(page.locator('canvas')).toHaveCount(0)
   }
@@ -863,9 +865,7 @@ test('course CSV export covers every intake and preserves formula escaping', asy
   await expect(page.getByRole('heading', { name: 'Decision overview', exact: true })).toBeVisible()
 })
 
-test('interrupted simulated evaluation recovers after refresh without losing its run', async ({
-  page,
-}) => {
+test('server evaluation persists after refresh without losing its run', async ({ page }) => {
   await login(page)
   await page.goto('/applications/APP-2026-0143')
   await page.getByRole('button', { name: 'Re-run AI evaluation', exact: true }).click()
@@ -952,18 +952,23 @@ test('admin users and service health remain functional without obsolete tools', 
   await expect(page.getByRole('row', { name: /New tutor/ })).toContainText('Inactive')
   await navigation.getByRole('link', { name: 'Service health', exact: true }).click()
   await expect(page.locator('main h1')).toHaveText('Service health')
-  await expect(page.getByText('Not configured', { exact: true })).toBeVisible()
-  await expect(page.getByRole('alert')).toContainText('No backend service has been configured.')
+  await expect(page.getByText('Available', { exact: true })).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
   await page.getByRole('button', { name: 'Refresh status', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('No backend service has been configured.')
+  await expect(page.getByRole('button', { name: 'Refresh status', exact: true })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Refresh status', exact: true })).toHaveCSS(
+    'color',
+    'rgb(0, 62, 179)',
+  )
+  await expect(page.getByRole('alert')).toHaveCount(0)
   await audit(page)
   await page.screenshot({
-    path: info.outputPath('admin-health-not-configured.png'),
+    path: info.outputPath('admin-health-connected.png'),
     fullPage: true,
   })
   const beforeRemovedRoutes = await dataset(page)
   const originalPdfHashes = await storedPdfHashes(page)
-  expect(originalPdfHashes.length).toBeGreaterThan(0)
+  expect(originalPdfHashes).toEqual([]) // Admin cannot read another tutor's PDFs.
   for (const legacy of ['/admin/programme', '/admin/data', '/admin/backup']) {
     await page.goto(legacy)
     await expect(page).toHaveURL('/admin/users')

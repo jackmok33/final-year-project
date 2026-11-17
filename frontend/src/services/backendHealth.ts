@@ -1,4 +1,4 @@
-import { backendUrl } from './backend'
+import { backendApiBase } from './backendSession'
 
 export interface BackendHealth {
   status: 'ok'
@@ -28,13 +28,12 @@ function isBackendHealth(value: unknown): value is BackendHealth {
 
 /** Probe the public backend endpoint without accessing or locking browser records. */
 export async function probeBackendHealth(signal?: AbortSignal): Promise<BackendHealthReport> {
-  const base = backendUrl()
   const checkedAt = () => new Date().toISOString()
-  if (!base) return { state: 'not-configured', checkedAt: checkedAt() }
 
   const timeout = AbortSignal.timeout(10_000)
   const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout
   try {
+    const base = backendApiBase()
     const response = await fetch(`${base}/health`, {
       method: 'GET',
       cache: 'no-store',

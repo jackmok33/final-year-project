@@ -1,11 +1,11 @@
 import { brandingContent } from '../branding.content'
 
 export const loginPageContent = {
-  accountsTitle: 'Available accounts',
+  accountsTitle: 'Account access',
   passwordTitle: 'Access your account',
-  accountsDescription: 'Choose an existing account to open the workspace.',
+  accountsDescription: 'Ask your administrator for an account and its access token.',
   passwordDescription:
-    'This frontend has no password service yet. Choose an available account to preview the workspace.',
+    'Use the access token issued for your account. Contact your administrator if it is unavailable.',
   invalidAccount: 'No active account matches this email.',
   close: 'Close',
   closeHelp: 'Close help',

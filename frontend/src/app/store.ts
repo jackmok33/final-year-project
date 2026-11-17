@@ -1,9 +1,10 @@
-import { configureStore, createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import { configureStore, createSlice, type Middleware, type PayloadAction } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
 import { admissionsApi } from './api'
+import { backendSession, clearBackendSession } from '../services/backendSession'
 function savedSession() {
   try {
-    return sessionStorage.getItem('ucl-demo-user')
+    return backendSession()?.userId ?? null
   } catch {
     return null
   }
@@ -22,7 +23,7 @@ const session = createSlice({
 })
 function savedWorkspaces(): Record<string, string> {
   try {
-    const value: unknown = JSON.parse(sessionStorage.getItem('ucl-demo-workspaces') ?? '{}')
+    const value: unknown = JSON.parse(sessionStorage.getItem('ucl-backend-workspaces') ?? '{}')
     if (
       value &&
       typeof value === 'object' &&
@@ -37,7 +38,7 @@ function savedWorkspaces(): Record<string, string> {
 }
 function savedIntakes(): Record<string, Record<string, string>> {
   try {
-    const value: unknown = JSON.parse(sessionStorage.getItem('ucl-demo-intakes') ?? '{}')
+    const value: unknown = JSON.parse(sessionStorage.getItem('ucl-backend-intakes') ?? '{}')
     const record = (item: unknown): item is Record<string, unknown> =>
       !!item && typeof item === 'object' && !Array.isArray(item)
     if (
@@ -78,24 +79,25 @@ const ui = createSlice({
 })
 export const { signIn, signOut } = session.actions
 export const { setNavigationOpen, selectProgramme } = ui.actions
+const authLifecycle: Middleware = () => (next) => (action) => {
+  if (signOut.match(action)) clearBackendSession()
+  return next(action)
+}
 export const store = configureStore({
   reducer: {
     session: session.reducer,
     ui: ui.reducer,
     [admissionsApi.reducerPath]: admissionsApi.reducer,
   },
-  middleware: (getDefault) => getDefault().concat(admissionsApi.middleware),
+  middleware: (getDefault) => getDefault().concat(admissionsApi.middleware, authLifecycle),
 })
 store.subscribe(() => {
   try {
     sessionStorage.setItem(
-      'ucl-demo-workspaces',
+      'ucl-backend-workspaces',
       JSON.stringify(store.getState().ui.programmeByUser),
     )
-    sessionStorage.setItem('ucl-demo-intakes', JSON.stringify(store.getState().ui.intakeByUser))
-    const id = store.getState().session.userId
-    if (id) sessionStorage.setItem('ucl-demo-user', id)
-    else sessionStorage.removeItem('ucl-demo-user')
+    sessionStorage.setItem('ucl-backend-intakes', JSON.stringify(store.getState().ui.intakeByUser))
   } catch {
     /* Session still works in memory if browser session storage is unavailable. */
   }

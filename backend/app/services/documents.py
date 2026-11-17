@@ -111,6 +111,12 @@ class DocumentService:
                 content_type="application/pdf",
                 size_bytes=len(pdf.contents),
                 page_count=pdf.page_count,
+                position=session.scalar(
+                    select(func.coalesce(func.max(Document.position), -1)).where(
+                        Document.application_id == application_id
+                    )
+                )
+                + 1,
                 sha256=pdf.sha256,
                 pdf_bytes=pdf.contents,
             )
@@ -128,7 +134,7 @@ class DocumentService:
                 select(Document)
                 .options(defer(Document.pdf_bytes))
                 .where(Document.application_id == application_id)
-                .order_by(Document.uploaded_at, Document.id)
+                .order_by(Document.position, Document.uploaded_at, Document.id)
             )
             return [StoredDocument.model_validate(item, from_attributes=True) for item in documents]
 

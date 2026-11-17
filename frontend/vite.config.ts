@@ -13,8 +13,11 @@ export default defineConfig(({ mode }) => ({
       { find: /^@ant-design\/icons\/([^/]+)$/, replacement: '@ant-design/icons/es/icons/$1' },
     ],
   },
-  // Standalone browser checks must not inherit the optional local FastAPI adapter.
-  define: mode === 'e2e' ? { 'import.meta.env.VITE_API_BASE_URL': JSON.stringify('') } : undefined,
+  // Browser checks always use the isolated FastAPI test server.
+  define:
+    mode === 'e2e'
+      ? { 'import.meta.env.VITE_API_BASE_URL': JSON.stringify('http://127.0.0.1:8001/api/v1') }
+      : undefined,
   plugins: [
     react(),
     {
@@ -25,6 +28,7 @@ export default defineConfig(({ mode }) => ({
     },
   ],
   server: {
+    proxy: { '/api': { target: 'http://127.0.0.1:8000' } },
     watch: {
       usePolling: true,
       interval: 300,

@@ -48,28 +48,25 @@ Use an installed Node runtime elsewhere. Dependencies are pinned with a committe
 lockfile. Vite's regenerable cache lives in the system temporary directory to avoid
 OneDrive cache replacement conflicts.
 
-To enable the optional FastAPI mock evaluator, follow the
-[backend guide](../backend/README.md), copy `.env.example` to `.env.local`, set
-`VITE_API_BASE_URL` and restart Vite. Without that variable, the standalone browser
-adapter is used. Records and PDFs stay in IndexedDB in either mode.
+Start PostgreSQL and FastAPI first using the [backend guide](../backend/README.md).
+The frontend always uses the server. Development proxies `/api` to port 8000;
+`VITE_API_BASE_URL` can override it. For deployment, configure an HTTPS API or a
+same-origin reverse proxy for `/api/v1`. There is no browser-data fallback.
 
 ## Sign in
 
-The redesigned form accepts an existing account's email and any nonempty prototype
-password (for example `demo`). Passwords are **not authenticated** or saved. Do not
-enter real UCL credentials. “I don't have an account” opens the existing-account
-chooser; it does not register an account. Forgot password explains the current
-boundary rather than sending a reset email. The footer links describe the prototype.
+Use an active database account's email and its **access token**, issued through the
+private server token file. A prototype password such as `demo` no longer works.
+Tokens are account credentials, separate from model API keys; keep them out of Git.
+The token is kept in this tab's sessionStorage and removed on logout. This is the
+approved development authentication mechanism; password login and UCL SSO remain
+future work. Account help does not enumerate users before authentication.
 
-| Account       | Email                  | Permissions                                                                    |
-| ------------- | ---------------------- | ------------------------------------------------------------------------------ |
-| Jack          | tutor@demo.ucl.local   | Owns the three example programmes; reviews applicants and edits their criteria |
-| Tutor B       | tutor.b@demo.ucl.local | Starts without programmes; can create private programmes                       |
-| Administrator | admin@demo.ucl.local   | User accounts and service health                                               |
-
-Administrators cannot open applicant review, view individual PDFs or record
-decisions. Those routes and commands require active tutor ownership.
-These browser controls are not real server authentication.
+The migrated test emails are `tutor@demo.ucl.local`, `tutor.b@demo.ucl.local` and
+`admin@demo.ucl.local`. The first tutor owns the migrated example courses. Tutors
+can read/change only their own courses; administrators manage accounts but cannot
+read another tutor's applications or original PDFs. Server checks enforce this.
+New accounts require a separately issued token before they can sign in.
 
 ## Programme and intake workflow
 
@@ -161,9 +158,9 @@ It is unavailable on the individual batch page. Formula escaping is retained.
 Analytics summarises final tutor outcomes for the selected intake.
 
 The default CSML 26/27 dataset contains eight applicants across three batches.
-Fresh profiles and older unchanged browser profiles receive the code-defined
-samples without a reset. Upgrade markers and deletion events prevent deliberately
-deleted samples from returning. Existing IDs, PDFs and histories are preserved.
+These are migrated database records, shared across signed-in browser sessions.
+Fresh browsers do not generate or reset sample records. Automated browser tests
+use a separate, explicitly configured test database and synthetic fixtures.
 
 A ZIP should contain one folder per applicant with PDFs directly inside; one
 common outer folder is accepted:
@@ -193,7 +190,7 @@ and unreadable PDFs reject the entire import. macOS archive metadata is ignored.
 Service-layer limits remain 100 MB compressed, 200 MB extracted, 100 applicants,
 20 MB per PDF and 100 combined pages per applicant. Bounded extraction uses
 `fflate`; PDF readability uses locally bundled PDF.js. Validation finishes before
-one atomic IndexedDB write. Failure leaves no partial applications or PDFs. A
+one atomic PostgreSQL transaction. Failure leaves no partial applications or PDFs. A
 refresh before commit requires selecting the ZIP again.
 
 The original extracted PDFs are retained, not the ZIP container. **Add applicant**
@@ -325,10 +322,12 @@ results or decisions are deleted by the UI simplification.
 
 ## Persistence and boundaries
 
-Versioned IndexedDB stores records and original PDF blobs outside Redux. Session
-identity and programme/intake choices use sessionStorage. Refresh preserves work
-and recovers interrupted simulated evaluations. Existing version-1/version-2
-browser records and ownership/intake/batch upgrades remain supported without a data reset.
+PostgreSQL stores accounts, owned courses, batches, immutable criteria, applications,
+review history, decisions, corrections and original PDF bytes. Redux contains
+in-memory query results; business records are never persisted in the browser.
+Only account credentials and programme/intake interface preferences use
+sessionStorage. Refresh reads PostgreSQL again. Existing browser data is left
+untouched as a migration backup; it is not read by the running application.
 
 ## Administration
 
@@ -352,7 +351,7 @@ Old `/admin/programme`, `/admin/data` and `/admin/backup` URLs redirect to Users
 Removing these screens does not change existing records or PDFs. Their obsolete
 service commands and archive helpers are also removed. Fixture reset lives only
 in test utilities; server database backups will be an operational concern when
-persistence is integrated.
+needed; use PostgreSQL backups.
 
 `src/app/` owns Redux and RTK Query; `src/domain/` owns models and deterministic
 rules; `src/services/` owns storage, fixtures, permissions, imports and evaluation.
@@ -362,24 +361,17 @@ Pages own screen logic and compose controlled components. Copy lives in matching
 
 `services/admissions.ts` is the shared query/command/original-PDF boundary used by
 RTK Query and document consumers. `services/contracts.ts` holds typed requests and
-read models; `fileStaging.ts` keeps temporary files outside Redux. A future HTTP
-adapter can implement that interface without changing screen-level handlers.
-See the [service guide](src/services/README.md#future-fastapi-integration) for the
-integration boundary and remaining work.
+read models; `fileStaging.ts` keeps temporary upload files outside Redux.
+`httpAdmissions.ts` maps these operations to explicit authenticated routes and
+validates the workspace envelope before showing it. See the [service guide](src/services/README.md).
 
-The separate `services/evaluation.ts` selects the current evaluator. With the
-optional mock API, synthetic reassessments send fixture IDs,
-document metadata and criteria, not original PDFs or tutor notes. HTTP errors do
-not silently fall back or save partial corrections. The HTTP response contract
-and independent five-table PostgreSQL foundation are unchanged by this redesign.
-The existing FastAPI mock accepts only three scored sections. Zero-weight
-references preserve that request shape and extra document metadata stays local.
-A positive reference weight is rejected before a mock request rather than
-silently dropping its contribution or modifying existing runs. Real four-section
-inference and the server's expanded document constraints remain backend work.
-
-Real authentication, upload APIs, extraction, inference, PostgreSQL-backed HTTP
-routes, database/model health checks and deployment remain future work.
+Imported synthetic examples can be re-evaluated by the server's deterministic mock.
+The server loads trusted stored criteria and documents and saves each new run
+atomically. Real uploads receive no invented identities, extraction or scores.
+Their evaluation requests fail honestly until real document assessment is connected.
+Positive reference weights require the future four-section evaluator.
+Qwen inference, PDF extraction, LangGraph and production password/SSO login remain
+future work. The model connection probe is separate from applicant assessment.
 
 Current-decision summaries and PDF limits are shared domain helpers; pages retain
 their own filtering, drafts and mutation logic. Upload drafts reset when account,
@@ -406,8 +398,11 @@ For the local cached Chromium runtime:
 PLAYWRIGHT_BROWSERS_PATH=/private/tmp/ucl-admissions-browsers npm run test:e2e
 ```
 
-The browser script builds in standalone `e2e` mode without inheriting a local API
-URL. Playwright serves production output on port 4173; do not rebuild `dist` during
+Both browser suites require distinct `DATABASE_URL` and `TEST_DATABASE_URL` values;
+the latter must end in `_test`. They explicitly migrate/reset only that test
+database and launch an isolated FastAPI on port 8001 with synthetic token hashes.
+Never point these at development records. The main suite builds in `e2e` mode
+against port 8001. Playwright serves production output on port 4173; do not rebuild `dist` during
 a browser run. Desktop is the design priority; a basic small-screen keyboard and
 navigation regression remains. Axe checks complement, rather than replace, manual
 accessibility testing. Reports/screenshots are ignored under `test-results/frontend/`
