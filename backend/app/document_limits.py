@@ -1,0 +1,7 @@
+"""Backend PDF limits matching the frontend's documentLimits contract."""
+
+MAX_PDF_BYTES = 20 * 1024 * 1024
+MAX_DOCUMENT_PAGES = 100
+MAX_APPLICATION_PAGES = 100
+UPLOAD_TIMEOUT_SECONDS = 60
+PDF_VALIDATION_TIMEOUT_SECONDS = 10

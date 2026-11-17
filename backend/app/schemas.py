@@ -1,5 +1,6 @@
 """The small HTTP contract; JSON uses the frontend's existing camelCase fields."""
 
+from datetime import datetime
 from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -132,3 +133,20 @@ class InferenceProbeResponse(ApiModel):
     text: str
     data: dict | None
     usage: dict[str, int] | None
+
+
+StoredDocumentType = Literal[
+    "transcript", "cv", "statement", "application_form", "english_test", "reference"
+]
+
+
+class StoredDocument(ApiModel):
+    id: Identifier
+    application_id: Identifier
+    document_type: StoredDocumentType
+    filename: str
+    content_type: Literal["application/pdf"]
+    size_bytes: int
+    page_count: int
+    sha256: str
+    uploaded_at: datetime

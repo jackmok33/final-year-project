@@ -16,9 +16,10 @@ scoring/recommendation routing, and tutors retain the final decision.
 - `frontend/`: React, TypeScript, Vite, MUI/Mantis, React Router, Redux Toolkit and
   RTK Query. Tutor/admin workflows persist in browser IndexedDB.
 - `backend/`: a stateless FastAPI health/mock-assessment scaffold, optional async
-  inference client/connection probe and an independent five-table PostgreSQL foundation.
-  HTTP routes do not yet use the database. Live Qwen inference remains unverified.
-- Real authentication, server PDF upload/extraction, local AI inference, workers
+  inference client/connection probe and a five-table PostgreSQL foundation.
+  Opt-in document routes use PostgreSQL with per-tutor API tokens; the browser
+  still uses IndexedDB. Live Qwen inference remains unverified.
+- Interactive server login, PDF extraction, local AI inference, workers
   and PostgreSQL-backed application APIs remain future work.
 - Planned architecture: FastAPI/Python workers orchestrate evaluation and call a
   separate Qwen HTTP endpoint. Deployment and continuous GPU access remain
@@ -388,7 +389,19 @@ English test and reference PDFs. A partial unique index permits multiple referen
 while keeping the other five types unique per application; a full application-ID
 index also covers references. Migration `20261117_0002` preserves existing rows;
 downgrade refuses new categories instead of deleting or relabelling PDFs.
-Upload/download endpoints and frontend database integration remain future work.
+`app/document_routes.py` provides token-protected upload/list/download for existing
+database applications. `DOCUMENT_API_TOKENS_FILE` enables the routes and maps
+SHA-256 token digests to stored user IDs; it must be a private regular JSON file.
+Tokens are separate from browser login and Qwen/OpenAI credentials. Active tutor
+role and `Programme.created_by` ownership are checked server-side on every call;
+membership/admin permission alone grants no access. Database resources are lazy,
+lifespan-owned and never imported/connected at startup. `services/documents.py`
+owns transactions and application locks; `services/pdf_validation.py` and its
+bounded child parser validate PDFs without rewriting originals. Uploads enforce
+20 MiB, 1–100 pages per document and 100 combined pages, and calculate hashes/counts
+server-side. Extra concurrent uploads receive a busy response (two per process).
+Frontend HTTP persistence, interactive login and application/programme APIs remain
+future work; never treat browser-only IDs or demo user claims as server identity.
 
 The expanded frontend document types and fourth score section are not implemented
 by the mock API yet. The mock adapter rejects positive reference weights before
@@ -425,7 +438,7 @@ constraints, original PDF `bytea`, per-application singleton-type uniqueness,
 repeatable references and specified deletion cascades/attribution restrictions.
 Database constraints alone
 establish neither PDF readability, true SHA calculation nor the combined page
-limit; those belong to the future upload service. Keep mutable databases, Python
+limit; the document upload service enforces them. Keep mutable databases, Python
 virtual environments and model weights outside OneDrive.
 
 Destructive PostgreSQL tests require separate configured development/test URLs and
