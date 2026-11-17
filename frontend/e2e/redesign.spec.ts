@@ -1,11 +1,23 @@
+import { resetBackend, accountToken } from './helpers/server'
 import { test, expect, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import { dataset } from './helpers/dataset'
 
+test.beforeEach(async ({ page }) => {
+  await resetBackend()
+  await page.addInitScript(() => {
+    indexedDB.open = () => {
+      throw new Error('Browser persistence is disabled in connected tests.')
+    }
+  })
+})
+
 async function login(page: Page, email = 'tutor@demo.ucl.local') {
   await page.goto('/login')
   await page.getByRole('textbox', { name: 'Email', exact: true }).fill(email)
-  await page.getByLabel('Password', { exact: true }).fill('demo')
+  await page
+    .getByLabel('Access token', { exact: true })
+    .fill(accountToken(email === 'admin@demo.ucl.local' ? 'admin-a' : 'tutor-a'))
   await page.getByRole('button', { name: 'Sign In', exact: true }).click()
   await expect(page.locator('main h1')).toBeVisible()
 }
@@ -34,8 +46,8 @@ test('redesigned programme, batch, review tabs and decision popup match the expo
   await expect(
     page.getByRole('heading', { name: 'Admission Review System', exact: true }),
   ).toBeVisible()
-  await page.getByRole('button', { name: "I don't have an account", exact: true }).click()
-  const help = page.getByRole('dialog', { name: 'Available accounts', exact: true })
+  await page.getByRole('button', { name: 'Need access?', exact: true }).click()
+  const help = page.getByRole('dialog', { name: 'Account access', exact: true })
   await expect(help).toBeVisible()
   await audit(page)
   await help.getByRole('button', { name: 'Close help', exact: true }).click()

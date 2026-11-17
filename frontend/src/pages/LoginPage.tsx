@@ -1,17 +1,7 @@
-import {
-  Box,
-  Button,
-  Link,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  Stack,
-  Typography,
-} from '@mui/material'
+import { Box, Button, Link, Stack, Typography } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { admissionsApi, useAccountsQuery } from '../app/api'
+import { admissionsApi } from '../app/api'
 import { signIn } from '../app/store'
 import { useAppDispatch } from '../hooks/redux'
 import { DemoSignIn } from '../components/auth/DemoSignIn'
@@ -20,10 +10,15 @@ import AuthCard from '../mantis/components/AuthCard'
 import CustomizedDialog from '../mantis/components/CustomizedDialog'
 import { PROGRAMMES_PATH } from '../app/paths'
 import { useContent } from '../hooks/useContent'
+import { useIsMounted } from '../hooks/useIsMounted'
+import { authenticateBackend } from '../services/httpAdmissions'
+import { errorMessage } from '../services/errors'
+import { saveBackendSession } from '../services/backendSession'
 
 export function LoginPage() {
   const content = useContent('loginPage')
-  const { data: accounts, error, isLoading } = useAccountsQuery()
+  const [isLoading, setIsLoading] = useState(false)
+  const isMounted = useIsMounted()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -31,17 +26,23 @@ export function LoginPage() {
   const [loginError, setLoginError] = useState('')
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  function login() {
-    const account = accounts?.find(
-      (account) => account.active && account.email.toLowerCase() === email.trim().toLowerCase(),
-    )
-    if (!account) {
-      setLoginError(content.invalidAccount)
-      return
+  async function login() {
+    if (isLoading) return
+    setIsLoading(true)
+    setLoginError('')
+    try {
+      const account = await authenticateBackend(email, password)
+      if (!isMounted()) return
+      saveBackendSession(account.id, password)
+      setPassword('')
+      dispatch(admissionsApi.util.resetApiState())
+      dispatch(signIn(account.id))
+      navigate(account.roles.includes('tutor') ? PROGRAMMES_PATH : '/admin/users')
+    } catch (error) {
+      if (isMounted()) setLoginError(errorMessage(error, content.invalidAccount))
+    } finally {
+      if (isMounted()) setIsLoading(false)
     }
-    dispatch(admissionsApi.util.resetApiState())
-    dispatch(signIn(account.id))
-    navigate(account.roles.includes('tutor') ? PROGRAMMES_PATH : '/admin/users')
   }
   return (
     <Box
@@ -58,7 +59,7 @@ export function LoginPage() {
       <Box sx={{ flex: 1, display: 'grid', placeItems: 'center', px: 2, py: 5 }}>
         <AuthCard sx={{ width: '100%', maxWidth: 475 }}>
           <DemoSignIn
-            disabled={!accounts?.some((account) => account.active)}
+            disabled={isLoading}
             email={email}
             password={password}
             showPassword={showPassword}
@@ -69,7 +70,7 @@ export function LoginPage() {
             onPasswordChange={setPassword}
             onTogglePassword={() => setShowPassword(!showPassword)}
             onHelp={setHelp}
-            error={error ?? loginError}
+            error={loginError}
             isLoading={isLoading}
             login={login}
           />
@@ -115,26 +116,6 @@ export function LoginPage() {
                 ? content.termsDescription
                 : content.accountsDescription}
         </Typography>
-        {(help === 'accounts' || help === 'password') && (
-          <List>
-            {accounts
-              ?.filter((account) => account.active)
-              .map((account) => (
-                <ListItem key={account.id} disablePadding>
-                  <ListItemButton
-                    onClick={() => {
-                      setEmail(account.email)
-                      setPassword('demo')
-                      setHelp(undefined)
-                      setLoginError('')
-                    }}
-                  >
-                    <ListItemText primary={account.name} secondary={account.email} />
-                  </ListItemButton>
-                </ListItem>
-              ))}
-          </List>
-        )}
         <Button onClick={() => setHelp(undefined)} sx={{ mt: 2 }}>
           {content.close}
         </Button>

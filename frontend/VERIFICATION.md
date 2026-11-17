@@ -1,10 +1,32 @@
-# Frontend verification — 5 November 2026
+# Frontend verification — 17 November 2026
 
-This snapshot covers nested routes/Mantis breadcrumbs, manual copy/branding
-alignment, document readiness, expanded application documents and the existing
-Mantis tutor/admin interface. Earlier snapshots remain below.
-Startup and reproducible commands are in the
-[frontend guide](README.md#checks).
+The connected frontend uses FastAPI/PostgreSQL for all business records and original
+PDFs. Sign-in uses issued per-account access tokens; the approved development
+authentication is not production password/SSO. Qwen, extraction and LangGraph remain
+unconnected. Earlier verification snapshots follow below.
+
+## PostgreSQL connection and migration — 17 November
+
+All 942 tests across 108 companions pass. Coverage is 98.36% lines, 97.22%
+statements, 97.50% functions and 93.17% branches. TypeScript, ESLint, Prettier,
+structure and production/e2e builds pass. All 21 main browser workflows and three
+API recovery workflows pass with isolated PostgreSQL and IndexedDB disabled.
+The main suite's upload/admin expectations were updated after its initial run;
+those workflows passed on targeted reruns. Axe checks cover the retained Mantis
+screens, and the health refresh is awaited before contrast inspection.
+
+The actual existing browser dataset was explicitly exported and imported after a
+PostgreSQL backup: four accounts, three courses, nine applications, 25 original
+PDFs, three rubrics, four batches and 19 audit events. All original PDF SHA-256
+hashes and saved application histories matched. The running frontend was checked
+with the migrated tutor account: sign-in, workspace reads, PDF rendering and
+refresh work with IndexedDB disabled in a fresh browser context. The original
+browser database was not modified. Private backups/tokens remain outside Git.
+
+Read the [startup guide](README.md) and [service guide](src/services/README.md).
+Both browser suites require distinct development/test URLs and a dedicated `_test`
+database; CLI fixture setup refuses development targets. They must run sequentially
+with other database tests. No model inference or AWS resources were used.
 
 ## Final frontend PR review — 5 November
 

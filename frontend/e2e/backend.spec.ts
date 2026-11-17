@@ -1,6 +1,16 @@
+import { resetBackend, accountToken } from './helpers/server'
 import { expect, test, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import { dataset } from './helpers/dataset'
+
+test.beforeEach(async ({ page }) => {
+  await resetBackend()
+  await page.addInitScript(() => {
+    indexedDB.open = () => {
+      throw new Error('Browser persistence is disabled in connected tests.')
+    }
+  })
+})
 
 async function reEvaluate(page: Page) {
   await page.getByRole('button', { name: 'Re-run AI evaluation', exact: true }).click()
@@ -11,7 +21,7 @@ test('administrator service health checks the API and recovers after a connectio
 }, info) => {
   await page.goto('/login')
   await page.getByRole('textbox', { name: 'Email', exact: true }).fill('admin@demo.ucl.local')
-  await page.getByLabel('Password', { exact: true }).fill('demo')
+  await page.getByLabel('Access token', { exact: true }).fill(accountToken('admin-a'))
   await page.getByRole('button', { name: 'Sign In', exact: true }).click()
   await expect(page.locator('main h1')).toHaveText('Users')
 
@@ -73,8 +83,9 @@ for (const viewport of [
     await page.setViewportSize({ width: viewport.width, height: viewport.height })
     await page.goto('/login')
     await page.getByRole('textbox', { name: 'Email', exact: true }).fill('tutor@demo.ucl.local')
-    await page.getByLabel('Password', { exact: true }).fill('demo')
+    await page.getByLabel('Access token', { exact: true }).fill(accountToken('tutor-a'))
     await page.getByRole('button', { name: 'Sign In', exact: true }).click()
+    await expect(page.locator('main h1')).toHaveText('Programme')
     await page.goto('/applications/APP-2026-0143')
     await expect(
       page.getByRole('heading', { name: '2 - Ashy Handgun - 39485584', exact: true, level: 1 }),
@@ -94,13 +105,15 @@ for (const viewport of [
     await expect(page.getByText(/FastAPI connected/)).toHaveCount(0)
     const responsePromise = page.waitForResponse(
       (response) =>
-        response.url().endsWith('/api/v1/mock/assessments') &&
+        response.url().endsWith('/api/v1/applications/APP-2026-0143/evaluations') &&
         response.request().method() === 'POST',
     )
     await reEvaluate(page)
     const response = await responsePromise
     expect(response.status()).toBe(200)
-    const run = await response.json()
+    const run = (await dataset(page)).applications
+      .find((a) => a.id === 'APP-2026-0143')!
+      .runs.at(-1)!
     expect(run.overall).toBe(88.5)
     expect(run.recommendation).toBe('Offer')
     expect(run.evaluationSource).toBe('fastapi-mock')
@@ -128,13 +141,16 @@ for (const viewport of [
     await expect(page.getByText('Page 2 of 4', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Download original', exact: true })).toBeVisible()
     await page.getByRole('tab', { name: 'AI recommendation', exact: true }).click()
-    await page.route('http://127.0.0.1:8001/api/v1/mock/assessments', (route) => route.abort())
+    await page.route(
+      'http://127.0.0.1:8001/api/v1/applications/APP-2026-0143/evaluations',
+      (route) => route.abort(),
+    )
     await reEvaluate(page)
-    await expect(page.getByText(/Cannot reach the FastAPI/)).toBeVisible()
+    await expect(page.getByText(/Cannot reach the application backend/)).toBeVisible()
     await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
     await page.reload()
     await expect(page.getByText(/FastAPI mock assessment: Offer/)).toBeVisible()
-    await page.unroute('http://127.0.0.1:8001/api/v1/mock/assessments')
+    await page.unroute('http://127.0.0.1:8001/api/v1/applications/APP-2026-0143/evaluations')
     await page.goto('/criteria')
     await page.getByRole('button', { name: 'Recommendation thresholds' }).click()
     await page.getByLabel('Offer from', { exact: true }).fill('95')
@@ -145,15 +161,16 @@ for (const viewport of [
       .not.toBe(previousCriteriaId)
     await page.goto('/applications/APP-2026-0143')
     const nextResponse = page.waitForResponse((response) =>
-      response.url().endsWith('/api/v1/mock/assessments'),
+      response.url().endsWith('/api/v1/applications/APP-2026-0143/evaluations'),
     )
     await reEvaluate(page)
     const updatedResponse = await nextResponse
     expect(updatedResponse.status()).toBe(200)
-    const updated = await updatedResponse.json()
-    const request = updatedResponse.request().postDataJSON()
-    expect(request.criteria).toMatchObject({ version: '1.1', offerFrom: 95 })
-    expect(updated.rubricId).toBe(request.criteria.id)
+    const stored = await dataset(page)
+    const updated = stored.applications.find((a) => a.id === 'APP-2026-0143')!.runs.at(-1)!
+    const criteria = stored.rubrics.find((r) => r.id === stored.activeRubricIds['programme-1'])!
+    expect(criteria).toMatchObject({ version: '1.1', offerFrom: 95 })
+    expect(updated.rubricId).toBe(criteria.id)
     expect(updated.recommendation).toBe('Further review')
     await expect(
       page

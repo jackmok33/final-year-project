@@ -3,7 +3,17 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, func, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base, new_id
@@ -33,6 +43,10 @@ class Programme(Base):
     year: Mapped[str] = mapped_column(Text)
     department: Mapped[str] = mapped_column(Text, server_default=text("''"))
     description: Mapped[str] = mapped_column(Text, server_default=text("''"))
+    active_rubric_id: Mapped[str | None] = mapped_column(
+        String(200), ForeignKey("rubrics.id", ondelete="SET NULL", use_alter=True), index=True
+    )
+    model_available: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     created_by: Mapped[str | None] = mapped_column(
         String(200), ForeignKey("users.id", ondelete="RESTRICT"), index=True
     )

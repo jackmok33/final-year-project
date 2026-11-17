@@ -1,4 +1,12 @@
 import { defineConfig } from '@playwright/test'
+import {
+  prepareBrowserFixture,
+  backendPython,
+  backendRoot,
+  fixtureFile,
+  tokenFile,
+} from './e2e/helpers/server'
+await prepareBrowserFixture()
 export default defineConfig({
   testDir: './e2e',
   outputDir: './test-results/frontend',
@@ -13,9 +21,19 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   reporter: [['list'], ['html', { open: 'never' }]],
-  webServer: {
-    command: `"${process.execPath}" node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 4173 --strictPort`,
-    url: 'http://127.0.0.1:4173',
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: `"${backendPython}" -B -m tests.workspace_test_data --backup "${fixtureFile}" --serve`,
+      cwd: backendRoot,
+      url: 'http://127.0.0.1:8001/api/v1/health',
+      env: { DOCUMENT_API_TOKENS_FILE: tokenFile },
+      reuseExistingServer: false,
+      timeout: 120000,
+    },
+    {
+      command: `"${process.execPath}" node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 4173 --strictPort`,
+      url: 'http://127.0.0.1:4173',
+      reuseExistingServer: false,
+    },
+  ],
 })

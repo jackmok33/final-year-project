@@ -22,8 +22,8 @@ const serviceBaseQuery: BaseQueryFn<ServiceRequest, unknown, ApiError> = async (
   } catch (error) {
     return {
       error: {
-        status: 'DEMO_ERROR',
-        data: errorMessage(error, 'The demo operation failed.'),
+        status: 'SERVICE_ERROR',
+        data: errorMessage(error, 'The operation failed.'),
       },
     }
   }

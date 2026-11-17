@@ -55,3 +55,14 @@ npm run test:structure
 
 `test:structure` rejects missing runtime companions and tests without a matching
 source file. Both `test` and `test:coverage` run this check first.
+
+## Connected PostgreSQL browser tests
+
+Both Playwright configurations launch the server with explicit test-only CLI setup.
+Set distinct `DATABASE_URL`/`TEST_DATABASE_URL` values and `UCL_BACKEND_PYTHON`.
+The test URL must name an approved `_test` database. CLI setup checks this before
+migrating or truncating; the normal app exposes no reset route. Each test imports
+generated synthetic fixtures and token hashes outside the repository. IndexedDB
+is disabled in test browser contexts to verify all UI workflows use PostgreSQL.
+Run browser and PostgreSQL suites sequentially against a shared test database.
+Do not reuse the actual migrated applicant backup for automated tests.

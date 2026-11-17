@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, func, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base, new_id
@@ -27,6 +28,14 @@ class Application(Base):
         String(200), ForeignKey("programmes.id", ondelete="CASCADE"), index=True
     )
     candidate_reference: Mapped[str] = mapped_column(Text)
+    intake_year: Mapped[str] = mapped_column(Text, server_default=text("''"))
+    batch_id: Mapped[str | None] = mapped_column(
+        String(200), ForeignKey("upload_batches.id", ondelete="SET NULL"), index=True
+    )
+    fixture: Mapped[str | None] = mapped_column(Text)
+    review_state: Mapped[dict] = mapped_column(
+        JSONB, server_default=text('\'{"runs":[],"corrections":[],"decisions":[]}\'::jsonb')
+    )
     created_by: Mapped[str] = mapped_column(
         String(200), ForeignKey("users.id", ondelete="RESTRICT"), index=True
     )

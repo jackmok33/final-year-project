@@ -37,14 +37,12 @@ describe('backend health probe', () => {
     })
   })
 
-  it.each([undefined, '', '   '])(
-    'does not make a request without a configured URL %j',
-    async (url) => {
-      vi.stubEnv('VITE_API_BASE_URL', url)
-      expect(await probeBackendHealth()).toEqual({ state: 'not-configured', checkedAt })
-      expect(fetchMock).not.toHaveBeenCalled()
-    },
-  )
+  it.each([undefined, '', '   '])('uses the same-origin API by default %j', async (url) => {
+    vi.stubEnv('VITE_API_BASE_URL', url)
+    fetchMock.mockResolvedValue(Response.json(health))
+    expect(await probeBackendHealth()).toEqual({ state: 'available', health, checkedAt })
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/health')
+  })
 
   it('reports HTTP failure without trusting its response body', async () => {
     fetchMock.mockResolvedValue(Response.json(health, { status: 503 }))

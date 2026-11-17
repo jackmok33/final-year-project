@@ -55,6 +55,7 @@ class Document(Base):
     content_type: Mapped[str] = mapped_column(Text, server_default=text("'application/pdf'"))
     size_bytes: Mapped[int] = mapped_column(Integer)
     page_count: Mapped[int] = mapped_column(Integer)
+    position: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     sha256: Mapped[str] = mapped_column(String(64))
     pdf_bytes: Mapped[bytes] = mapped_column(BYTEA)
     uploaded_at: Mapped[datetime] = mapped_column(

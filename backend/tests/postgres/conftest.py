@@ -37,7 +37,10 @@ def db_session(db_engine):
     def clear():
         with db_engine.begin() as connection:
             connection.execute(
-                text("TRUNCATE documents, applications, programme_memberships, programmes, users")
+                text(
+                    "TRUNCATE documents, applications, upload_batches, rubrics, "
+                    "programme_memberships, programmes, users, audit_events"
+                )
             )
 
     clear()
