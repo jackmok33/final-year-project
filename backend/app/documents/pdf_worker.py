@@ -9,7 +9,7 @@ from pathlib import Path
 # Isolated Python ignores PYTHONPATH; this fixed directory belongs to this package.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from app.document_limits import MAX_DOCUMENT_PAGES, MAX_PDF_BYTES  # noqa: E402
+from app.documents.limits import MAX_DOCUMENT_PAGES, MAX_PDF_BYTES  # noqa: E402
 
 
 def inspect_pdf() -> dict:

@@ -2,8 +2,8 @@ import anyio
 import pytest
 from starlette.requests import Request
 
-from app import document_routes
-from app.document_errors import DocumentError
+from app.api import ApiError
+from app.documents import routes as document_routes
 
 
 @pytest.mark.anyio
@@ -27,6 +27,6 @@ async def test_interrupted_or_invalid_streams_return_safe_errors(monkeypatch, fa
         return {"type": "http.disconnect"}
 
     request = Request({"type": "http", "headers": headers}, receive)
-    with pytest.raises(DocumentError) as error:
+    with pytest.raises(ApiError) as error:
         await document_routes._read_pdf(request)
     assert error.value.code == code

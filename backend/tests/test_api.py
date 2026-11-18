@@ -1,6 +1,6 @@
 import pytest
 
-from app.routes import get_evaluation_service
+from app.assessments.routes import get_evaluation_service
 
 ENDPOINT = "/api/v1/mock/assessments"
 
@@ -182,7 +182,7 @@ def test_cors_allows_local_frontend_and_rejects_other_origins(client):
 def test_evaluator_is_replaceable_through_dependency_injection(client, payload):
     class Replacement:
         def evaluate(self, request):
-            from app.services.evaluation import UnsupportedMockCase
+            from app.assessments.mock import UnsupportedMockCase
 
             raise UnsupportedMockCase("Replacement evaluator called")
 

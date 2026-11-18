@@ -8,11 +8,11 @@ from pathlib import Path
 
 from sqlalchemy import func, select
 
+from app.assessments.mock import FIXTURES
 from app.db import create_db_engine, session_factory
+from app.documents.pdf_validation import validate_filename, validate_pdf
 from app.models import Application, AuditEvent, Document, Programme, StoredRubric, UploadBatch, User
-from app.schemas import CriteriaUpdate
-from app.services.evaluation import FIXTURES
-from app.services.pdf_validation import validate_filename, validate_pdf
+from app.workspace.schemas import CriteriaUpdate
 
 
 def at(value):

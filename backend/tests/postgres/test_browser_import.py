@@ -8,11 +8,11 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
+from app.assessments.mock import MockEvaluationService
+from app.assessments.schemas import MockAssessmentRequest
 from app.import_browser import import_browser_backup
 from app.main import create_app
 from app.models import Application, AuditEvent, Document, User
-from app.schemas import MockAssessmentRequest
-from app.services.evaluation import MockEvaluationService
 from tests.document_fixtures import auth, enable_documents, make_pdf
 
 pytestmark = pytest.mark.postgres

@@ -1,6 +1,6 @@
 """Shared synthetic vLLM wire fixtures; these never provide admissions assessments."""
 
-from app.inference_config import OPENAI_BASE_URL, OPENAI_DEFAULT_MODEL, InferenceSettings
+from app.inference.config import OPENAI_BASE_URL, OPENAI_DEFAULT_MODEL, InferenceSettings
 
 KEY = "test-key-" + "a" * 40
 SETTINGS = InferenceSettings("http://127.0.0.1:18000/v1", KEY)

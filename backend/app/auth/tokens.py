@@ -11,7 +11,7 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 
-BACKEND_DIR = Path(__file__).resolve().parents[1]
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 MAX_TOKEN_FILE_BYTES = 16384
 
 

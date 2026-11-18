@@ -6,10 +6,10 @@ import anyio
 import httpx
 import pytest
 
-from app.inference_config import InferenceSettings
-from app.inference_routes import PROBE_IMAGE
-from app.services import inference
-from app.services.inference import InferenceClient, InferenceError
+from app.inference import client as inference
+from app.inference.client import InferenceClient, InferenceError
+from app.inference.config import InferenceSettings
+from app.inference.routes import PROBE_IMAGE
 from tests.inference_fakes import KEY, OPENAI_SETTINGS, SETTINGS, completion
 
 

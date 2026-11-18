@@ -135,8 +135,8 @@ def test_combined_admin_tutor_role_can_access_only_its_owned_programme(document_
 
 
 def test_permissions_are_rechecked_after_upload_validation(document_client, db_engine, monkeypatch):
-    from app import document_routes
     from app.db import session_factory
+    from app.documents import routes as document_routes
 
     original = document_routes.validate_pdf
 

@@ -5,8 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.schemas import InferenceProbeRequest, InferenceProbeResponse
-from app.services.inference import InferenceClient, InferenceError
+from app.inference.client import InferenceClient, InferenceError
+from app.inference.schemas import InferenceProbeRequest, InferenceProbeResponse
 
 router = APIRouter(prefix="/api/v1/inference", tags=["Development inference probe"])
 PROBE_IMAGE = Path(__file__).resolve().parent / "fixtures/qwen-probe.png"

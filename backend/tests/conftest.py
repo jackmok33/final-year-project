@@ -9,7 +9,8 @@ from app.main import create_app
 @pytest.fixture(autouse=True)
 def isolate_inference_configuration(monkeypatch, tmp_path):
     # A developer's real model URL/key must never affect the default test suite.
-    from app import document_config, inference_config
+    from app.auth import tokens as document_config
+    from app.inference import config as inference_config
 
     monkeypatch.setattr(inference_config, "BACKEND_DIR", tmp_path)
     monkeypatch.setattr(document_config, "BACKEND_DIR", tmp_path)

@@ -6,7 +6,7 @@ import sys
 import pytest
 from fastapi.testclient import TestClient
 
-from app.document_config import load_document_access
+from app.auth.tokens import load_document_access
 from app.main import create_app
 from tests.document_fixtures import TOKENS, UPLOAD_PATH, enable_documents
 
