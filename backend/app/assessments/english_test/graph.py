@@ -1,11 +1,8 @@
 """English test workflow compiled once per worker."""
 
 import asyncio
-import base64
-import json
 import re
 import subprocess
-import sys
 from pathlib import Path
 from typing import TypedDict
 
@@ -22,6 +19,7 @@ from app.assessments.english_test.schemas import (
     ReportedResult,
     apply_demo_rule,
 )
+from app.assessments.pdf_preparation import decode_page, prepare_in_child
 from app.inference.client import InferenceClient, InferenceError
 
 PROMPT = Path(__file__).with_name(f"{PROMPT_VERSION}.md")
@@ -40,17 +38,10 @@ def prepare(state: EnglishTestState) -> EnglishTestState:
     if state["page_count"] != 1:
         return {"result": EligibilityResult(outcome="needs_review", reason="unsupported_report")}
     try:
-        prepared = subprocess.run(
-            [sys.executable, "-B", "-m", "app.assessments.english_test.pdf_page"],
-            input=state["contents"],
-            capture_output=True,
-            timeout=12,
-            check=True,
-            cwd=Path(__file__).resolve().parents[3],
-            env={},
+        text, png = decode_page(
+            prepare_in_child("app.assessments.english_test.pdf_page", state["contents"])
         )
-        page = json.loads(prepared.stdout)
-        return {"text": page["text"], "png": base64.b64decode(page["png"], validate=True)}
+        return {"text": text, "png": png}
     except (OSError, ValueError, subprocess.SubprocessError):
         return {"result": EligibilityResult(outcome="needs_review", reason="unreadable_report")}
 

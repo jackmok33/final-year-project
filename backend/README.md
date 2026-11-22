@@ -431,6 +431,33 @@ The synthetic report returned 7.0 overall with 7.5 listening, 7.0 reading,
 the demo rule. The browser reopened the result after refresh and reached the
 original page through its source link.
 
+## English and CV pilot
+
+`assessments/pilot.py` runs the existing English check followed by the CV
+specialist. Each specialist receives only its own allowlisted document. The
+parent LangGraph sends requests to Qwen one at a time and returns independent
+outputs with document IDs and page numbers. The CV specialist sends text and a
+bounded page image for each readable page of a one- or two-page CV. It checks
+each quote against that page's embedded text and flags missing text or
+unsupported quotes for review. The CV output contains evidence for a future
+rubric. English eligibility uses the existing demo rule.
+
+From `backend/`, run the developer preview with the built-in synthetic CV and
+IELTS report:
+
+```sh
+python -m tests.assessment_pilot_preview
+```
+
+The preview simulates Qwen by default. Add `--live` to send the same synthetic
+fixtures through the configured private Qwen tunnel. The preview prints JSON.
+The two-agent pilot has no application route, database job or tutor UI yet.
+
+On 22 November 2026 the live preview finished in 13.7 seconds after Qwen was
+ready. All five IELTS bands matched and the result was **Meets requirement**.
+The CV specialist returned a verified project quote from page 1 and a verified
+work-experience quote from page 2, with no review issues.
+
 ## PostgreSQL: start, migrate and seed
 
 PostgreSQL is required by the connected frontend. The legacy synthetic probe can
