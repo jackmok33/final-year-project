@@ -1,5 +1,5 @@
 import type { Dataset } from '../domain/types'
-import { documentTypes, sectionKeys, tutorOutcomes } from '../domain/types'
+import { documentTypes, englishBandKeys, sectionKeys, tutorOutcomes } from '../domain/types'
 
 type RecordValue = Record<string, unknown>
 function object(value: unknown): value is RecordValue {
@@ -23,6 +23,62 @@ const citation = (value: RecordValue) =>
   Number.isInteger(value.page) &&
   Number(value.page) >= 1 &&
   text(value.claim)
+
+const oneOf = (value: unknown, options: string[]) => text(value) && options.includes(value)
+function englishTestCheck(value: unknown): boolean {
+  if (
+    !object(value) ||
+    !text(value.id) ||
+    !text(value.documentId) ||
+    value.page !== 1 ||
+    !text(value.ruleVersion)
+  )
+    return false
+  const result = value.result
+  if (value.status === 'failed')
+    return (
+      result === null &&
+      oneOf(value.error, [
+        'interrupted',
+        'unavailable',
+        'timeout',
+        'source_unavailable',
+        'processing_error',
+      ])
+    )
+  if (value.error !== null) return false
+  if (value.status === 'queued' || value.status === 'running') return result === null
+  if (value.status !== 'completed' || !object(result)) return false
+  if (
+    !englishBandKeys.every((key) => {
+      const band = result[key]
+      return (
+        band === null ||
+        (numericScore(band) && Number(band) <= 9 && Number.isInteger(Number(band) * 2))
+      )
+    }) ||
+    (result.testType !== null && result.testType !== 'IELTS Academic') ||
+    (result.testDate !== null &&
+      (!text(result.testDate) ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(result.testDate) ||
+        !timestamp(result.testDate)))
+  )
+    return false
+  if (result.outcome === 'needs_review')
+    return oneOf(result.reason, [
+      'unsupported_report',
+      'unreadable_report',
+      'invalid_output',
+      'missing_bands',
+      'inconsistent_bands',
+    ])
+  return (
+    oneOf(result.outcome, ['meets_requirement', 'below_requirement']) &&
+    result.reason === null &&
+    result.testType === 'IELTS Academic' &&
+    englishBandKeys.every((key) => result[key] !== null)
+  )
+}
 
 function run(value: RecordValue): boolean {
   return (
@@ -129,6 +185,7 @@ export function workspaceResponse(value: unknown): Dataset & { subject: string }
         (a.batchId === undefined || text(a.batchId)) &&
         timestamp(a.submittedAt) &&
         strings(a.documentIds) &&
+        (a.englishTestCheck == null || englishTestCheck(a.englishTestCheck)) &&
         array(a.runs, run) &&
         array(
           a.corrections,
@@ -195,6 +252,9 @@ export function workspaceResponse(value: unknown): Dataset & { subject: string }
       (a) =>
         !programmes.has(a.programmeId) ||
         new Set(a.documentIds).size !== a.documentIds.length ||
+        (a.englishTestCheck != null &&
+          (!validCitation(a.id, a.englishTestCheck) ||
+            docs.get(a.englishTestCheck.documentId)?.type !== 'english_test')) ||
         (a.batchId !== undefined &&
           (batches.get(a.batchId)?.programmeId !== a.programmeId ||
             batches.get(a.batchId)?.intakeYear !== a.intakeYear)) ||

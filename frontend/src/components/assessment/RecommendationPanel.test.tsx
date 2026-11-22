@@ -11,7 +11,7 @@ describe('RecommendationPanel', () => {
     renderPage(
       <RecommendationPanel
         run={run}
-        groups={[{ key: 'english', entries: [['IELTS Academic: 7.5']] }]}
+        groups={[{ key: 'transcript', entries: [['Machine learning: 78%']] }]}
       />,
     )
     expect(screen.getByText(run.justification.summary)).toBeInTheDocument()
@@ -19,15 +19,17 @@ describe('RecommendationPanel', () => {
       screen.getByRole('heading', { name: 'Why this recommendation', level: 2 }),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Evidence summary', level: 2 })).toBeInTheDocument()
-    expect(screen.getByText('IELTS Academic: 7.5')).toBeInTheDocument()
+    expect(screen.getByText('Machine learning: 78%')).toBeInTheDocument()
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
   it('withholds the explanation and evidence when no assessment is supplied', () => {
     renderPage(
-      <RecommendationPanel groups={[{ key: 'english', entries: [['IELTS Academic: 7.5']] }]} />,
+      <RecommendationPanel
+        groups={[{ key: 'transcript', entries: [['Machine learning: 78%']] }]}
+      />,
     )
     expect(screen.queryByText(run.justification.summary)).not.toBeInTheDocument()
-    expect(screen.queryByText('IELTS Academic: 7.5')).not.toBeInTheDocument()
+    expect(screen.queryByText('Machine learning: 78%')).not.toBeInTheDocument()
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 })

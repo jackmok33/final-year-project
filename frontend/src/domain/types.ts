@@ -151,7 +151,35 @@ export interface Decision {
   actor: string
   at: string
 }
+export const englishBandKeys = ['overall', 'listening', 'reading', 'writing', 'speaking'] as const
+export type EnglishBand = (typeof englishBandKeys)[number]
+export type EnglishReviewReason =
+  | 'unsupported_report'
+  | 'unreadable_report'
+  | 'invalid_output'
+  | 'missing_bands'
+  | 'inconsistent_bands'
+
+export interface EnglishTestResult extends Record<EnglishBand, number | null> {
+  outcome: 'meets_requirement' | 'below_requirement' | 'needs_review'
+  reason: EnglishReviewReason | null
+  testType: 'IELTS Academic' | null
+  testDate: string | null
+}
+
+export interface EnglishTestCheck {
+  id: string
+  status: 'queued' | 'running' | 'completed' | 'failed'
+  documentId: string
+  page: number
+  ruleVersion: string
+  result: EnglishTestResult | null
+  error:
+    'interrupted' | 'unavailable' | 'timeout' | 'source_unavailable' | 'processing_error' | null
+}
+
 export interface Application {
+  englishTestCheck?: EnglishTestCheck | null
   id: string
   candidate: string
   programmeId: string

@@ -16,6 +16,7 @@ import {
 import { useWorkspace } from '../hooks/useWorkspace'
 import { RecommendationSummary } from '../components/assessment/RecommendationSummary'
 import { ReviewFlags } from '../components/assessment/ReviewFlags'
+import { EnglishTestCheckCard } from '../components/assessment/EnglishTestCheckCard'
 import { SectionAssessments } from '../components/assessment/SectionAssessments'
 import { RecommendationPanel } from '../components/assessment/RecommendationPanel'
 import { ErrorNotice, Loading, Page } from '../components/common'
@@ -68,6 +69,7 @@ function AssessmentReview({
   const batchQuery = useBatchQuery(app.batchId ?? '', { skip: !app.batchId })
   const batch = app.batchId && !batchQuery.error ? batchQuery.currentData : undefined
   const [command, mutation] = useCommandMutation()
+  const [checkEnglish, englishMutation] = useCommandMutation()
   const [params] = useSearchParams()
   const location = useLocation()
   const navigate = useNavigate()
@@ -101,6 +103,13 @@ function AssessmentReview({
   const intakeYear = programme ? applicationIntakeYear(app, programme) : (app.intakeYear ?? '')
   const scope = { programmeId: app.programmeId, intakeYear, batchId: app.batchId }
   const basePath = applicationPath({ ...scope, applicationId: app.id })
+  const englishCheck = app.englishTestCheck
+  const englishSource = englishCheck
+    ? `${basePath}/evidence?${new URLSearchParams({
+        document: englishCheck.documentId,
+        page: String(englishCheck.page),
+      })}`
+    : undefined
   const contextPath = location.pathname.endsWith('/evidence') ? `${basePath}/evidence` : basePath
   const ordinal = Math.max(
     1,
@@ -257,18 +266,38 @@ function AssessmentReview({
               <RecommendationPanel
                 run={assessed ? displayRun : undefined}
                 groups={run ? applicantEvidence(app, run) : []}
+                englishResult={
+                  !historic && englishCheck?.status === 'completed'
+                    ? (englishCheck.result ?? undefined)
+                    : undefined
+                }
               />
             ),
           },
           {
             value: 'flags',
             label: content.reviewFlags,
-            content: run ? (
-              <Box sx={{ p: 2.5 }}>
-                <ReviewFlags run={run} canCorrect={canCorrect} onCorrect={openCorrection} />
-              </Box>
-            ) : (
-              <Box sx={{ p: 4 }}>{content.noFlags}</Box>
+            content: (
+              <Stack spacing={2} sx={{ p: 2.5 }}>
+                {run ? (
+                  <ReviewFlags run={run} canCorrect={canCorrect} onCorrect={openCorrection} />
+                ) : englishCheck === undefined ? (
+                  <Box sx={{ p: 1.5 }}>{content.noFlags}</Box>
+                ) : null}
+                {!historic && englishCheck !== undefined && (
+                  <>
+                    {englishMutation.error && <ErrorNotice error={englishMutation.error} />}
+                    <EnglishTestCheckCard
+                      check={englishCheck}
+                      submitting={englishMutation.isLoading}
+                      sourcePath={englishSource}
+                      onRun={() => {
+                        void checkEnglish({ op: 'checkEnglishTest', id: app.id })
+                      }}
+                    />
+                  </>
+                )}
+              </Stack>
             ),
           },
           {

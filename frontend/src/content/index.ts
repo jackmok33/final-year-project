@@ -8,6 +8,8 @@ import { newApplicationFormContent } from './components/applications/NewApplicat
 import { uploadGuidanceContent } from './components/applications/UploadGuidance.content'
 import { correctionFormContent } from './components/assessment/CorrectionForm.content'
 import { decisionFormContent } from './components/assessment/DecisionForm.content'
+import { englishTestCheckCardContent } from './components/assessment/EnglishTestCheckCard.content'
+import { englishTestFactsContent } from './components/assessment/EnglishTestFacts.content'
 import { evidenceSummaryContent } from './components/assessment/EvidenceSummary.content'
 import { outcomeOptionsContent } from './components/assessment/OutcomeOptions.content'
 import { recommendationPanelContent } from './components/assessment/RecommendationPanel.content'
@@ -67,6 +69,8 @@ export const content = {
   demoSignIn: demoSignInContent,
   documentNavigation: documentNavigationContent,
   documentUpload: documentUploadContent,
+  englishTestCheckCard: englishTestCheckCardContent,
+  englishTestFacts: englishTestFactsContent,
   evidencePage: evidencePageContent,
   evidenceSummary: evidenceSummaryContent,
   layout: layoutContent,

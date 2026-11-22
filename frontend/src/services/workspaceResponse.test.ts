@@ -17,6 +17,42 @@ export function responseFixture() {
   })
 }
 describe('workspace response validation', () => {
+  it('requires English-test results to match their status and original report', () => {
+    const value = responseFixture()
+    const app = value.applications[0]
+    const document = { ...value.documents[0], id: 'english', type: 'english_test' as const }
+    app.documentIds.push(document.id)
+    value.documents.push(document)
+    const check = {
+      id: 'job',
+      documentId: document.id,
+      page: 1,
+      ruleVersion: 'ielts-academic-demo-v1',
+      status: 'completed',
+      error: null,
+      result: {
+        outcome: 'meets_requirement',
+        reason: null,
+        testType: 'IELTS Academic',
+        testDate: null,
+        overall: 7,
+        listening: 7.5,
+        reading: 7,
+        writing: 6.5,
+        speaking: 7,
+      },
+    }
+    Object.assign(app, { englishTestCheck: check })
+    expect(workspaceResponse(value).applications[0].englishTestCheck).toEqual(check)
+    check.result.writing = 6.1
+    expect(() => workspaceResponse(value)).toThrow('invalid workspace')
+    check.result.writing = 6.5
+    check.status = 'queued'
+    expect(() => workspaceResponse(value)).toThrow('invalid workspace')
+    check.status = 'completed'
+    check.documentId = value.documents[0].id
+    expect(() => workspaceResponse(value)).toThrow('inconsistent workspace')
+  })
   it('accepts and preserves original histories and normalises nullable optional fields', () => {
     const value = responseFixture()
     Object.assign(value.applications[0].runs[0], { parentRunId: null, error: null })

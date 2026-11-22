@@ -10,16 +10,16 @@ describe('EvidenceSummary', () => {
     renderPage(
       <EvidenceSummary
         groups={[
-          { key: 'english', entries: [['IELTS Academic', '7.5 / 9']] },
+          { key: 'transcript', entries: [['Machine learning: 78%']] },
           { key: 'work', entries: [['Data science intern']] },
         ]}
       />,
     )
-    expect(screen.getByRole('heading', { name: 'English test', level: 3 })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Transcript/, level: 3 })).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: 'Working experience', level: 3 }),
     ).toBeInTheDocument()
-    expect(screen.getByText('7.5 / 9')).toBeInTheDocument()
+    expect(screen.getByText('Machine learning: 78%')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Education' })).not.toBeInTheDocument()
   })
   it('does not invent facts for an empty evidence summary', () => {

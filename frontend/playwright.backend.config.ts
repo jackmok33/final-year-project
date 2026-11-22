@@ -2,12 +2,14 @@ import { defineConfig } from '@playwright/test'
 
 import {
   prepareBrowserFixture,
+  prepareEnglishTestReport,
   backendPython,
   backendRoot,
   fixtureFile,
   tokenFile,
 } from './e2e/helpers/server'
 await prepareBrowserFixture()
+const englishTestHash = await prepareEnglishTestReport()
 
 // This suite owns separate ports and does not replace the user's running app/data.
 export default defineConfig({
@@ -23,7 +25,11 @@ export default defineConfig({
       cwd: backendRoot,
       url: 'http://127.0.0.1:8001/api/v1/health',
       timeout: 120000,
-      env: { DOCUMENT_API_TOKENS_FILE: tokenFile, UCL_CORS_ORIGINS: 'http://127.0.0.1:5174' },
+      env: {
+        DOCUMENT_API_TOKENS_FILE: tokenFile,
+        UCL_CORS_ORIGINS: 'http://127.0.0.1:5174',
+        ENGLISH_TEST_PILOT_PDF_SHA256: englishTestHash,
+      },
       reuseExistingServer: false,
     },
     {

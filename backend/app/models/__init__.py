@@ -2,6 +2,7 @@
 
 from app.models.application import Application
 from app.models.document import Document
+from app.models.english_test import EnglishTestCheck
 from app.models.programme import Programme
 from app.models.programme_membership import ProgrammeMembership
 from app.models.user import User
@@ -10,6 +11,7 @@ from app.models.workspace import AuditEvent, StoredRubric, UploadBatch
 __all__ = [
     "Application",
     "Document",
+    "EnglishTestCheck",
     "Programme",
     "ProgrammeMembership",
     "User",
