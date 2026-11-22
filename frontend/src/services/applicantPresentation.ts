@@ -25,16 +25,6 @@ const profiles: Record<string, { name: string; studentId: string; university: st
   },
 }
 
-const exampleEnglishTest = {
-  level: 'Advanced',
-  type: 'IELTS Academic',
-  overall: 7.5,
-  listening: 8,
-  reading: 8,
-  writing: 7,
-  speaking: 7,
-}
-
 const exampleEducation = {
   qsRanking: 50,
   degree: 'BSc (Hons) Computer Science',
@@ -51,7 +41,7 @@ export function applicantProfile(application: Application) {
 }
 
 export interface EvidenceGroup {
-  key: 'english' | 'education' | 'references' | 'transcript' | 'publications' | 'projects' | 'work'
+  key: 'education' | 'references' | 'transcript' | 'publications' | 'projects' | 'work'
   entries: string[][]
 }
 
@@ -68,16 +58,6 @@ export function applicantEvidence(application: Application, run: AssessmentRun):
   const grade = run.extractedGrade
   const referenceScore = run.sections.find((section) => section.key === 'references')?.score
   return [
-    {
-      key: 'english',
-      entries: [
-        [
-          `Level: ${exampleEnglishTest.level}`,
-          `Test: ${exampleEnglishTest.type}`,
-          `O:${exampleEnglishTest.overall}, L:${exampleEnglishTest.listening}, R:${exampleEnglishTest.reading}, W:${exampleEnglishTest.writing}, S:${exampleEnglishTest.speaking}`,
-        ],
-      ],
-    },
     {
       key: 'education',
       entries: [

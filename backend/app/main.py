@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import ApiError
+from app.assessments.english_test.config import load_pilot_config
 from app.assessments.review_routes import router as review_router
 from app.assessments.routes import router
 from app.auth.tokens import load_document_access
@@ -23,6 +24,7 @@ def create_app(*, inference_transport: httpx.AsyncBaseTransport | None = None) -
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         config = load_inference_config()
+        app.state.english_test_pilot = load_pilot_config()
         app.state.document_access = load_document_access()
         app.state.document_database_lock = threading.Lock()
         app.state.document_database = None
@@ -49,8 +51,7 @@ def create_app(*, inference_transport: httpx.AsyncBaseTransport | None = None) -
         version="0.5.0",
         description=(
             "Token-protected PostgreSQL workspaces, applications, originals and review history. "
-            "Synthetic assessments and optional inference probes; "
-            "real admissions AI is not connected."
+            "Synthetic assessments, an opt-in English-test pilot and optional inference probes."
         ),
         lifespan=lifespan,
     )

@@ -12,6 +12,7 @@ import { applicationIntakeYear } from '../../src/domain/intakes'
 const directory = join(tmpdir(), 'ucl-admissions-postgres-browser-tests')
 export const fixtureFile = join(directory, 'synthetic-browser-backup.json')
 export const tokenFile = join(directory, 'token-hashes.json')
+export const englishTestReport = join(directory, 'synthetic-ielts.pdf')
 export const backendRoot = resolve(import.meta.dirname, '../../../backend')
 export const backendPython = process.env.UCL_BACKEND_PYTHON ?? 'python3'
 export function accountToken(id = 'tutor-a') {
@@ -53,5 +54,23 @@ export async function resetBackend() {
     backendPython,
     ['-B', '-m', 'tests.workspace_test_data', '--backup', fixtureFile],
     { cwd: backendRoot, env: process.env, timeout: 120000 },
+  )
+}
+
+export async function prepareEnglishTestReport() {
+  const { stdout } = await promisify(execFile)(
+    backendPython,
+    ['-B', '-m', 'tests.english_test_browser_worker', '--write-fixture', englishTestReport],
+    { cwd: backendRoot, env: process.env, timeout: 30000 },
+  )
+  return stdout.trim()
+}
+
+export async function processEnglishTestCheck() {
+  const live = process.env.UCL_ENGLISH_TEST_LIVE === 'true'
+  await promisify(execFile)(
+    backendPython,
+    ['-B', '-m', 'tests.english_test_browser_worker', ...(live ? ['--live'] : [])],
+    { cwd: backendRoot, env: process.env, timeout: 125000 },
   )
 }

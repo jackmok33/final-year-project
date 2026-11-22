@@ -291,9 +291,9 @@ module values use the existing sample PDF, and the overall extracted grade follo
 the selected run, including a corrected or historical mark. Unsupported fixed degree
 classifications and per-referee scores are not substituted for assessment data.
 The evidence summary shows an overall reference score only if the run contains one.
-The English bands and ranking are coherent illustrative fixture metadata. Real
-uploads get no fixture identity/evidence. These additions
-do not establish evidence provenance for a deployed admissions system.
+The ranking is illustrative fixture metadata. English bands come from a completed
+[English-test pilot](../backend/README.md#english-test-pilot) check. Uploaded
+applications use their own records and evidence.
 
 The sample weights, thresholds, rankings and recommendations are illustrative,
 not official UCL admissions policy. Persistent demo/environment banners are omitted
@@ -369,9 +369,13 @@ Imported synthetic examples can be re-evaluated by the server's deterministic mo
 The server loads trusted stored criteria and documents and saves each new run
 atomically. Real uploads receive no invented identities, extraction or scores.
 Their evaluation requests fail honestly until real document assessment is connected.
-Positive reference weights require the future four-section evaluator.
-Qwen inference, PDF extraction, LangGraph and production password/SSO login remain
-future work. The model connection probe is separate from applicant assessment.
+Positive reference weights require the future four-section evaluator. The
+[English-test pilot](../backend/README.md#english-test-pilot) adds a separate
+check under **Review flag** for an allowlisted synthetic IELTS report. The
+card shows the demo threshold, bands, result and original page. The completed
+check also populates **AI recommendation → Evidence summary** with the reported
+bands, date when available and demo outcome, including before a full assessment.
+Full applicant assessment and production password/SSO login remain future work.
 
 Current-decision summaries and PDF limits are shared domain helpers; pages retain
 their own filtering, drafts and mutation logic. Upload drafts reset when account,

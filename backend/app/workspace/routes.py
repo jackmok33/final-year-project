@@ -20,10 +20,10 @@ router = APIRouter(prefix="/api/v1", tags=["Workspace"], dependencies=[Depends(p
 
 
 @router.get("/workspace")
-def workspace_snapshot(subject: AuthenticatedSubject, sessions: DatabaseSessions):
+def workspace_snapshot(request: Request, subject: AuthenticatedSubject, sessions: DatabaseSessions):
     from app.workspace.snapshot import read_workspace
 
-    return read_workspace(sessions, subject)
+    return read_workspace(sessions, subject, request.app.state.english_test_pilot)
 
 
 @router.get("/me")

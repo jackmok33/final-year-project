@@ -72,6 +72,7 @@ export type Command =
       uploads: UploadReference[]
     }
   | { op: 'evaluate'; id: string }
+  | { op: 'checkEnglishTest'; id: string }
   | {
       op: 'correct'
       id: string

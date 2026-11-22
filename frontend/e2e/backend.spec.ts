@@ -1,4 +1,9 @@
-import { resetBackend, accountToken } from './helpers/server'
+import {
+  resetBackend,
+  accountToken,
+  englishTestReport,
+  processEnglishTestCheck,
+} from './helpers/server'
 import { expect, test, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import { dataset } from './helpers/dataset'
@@ -15,6 +20,78 @@ test.beforeEach(async ({ page }) => {
 async function reEvaluate(page: Page) {
   await page.getByRole('button', { name: 'Re-run AI evaluation', exact: true }).click()
 }
+
+test('English test check populates the evidence summary and opens the original report', async ({
+  page,
+}) => {
+  test.setTimeout(150000)
+  await page.goto('/login')
+  await page.getByRole('textbox', { name: 'Email', exact: true }).fill('tutor@demo.ucl.local')
+  await page.getByLabel('Access token', { exact: true }).fill(accountToken('tutor-a'))
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click()
+  await expect(page.locator('main h1')).toHaveText('Programme')
+  await page.goto('/programmes/programme-1/intakes/2026-27/applications/new')
+  await page.getByLabel('Candidate reference', { exact: false }).fill('SYNTHETIC-IELTS')
+  await page
+    .getByLabel('Upload English test report', { exact: true })
+    .setInputFiles(englishTestReport)
+  await page.getByRole('button', { name: 'Create application', exact: true }).click()
+  await expect(page).toHaveURL(/\/applications\/[a-f0-9-]{36}$/)
+  await page.getByRole('tab', { name: 'Review flag', exact: true }).click()
+  const accepted = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/english-test-checks') && response.request().method() === 'POST',
+  )
+  await page.getByRole('button', { name: 'Run English check', exact: true }).click()
+  expect((await accepted).status()).toBe(202)
+  await expect(page.getByText('English check queued.', { exact: true })).toBeVisible()
+  await processEnglishTestCheck()
+  await expect(page.getByText('Meets requirement', { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByText('Meets requirement', { exact: true })).toBeVisible()
+  await expect(page.getByText('IELTS Academic · 2026-01-15', { exact: true })).toBeVisible()
+  const app = (await dataset(page)).applications.find((a) => a.candidate === 'SYNTHETIC-IELTS')!
+  expect(app.englishTestCheck?.result).toMatchObject({
+    overall: 7,
+    listening: 7.5,
+    reading: 7,
+    writing: 6.5,
+    speaking: 7,
+  })
+  expect(app.runs).toEqual([])
+  await page.getByRole('tab', { name: 'AI recommendation', exact: true }).click()
+  const recommendation = page.getByRole('tabpanel')
+  await expect(recommendation.getByRole('heading', { name: 'Evidence summary' })).toBeVisible()
+  await expect(recommendation.getByRole('heading', { name: 'English test' })).toBeVisible()
+  await expect(
+    recommendation.getByText('IELTS Academic · 2026-01-15', { exact: true }),
+  ).toBeVisible()
+  await expect(recommendation.getByRole('definition')).toHaveText([
+    '7.0',
+    '7.5',
+    '7.0',
+    '6.5',
+    '7.0',
+  ])
+  await expect(recommendation.getByText('Meets requirement', { exact: true })).toBeVisible()
+  await expect(
+    recommendation.getByRole('heading', { name: 'Why this recommendation' }),
+  ).toHaveCount(0)
+  await page.reload()
+  await expect(recommendation.getByRole('definition')).toHaveText([
+    '7.0',
+    '7.5',
+    '7.0',
+    '6.5',
+    '7.0',
+  ])
+  await page.getByRole('tab', { name: 'Review flag', exact: true }).click()
+  await page.getByRole('link', { name: 'View original report, page 1' }).click()
+  await expect(page.getByRole('combobox', { name: 'Original document', exact: true })).toHaveText(
+    'synthetic-ielts.pdf',
+  )
+  await expect(page.getByText('Page 1 of 1', { exact: true })).toBeVisible()
+})
 
 test('administrator service health checks the API and recovers after a connection failure', async ({
   page,

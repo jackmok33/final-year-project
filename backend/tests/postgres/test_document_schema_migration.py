@@ -1,4 +1,5 @@
 import pytest
+from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import DBAPIError
 
@@ -7,7 +8,6 @@ from app.models import Document
 
 pytestmark = pytest.mark.postgres
 INITIAL_REVISION = "20261015_0001"
-DOCUMENT_REVISION = "20261117_0003"
 
 
 def document_rows(engine):
@@ -44,7 +44,10 @@ def test_legacy_pdf_rows_survive_downgrade_and_upgrade(
         )
     finally:
         command.upgrade(migration_config, "head")
-    assert current_revision(db_engine) == DOCUMENT_REVISION
+    assert (
+        current_revision(db_engine)
+        == ScriptDirectory.from_config(migration_config).get_current_head()
+    )
     assert document_rows(db_engine) == original_rows
     command.check(migration_config)
 
@@ -60,6 +63,9 @@ def test_downgrade_refuses_new_categories_without_losing_rows_or_schema(
     original_rows = document_rows(db_engine)
     with pytest.raises(DBAPIError, match="Cannot downgrade document schema"):
         command.downgrade(migration_config, INITIAL_REVISION)
-    assert current_revision(db_engine) == DOCUMENT_REVISION
+    assert (
+        current_revision(db_engine)
+        == ScriptDirectory.from_config(migration_config).get_current_head()
+    )
     assert document_rows(db_engine) == original_rows
     command.check(migration_config)

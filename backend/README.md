@@ -6,9 +6,15 @@ identity; active tutor ownership protects applications, evidence and decisions.
 The browser retains only tab credentials and interface preferences.
 
 The database stores immutable criteria, batches, accounts, applications and review
-history alongside PDF `bytea`. Synthetic examples can be re-evaluated; real uploaded
-documents remain unassessed until extraction/Qwen/LangGraph are connected. Password
-login/SSO and live Qwen deployment remain separate work.
+history alongside PDF `bytea`. Synthetic examples can be re-evaluated. The
+opt-in English-test pilot reads a synthetic IELTS report and saves an eligibility
+result separately from the weighted assessment. Full applicant assessment,
+password login and SSO remain future work.
+
+The live inference probe passed for text, JSON and a synthetic image against Qwen
+on AWS via the private SSH tunnel. The
+[inference configuration](#inference-client-and-provider-switch) describes the
+local endpoint and API key settings.
 
 ## Start
 
@@ -51,6 +57,7 @@ tutor's application/document data. All modifications commit before success.
 | `POST /api/v1/programmes/{id}/batches` | Multipart batch manifest plus original PDF parts; one transaction |
 | `DELETE /api/v1/applications/{id}` | Confirmed owner deletion and cascading originals |
 | `POST /api/v1/applications/{id}/evaluations` | Save a synthetic fixture run using trusted stored criteria/documents |
+| `POST /api/v1/applications/{id}/english-test-checks` | Queue an English-test check for an allowlisted synthetic report. Returns 202 and the active job ID and status. |
 | `POST /api/v1/applications/{id}/corrections` | Validate a source/reason and append correction/new synthetic run atomically |
 | `POST /api/v1/applications/{id}/decisions` | Record an outcome on the latest available run; flags stay advisory |
 
@@ -380,10 +387,49 @@ for multipart validation and to `workspace/applications.py` for the atomic save.
 checks ownership and the current run before saving. The route modules load database
 operations on demand so FastAPI can start and serve diagnostics without PostgreSQL.
 
-Put new assessment orchestration in `assessments/` as it is implemented. The
-model endpoint client belongs in `inference/`, and original PDF handling belongs in
-`documents/`. Persisted review operations currently use only the synthetic evaluator
-for known fixtures. Real assessment and background workers remain future work.
+Put assessment orchestration in `assessments/`. The model endpoint client
+belongs in `inference/` and original PDF handling belongs in `documents/`.
+The full-assessment route uses the synthetic evaluator for known fixtures.
+The English-test worker and workflow live in `assessments/english_test/`.
+
+## English-test pilot
+
+Use the pilot on a synthetic development database. With the pinned dependencies
+installed, run `alembic upgrade head` and generate the sample from `backend/`:
+
+```sh
+python -m tests.english_test_browser_worker --write-fixture /tmp/synthetic-ielts.pdf
+```
+
+Set `ENGLISH_TEST_PILOT_PDF_SHA256` in the private backend `.env` to the
+printed SHA-256 value. Restart FastAPI and start one worker with the same
+database and Qwen configuration:
+
+```sh
+python -m app.assessments.english_test.worker
+```
+
+Open the private tunnel to Qwen using the project's deployment runbook. As the
+owning tutor, upload the generated PDF under **English test
+report**, then open **Review flag → Run English check**. The demo thresholds are
+7.0 overall and 6.5 in every component, inclusive. The card displays the latest
+check and its source page. Previous attempts are retained in PostgreSQL. For a
+different deployed checkpoint, set `ENGLISH_TEST_MODEL_VERSION` to its pinned
+revision in both processes so new results record the correct model.
+
+The connected browser test uses a fake Qwen model by default. With the private
+tunnel open and the guarded browser-test database configured, run the same
+synthetic upload through Qwen from `frontend/`:
+
+```sh
+UCL_ENGLISH_TEST_LIVE=true npm run test:e2e:backend -- -g 'English test check'
+```
+
+On 21 November 2026 the live test passed against the Stockholm Qwen endpoint.
+The synthetic report returned 7.0 overall with 7.5 listening, 7.0 reading,
+6.5 writing and 7.0 speaking. The saved result was **Meets requirement** under
+the demo rule. The browser reopened the result after refresh and reached the
+original page through its source link.
 
 ## PostgreSQL: start, migrate and seed
 
@@ -596,8 +642,8 @@ snapshot aliases, exhausted-credit/spend-limit errors and absence of automatic
 provider fallback. All model responses came from fake transports or the loopback
 fake server; **no paid OpenAI API calls were made**. Ruff lint/format and whitespace
 checks and all three existing FastAPI browser workflows passed. Actual OpenAI
-responses still require a funded API account, and Qwen's AWS/GPU deployment
-remains unverified. LangGraph remains deferred.
+responses still require a funded API account. The later AWS pilot verified Qwen
+through the FastAPI probe.
 
 Verified on 13 November 2026 for the Qwen client milestone: **144 Python tests
 passed**, with **57 opt-in PostgreSQL tests skipped**. The suite includes actual

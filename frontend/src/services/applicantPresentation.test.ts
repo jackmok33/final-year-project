@@ -20,11 +20,11 @@ describe('new programme and applicant presentation', () => {
     const sampleRun = { ...run, applicationId: sample.id }
     expect(applicantProfile(sample).name).toBe('Carson Darrin')
     expect(applicantEvidence(sample, { ...sampleRun, status: 'failed' })).toEqual([])
-    expect(
-      applicantEvidence(sample, { ...sampleRun, extractedGrade: 0 }).flatMap((group) =>
-        group.entries.flat(),
-      ),
-    ).toContain('Grade: 0%')
+    const facts = applicantEvidence(sample, { ...sampleRun, extractedGrade: 0 }).flatMap((group) =>
+      group.entries.flat(),
+    )
+    expect(facts).toContain('Grade: 0%')
+    expect(facts.join(' ')).not.toMatch(/IELTS|Level: Advanced/)
   })
   it.each(['queued', 'running', 'failed'] as const)(
     'withholds scores and synthetic evidence for a %s assessment',

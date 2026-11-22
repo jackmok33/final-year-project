@@ -162,6 +162,11 @@ async function mutate(command: Command, token: string) {
       )
     case 'evaluate':
       return save(`/applications/${encodeURIComponent(command.id)}/evaluations`, json('POST'))
+    case 'checkEnglishTest':
+      return save(
+        `/applications/${encodeURIComponent(command.id)}/english-test-checks`,
+        json('POST'),
+      )
     case 'correct':
       return save(
         `/applications/${encodeURIComponent(command.id)}/corrections`,

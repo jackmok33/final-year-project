@@ -5,6 +5,8 @@ import copy
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.assessments.english_test.config import PilotConfig
+from app.assessments.english_test.jobs import latest_checks
 from app.auth.permissions import active_account
 from app.models import Application, Document, Programme, StoredRubric, UploadBatch, User
 from app.transactions import transaction
@@ -63,7 +65,9 @@ def _account_record(user: User, programmes: list[Programme]) -> dict:
     }
 
 
-def read_workspace(sessions: sessionmaker[Session], subject: str) -> dict:
+def read_workspace(
+    sessions: sessionmaker[Session], subject: str, english_test_pilot: PilotConfig = PilotConfig()
+) -> dict:
     with transaction(sessions) as session:
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
         actor = active_account(session, subject)
@@ -103,6 +107,11 @@ def read_workspace(sessions: sessionmaker[Session], subject: str) -> dict:
             .order_by(Document.position, Document.uploaded_at, Document.id)
         ).all()
         documents = [_document_record(d) for d in doc_rows]
+        english_checks = latest_checks(session, documents, english_test_pilot)
+        application_records = [_application_record(row, documents) for row in applications]
+        for record in application_records:
+            if record["id"] in english_checks:
+                record["englishTestCheck"] = english_checks[record["id"]]
         batches = session.scalars(
             select(UploadBatch)
             .where(UploadBatch.programme_id.in_(programme_ids))
@@ -128,7 +137,7 @@ def read_workspace(sessions: sessionmaker[Session], subject: str) -> dict:
                 }
                 for p in owned
             ],
-            "applications": [_application_record(a, documents) for a in applications],
+            "applications": application_records,
             "documents": documents,
             "rubrics": [_criteria_record(r) for r in rubrics],
             "activeRubricIds": {p.id: p.active_rubric_id for p in owned if p.active_rubric_id},

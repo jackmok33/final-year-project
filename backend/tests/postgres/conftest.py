@@ -38,8 +38,8 @@ def db_session(db_engine):
         with db_engine.begin() as connection:
             connection.execute(
                 text(
-                    "TRUNCATE documents, applications, upload_batches, rubrics, "
-                    "programme_memberships, programmes, users, audit_events"
+                    "TRUNCATE english_test_checks, documents, applications, upload_batches, "
+                    "rubrics, programme_memberships, programmes, users, audit_events"
                 )
             )
 
