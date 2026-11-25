@@ -3,10 +3,14 @@ import {
   accountToken,
   englishTestReport,
   processEnglishTestCheck,
+  fullAssessmentDirectory,
+  processFullAssessment,
 } from './helpers/server'
 import { expect, test, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import { dataset } from './helpers/dataset'
+import { join } from 'node:path'
+import { writeFile } from 'node:fs/promises'
 
 test.beforeEach(async ({ page }) => {
   await resetBackend()
@@ -20,6 +24,88 @@ test.beforeEach(async ({ page }) => {
 async function reEvaluate(page: Page) {
   await page.getByRole('button', { name: 'Re-run AI evaluation', exact: true }).click()
 }
+
+test('full assessment flow saves four section scores and an overall summary', async ({
+  page,
+}, info) => {
+  test.skip(
+    process.env.UCL_FULL_ASSESSMENT_TEST !== 'true',
+    'Requires the full-flow test configuration.',
+  )
+  test.setTimeout(process.env.UCL_FULL_ASSESSMENT_LIVE === 'true' ? 1300000 : 150000)
+  await page.goto('/login')
+  await page.getByRole('textbox', { name: 'Email', exact: true }).fill('tutor@demo.ucl.local')
+  await page.getByLabel('Access token', { exact: true }).fill(accountToken('tutor-a'))
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click()
+  await expect(page.locator('main h1')).toHaveText('Programme')
+  await page.goto('/programmes/programme-1/intakes/2026-27/applications/new')
+  await page.getByLabel('Candidate reference', { exact: false }).fill('SYNTHETIC-FULL-FLOW')
+  for (const [label, kind] of [
+    ['Transcript', 'transcript'],
+    ['CV', 'cv'],
+    ['Personal statement', 'statement'],
+    ['Application form', 'application_form'],
+    ['English test report', 'english_test'],
+    ['References', 'reference'],
+  ]) {
+    await page
+      .getByLabel(`Upload ${label}`, { exact: true })
+      .setInputFiles(join(fullAssessmentDirectory, `${kind}.pdf`))
+    await expect(
+      page.getByRole('button', { name: 'Create application', exact: true }),
+    ).toBeEnabled()
+  }
+  await expect(page.getByText('6 / 100 pages per application', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Create application', exact: true }).click()
+  await expect(page).toHaveURL(/\/applications\/[a-f0-9-]{36}$/)
+  const queued = page.waitForResponse(
+    (response) => response.url().endsWith('/evaluations') && response.request().method() === 'POST',
+  )
+  await page.getByRole('button', { name: 'Request evaluation', exact: true }).click()
+  expect((await queued).status()).toBe(202)
+  await processFullAssessment()
+  const saved = await dataset(page)
+  const record = saved.applications.find((app) => app.candidate === 'SYNTHETIC-FULL-FLOW')!
+  const run = record.runs.at(-1)!
+  await writeFile(info.outputPath('assessment-response.json'), JSON.stringify(run, null, 2))
+  expect(run.overall).not.toBeNull()
+  const rubric = saved.rubrics.find((criteria) => criteria.id === run.rubricId)!
+  const weighted = run.sections.reduce(
+    (total, section) => total + ((section.score ?? 0) * (rubric.weights[section.key] ?? 0)) / 100,
+    0,
+  )
+  expect(run.overall).toBeCloseTo(weighted, 2)
+  const totalText = `Overall score ${run.overall!.toFixed(2)}/100`
+  await expect(page.getByText(totalText, { exact: false })).toBeVisible()
+  await page.reload()
+  await expect(page.getByText(totalText, { exact: false })).toBeVisible()
+  await expect(page.getByText('Meets requirement', { exact: true })).toBeVisible()
+  await page.screenshot({ path: info.outputPath('full-assessment-summary.png'), fullPage: true })
+  await page.getByRole('tab', { name: 'Score breakdown', exact: true }).click()
+  for (const section of [
+    'Academic performance',
+    'CV & experience',
+    'Personal statement',
+    'References',
+  ]) {
+    await expect(page.getByRole('button', { name: new RegExp(section) })).toBeVisible()
+  }
+  expect(run.sections.map((section) => section.key)).toEqual([
+    'academic',
+    'cv',
+    'statement',
+    'references',
+  ])
+  expect(run.sections.every((section) => typeof section.score === 'number')).toBe(true)
+  await page.screenshot({ path: info.outputPath('full-assessment-scores.png'), fullPage: true })
+  if (process.env.UCL_FULL_ASSESSMENT_LIVE !== 'true')
+    expect(run.sections.map((section) => section.score)).toEqual([66.67, 66.67, 66.67, 66.67])
+  expect(run.simulated).toBe(false)
+  await page.getByRole('tab', { name: 'Review flag', exact: true }).click()
+  await page.getByRole('link', { name: 'View original report, page 1' }).click()
+  await expect(page.getByText('Page 1 of 1', { exact: true })).toBeVisible()
+  await page.screenshot({ path: info.outputPath('full-assessment.png'), fullPage: true })
+})
 
 test('English test check populates the evidence summary and opens the original report', async ({
   page,

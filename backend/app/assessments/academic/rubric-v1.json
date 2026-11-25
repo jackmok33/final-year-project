@@ -1,0 +1,29 @@
+{
+  "preparation": {
+    "weight": 40,
+    "levels": {
+      "0": "No relevant preparation described",
+      "1": "Qualification or subject named",
+      "2": "Relevant modules or study described",
+      "3": "Advanced preparation and its application described"
+    }
+  },
+  "subject_fit": {
+    "weight": 40,
+    "levels": {
+      "0": "No connection to the selected capabilities",
+      "1": "A related topic named",
+      "2": "A relevant capability applied to a task",
+      "3": "A relevant capability applied to a stated investigation or objective"
+    }
+  },
+  "achievement": {
+    "weight": 20,
+    "levels": {
+      "0": "No reported achievement",
+      "1": "An achievement mentioned",
+      "2": "A specific result with its scale or context",
+      "3": "A specific result and evidence of sustained performance or progression"
+    }
+  }
+}

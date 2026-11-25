@@ -1,0 +1,29 @@
+{
+  "basis": {
+    "weight": 30,
+    "levels": {
+      "0": "No basis for assessment described",
+      "1": "Relationship or role named",
+      "2": "Relationship and observed work described",
+      "3": "Direct observation of specific work with clear context"
+    }
+  },
+  "specificity": {
+    "weight": 40,
+    "levels": {
+      "0": "No supporting observations",
+      "1": "General praise or concern",
+      "2": "A specific example of performance",
+      "3": "A specific example explaining the applicant's actions and their effect"
+    }
+  },
+  "support": {
+    "weight": 30,
+    "levels": {
+      "0": "Explicitly adverse assessment",
+      "1": "Mixed or limited support",
+      "2": "Clear support tied to observed capabilities",
+      "3": "Strong support with specific observations and qualifications where relevant"
+    }
+  }
+}

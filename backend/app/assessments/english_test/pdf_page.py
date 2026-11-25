@@ -6,7 +6,7 @@ import re
 import sys
 from contextlib import closing
 
-from app.assessments.pdf_preparation import (
+from app.assessments.shared.pdf_preparation import (
     FULL_PAGE,
     MAX_TEXT_CHARACTERS,
     encode_page,

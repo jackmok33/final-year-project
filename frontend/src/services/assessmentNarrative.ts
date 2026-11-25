@@ -31,6 +31,7 @@ export function presentAssessment(
   rubric: Rubric | undefined,
 ): AssessmentRun {
   if (
+    !run.simulated ||
     !rubric ||
     rubric.id !== run.rubricId ||
     rubric.programmeId !== application.programmeId ||

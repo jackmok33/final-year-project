@@ -110,8 +110,8 @@ export interface AssessmentRun {
   extractedGrade: number | null
   parentRunId?: string
   error?: string
-  simulated: true
-  evaluationSource?: 'fastapi-mock'
+  simulated: boolean
+  evaluationSource?: 'fastapi-mock' | 'qwen-langgraph'
 }
 export interface Correction {
   id: string

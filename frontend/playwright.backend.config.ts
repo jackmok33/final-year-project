@@ -3,6 +3,7 @@ import { defineConfig } from '@playwright/test'
 import {
   prepareBrowserFixture,
   prepareEnglishTestReport,
+  prepareFullAssessment,
   backendPython,
   backendRoot,
   fixtureFile,
@@ -10,6 +11,7 @@ import {
 } from './e2e/helpers/server'
 await prepareBrowserFixture()
 const englishTestHash = await prepareEnglishTestReport()
+const assessmentHashes = await prepareFullAssessment()
 
 // This suite owns separate ports and does not replace the user's running app/data.
 export default defineConfig({
@@ -29,6 +31,7 @@ export default defineConfig({
         DOCUMENT_API_TOKENS_FILE: tokenFile,
         UCL_CORS_ORIGINS: 'http://127.0.0.1:5174',
         ENGLISH_TEST_PILOT_PDF_SHA256: englishTestHash,
+        ASSESSMENT_PILOT_PDF_SHA256: assessmentHashes,
       },
       reuseExistingServer: false,
     },

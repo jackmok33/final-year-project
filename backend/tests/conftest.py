@@ -10,15 +10,17 @@ from app.main import create_app
 def isolate_inference_configuration(monkeypatch, tmp_path):
     # A developer's real model URL/key must never affect the default test suite.
     from app.assessments.english_test import config as english_test_config
+    from app.assessments.flow import config as assessment_config
     from app.auth import tokens as document_config
     from app.inference import config as inference_config
 
     monkeypatch.setattr(inference_config, "BACKEND_DIR", tmp_path)
     monkeypatch.setattr(document_config, "BACKEND_DIR", tmp_path)
     monkeypatch.setattr(english_test_config, "BACKEND_DIR", tmp_path)
+    monkeypatch.setattr(assessment_config, "BACKEND_DIR", tmp_path)
     monkeypatch.delenv("DOCUMENT_API_TOKENS_FILE", raising=False)
     for name in list(os.environ):
-        if name.startswith(("QWEN_", "OPENAI_", "INFERENCE_", "ENGLISH_TEST_")):
+        if name.startswith(("QWEN_", "OPENAI_", "INFERENCE_", "ENGLISH_TEST_", "ASSESSMENT_")):
             monkeypatch.delenv(name)
 
 

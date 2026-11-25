@@ -18,10 +18,17 @@ scoring/recommendation routing, and tutors retain the final decision.
   tab credentials and interface preferences remain in sessionStorage.
 - `backend/`: FastAPI, per-account Bearer tokens, PostgreSQL workspace/application/
   document/review APIs, and optional async inference client/connection probe.
-  Live Qwen inference, extraction, LangGraph and password/SSO remain future work.
+  The full synthetic assessment pilot in `app/assessments/flow/` has academic,
+  CV, statement, reference and English specialists, deterministic scoring and a
+  summary node. Each agent owns its active prompt/rubric in its named assessment
+  folder; `shared/` owns common execution and `flow/` owns orchestration/jobs.
+  See the [assessment code map](backend/app/assessments/README.md).
+  An opt-in PDF allowlist enables queued evaluation
+  through the tutor UI and a Python worker. Password/SSO remain future work.
 - Planned architecture: FastAPI/Python workers orchestrate evaluation and call a
-  separate Qwen HTTP endpoint. Deployment and continuous GPU access remain
-  unverified. PostgreSQL stores records and original PDFs as `bytea`;
+  separate Qwen HTTP endpoint. The synthetic full workflow passed live Qwen
+  validation; continuous GPU availability remains unverified. PostgreSQL stores
+  records and original PDFs as `bytea`;
   Assessment history uses JSONB; LangGraph checkpoints are planned. Do not make object
   storage a required MVP dependency.
 
@@ -381,8 +388,11 @@ not verify Qwen. Legacy `QWEN_PROBE_ENABLED` applies only when the shared flag i
 absent and Qwen is selected. The normal `/health` contract still describes the
 mock assessment adapter, not Qwen readiness. Use the explicit probe for inference connectivity.
 Tests isolate both providers' configuration and use fake transport/loopback HTTP only.
-LangGraph, PDF extraction and real applicant assessment remain unimplemented;
-do not route browser uploads to the synthetic assessor or connection probe.
+The opt-in `assessments/flow/` workflow reads allowlisted synthetic uploads,
+uses versioned specialist prompts and saves scores and an overall summary.
+Its worker processes both full assessments and standalone English checks.
+Keep actual document assessment separate from the presentation-fixture assessor
+and connection probe. See the backend guide for configuration and current limits.
 
 PostgreSQL's document schema supports transcript, CV, statement, application form,
 English test and reference PDFs. A partial unique index permits multiple references
@@ -409,8 +419,9 @@ HTTP; a zero-weight reference field is omitted along
 with extra document metadata to retain the legacy synthetic request shape. Do not
 silently fall back or imply that the server assessed uploaded references.
 
-The eight domain tables are users, programmes, programme_memberships, applications,
-documents, rubrics, upload_batches and audit_events. SQLAlchemy models in `backend/app/models/` are separate from
+The core domain tables are users, programmes, programme_memberships, applications,
+documents, rubrics, upload_batches and audit_events. The assessment pilots add
+english_test_checks and assessment_jobs. SQLAlchemy models in `backend/app/models/` are separate from
 Pydantic HTTP schemas. Use lazy synchronous Psycopg 3 sessions; never migrate,
 seed or call `create_all()` at FastAPI startup. Use explicit Alembic migrations.
 The older membership schema does not override server-enforced single-owner policy.

@@ -15,7 +15,7 @@ from app.inference.client import MAX_IMAGE_BYTES
 
 MAX_TEXT_CHARACTERS = 4800
 FULL_PAGE = (0, 0, 0, 0)
-BACKEND_DIR = Path(__file__).resolve().parents[2]
+BACKEND_DIR = Path(__file__).resolve().parents[3]
 
 
 def page_text(page, *, limit: int = MAX_TEXT_CHARACTERS) -> str:

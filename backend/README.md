@@ -7,9 +7,10 @@ The browser retains only tab credentials and interface preferences.
 
 The database stores immutable criteria, batches, accounts, applications and review
 history alongside PDF `bytea`. Synthetic examples can be re-evaluated. The
-opt-in English-test pilot reads a synthetic IELTS report and saves an eligibility
-result separately from the weighted assessment. Full applicant assessment,
-password login and SSO remain future work.
+opt-in full assessment pilot reads approved synthetic PDFs through academic,
+CV, statement, reference and English specialists. It saves four section scores,
+an overall summary and separate English eligibility. Password login and SSO
+remain future work.
 
 The live inference probe passed for text, JSON and a synthetic image against Qwen
 on AWS via the private SSH tunnel. The
@@ -56,7 +57,7 @@ tutor's application/document data. All modifications commit before success.
 | `POST /api/v1/programmes/{id}/applications` | Multipart applicant manifest plus original PDF parts |
 | `POST /api/v1/programmes/{id}/batches` | Multipart batch manifest plus original PDF parts; one transaction |
 | `DELETE /api/v1/applications/{id}` | Confirmed owner deletion and cascading originals |
-| `POST /api/v1/applications/{id}/evaluations` | Save a synthetic fixture run using trusted stored criteria/documents |
+| `POST /api/v1/applications/{id}/evaluations` | Queue a full assessment with HTTP 202 when the pilot is enabled. Otherwise evaluate a supported synthetic presentation fixture. |
 | `POST /api/v1/applications/{id}/english-test-checks` | Queue an English-test check for an allowlisted synthetic report. Returns 202 and the active job ID and status. |
 | `POST /api/v1/applications/{id}/corrections` | Validate a source/reason and append correction/new synthetic run atomically |
 | `POST /api/v1/applications/{id}/decisions` | Record an outcome on the latest available run; flags stay advisory |
@@ -230,8 +231,10 @@ or parser availability failures 503. Error details contain stable codes and
 sanitised messages. PostgreSQL statements/locks have bounded waits. No request
 invokes a model, saves an assessment or changes the browser's existing data.
 
-Interactive server login, frontend HTTP persistence, programme/application APIs,
-batch/ZIP ingestion and AI assessment remain separate milestones.
+The connected frontend and batch APIs use these stored documents. The
+[full assessment worker](#full-assessment-workflow) processes approved synthetic
+documents through a separate queued workflow. Interactive password/SSO login
+remains a future milestone.
 
 ## Inference client and provider switch
 
@@ -349,7 +352,8 @@ The default Python suite tests the wire contract with fake responses and a real
 loopback HTTP fake server. It never connects to AWS or a real Qwen model, and
 isolates both providers' environment/file configuration. Real GPU memory fit,
 model output and the SSH connection still require live deployment acceptance checks.
-LangGraph integration, document extraction and real admissions evaluation come later.
+The full synthetic assessment pilot below uses LangGraph and document extraction.
+Calibration for real admissions evaluation remains a later milestone.
 
 References: [vLLM chat API](https://docs.vllm.ai/en/latest/serving/online_serving/openai_compatible_server/),
 [OpenAI Chat Completions](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create),
@@ -389,8 +393,11 @@ operations on demand so FastAPI can start and serve diagnostics without PostgreS
 
 Put assessment orchestration in `assessments/`. The model endpoint client
 belongs in `inference/` and original PDF handling belongs in `documents/`.
-The full-assessment route uses the synthetic evaluator for known fixtures.
-The English-test worker and workflow live in `assessments/english_test/`.
+The [assessment code map](app/assessments/README.md) lists the agent, shared and
+orchestration folders. Each specialist owns its active prompt and rubric.
+`assessments/flow/` owns the full graph and durable jobs; `assessments/shared/`
+owns common contracts, extraction, evidence validation and section scoring.
+The separate fixture evaluator remains available when the full pilot is disabled.
 
 ## English-test pilot
 
@@ -431,32 +438,123 @@ The synthetic report returned 7.0 overall with 7.5 listening, 7.0 reading,
 the demo rule. The browser reopened the result after refresh and reached the
 original page through its source link.
 
-## English and CV pilot
+## Full assessment workflow
 
-`assessments/pilot.py` runs the existing English check followed by the CV
-specialist. Each specialist receives only its own allowlisted document. The
-parent LangGraph sends requests to Qwen one at a time and returns independent
-outputs with document IDs and page numbers. The CV specialist sends text and a
-bounded page image for each readable page of a one- or two-page CV. It checks
-each quote against that page's embedded text and flags missing text or
-unsupported quotes for review. The CV output contains evidence for a future
-rubric. English eligibility uses the existing demo rule.
+`app/assessments/flow/orchestrator.py` runs academic, CV, statement, references,
+English, scoring and summary nodes sequentially. Each specialist receives its
+relevant source pages and its own versioned LangChain prompt. Academic also
+reads the application form when present. All references are routed to the
+reference specialist. Model calls use the existing private Qwen client.
 
-From `backend/`, run the developer preview with the built-in synthetic CV and
-IELTS report:
+The four scored specialists read page text and rendered PNGs, verify quoted
+evidence and assess their three demo rubric criteria. They then judge the full
+bounded section text with the verified sources. Python converts levels into
+section scores, applies the saved course weights and evaluates its thresholds.
+English eligibility is separate. Missing required evidence makes the total
+unavailable and routes the application to review. The summary model sees the
+validated findings. Python appends the computed score and applicable rule.
+
+Each scored agent's demo criteria live in its own `rubric-v1.json`, alongside
+`academic-v1.md`, `cv-v1.md`, `statement-v1.md` or `references-v1.md`. Rubric levels
+are explicitly numbered from zero through three. Shared capabilities and the
+bundle version live in `shared/rubric-context-v1.json`. Judgements use bounded
+explanations and verified source IDs. The stored programme name supplies course
+context and the initial capability list is common across
+courses. These defaults provide a complete pilot for later prompt calibration.
+
+From `backend/`, generate the synthetic upload files and their allowed hashes:
 
 ```sh
-python -m tests.assessment_pilot_preview
+python -m tests.full_assessment_preview --write-dir /tmp/synthetic-assessment
 ```
 
-The preview simulates Qwen by default. Add `--live` to send the same synthetic
-fixtures through the configured private Qwen tunnel. The preview prints JSON.
-The two-agent pilot has no application route, database job or tutor UI yet.
+Set the printed hashes as `ASSESSMENT_PILOT_PDF_SHA256` in the private backend
+`.env`. Apply `alembic upgrade head`, restart FastAPI and run one worker using
+the same database, model version and private Qwen tunnel:
 
-On 22 November 2026 the live preview finished in 13.7 seconds after Qwen was
-ready. All five IELTS bands matched and the result was **Meets requirement**.
-The CV specialist returned a verified project quote from page 1 and a verified
-work-experience quote from page 2, with no review issues.
+```sh
+python -m app.assessments.flow.worker
+```
+
+Upload those PDFs in Add applicant. **Request evaluation** and **Re-run AI
+evaluation** queue the workflow. Existing page polling shows progress and the
+saved result. Score breakdown contains all four assessed sections. The worker
+also processes standalone English checks so one process can serve both actions.
+
+The job pins original PDF hashes, course criteria, model version and a digest
+of the specialist prompts and rubrics. Duplicate submissions return the active
+job. Interrupted jobs become visible failures after their lease expires and
+can be retried. Reruns preserve prior assessments and tutor decisions. Reads
+and mutations enforce active tutor ownership.
+
+This pilot supports up to twelve pages and 9,000 extracted characters per
+specialist. Pages without embedded text and sources exceeding the bounds
+receive explicit review states. General PDF upload limits still apply.
+
+For a preview with simulated model responses:
+
+```sh
+python -m tests.full_assessment_preview
+```
+
+Add `--live` to call the configured Qwen endpoint with the built-in synthetic
+documents. The complete workflow has model-transport, PostgreSQL and live Qwen
+integration tests. Its specialist judgements still require calibration.
+From `frontend/`, the connected browser test uses a simulated model and its
+dedicated test database:
+
+```sh
+UCL_FULL_ASSESSMENT_TEST=true npm run test:e2e:backend -- -g 'full assessment flow'
+```
+
+With the private Qwen tunnel open, the same test can process its queued job
+through the live model:
+
+```sh
+UCL_FULL_ASSESSMENT_TEST=true UCL_FULL_ASSESSMENT_LIVE=true npm run test:e2e:backend -- -g 'full assessment flow'
+```
+
+Both modes save `assessment-response.json` in the browser test's output folder.
+The live test checks the returned scores against the saved course weights.
+
+Verified on 25 November 2026 with all 391 backend tests, including the complete
+PostgreSQL suite and targeted extraction and scoring checks. All 948 frontend
+unit tests and 26 simulated-model browser workflows passed. Both the direct
+preview and connected tutor workflow also passed against Qwen3.5-9B FP8 on the
+existing AWS instance. The direct run
+made eleven model calls in 74.15 seconds after model startup. The live browser
+workflow uploaded six PDFs, queued the worker, saved all four section scores and
+the overall summary, refreshed the result and opened the original English page.
+An independent database check verified all seven returned section quotes against
+the stored PDF pages, source hashes, workflow version, English bands and score
+arithmetic. See the [saved synthetic response and verification report](validation/2026-11-25-qwen-full-assessment.json).
+
+The live test exposed overlong model explanations and ambiguous rubric numbering;
+the prompt now states the schema limit and every level has an explicit number.
+Synthetic PDF lines are wrapped within the page bounds. These results establish
+functional integration on simple synthetic documents. Held-out assessment quality,
+scoring consistency and supervisor-approved rubrics remain to be evaluated.
+
+The agent-folder refactor on the same date preserved all eleven model request
+bodies, the complete fake-model result and the existing workflow fingerprint.
+All 256 non-database tests and 136 PostgreSQL tests passed, including source
+isolation, original CV page citations and active-asset versioning. The connected
+full-assessment and standalone English browser workflows also passed with a fake
+model and a disposable database. Ruff and whitespace checks passed. This refactor
+used local verification; the live Qwen result above remains the earlier run with
+the same prompt, rubric and request contents.
+
+## Earlier English and CV pilot
+
+The extraction-only two-agent workflow and its developer preview have been
+retired in favour of the full assessment workflow above. There is one active
+CV path, using `cv/cv-v1.md`, `cv/rubric-v1.json` and the shared specialist engine.
+
+On 22 November 2026 the earlier live preview finished in 13.7 seconds after
+Qwen was ready. All five IELTS bands matched and the result was Meets
+requirement. The CV specialist returned verified project and work-experience
+quotes from the two source pages. That result used `cv-evidence-v1`; it is a
+historical result, separate from the full-flow validation on 25 November.
 
 ## PostgreSQL: start, migrate and seed
 

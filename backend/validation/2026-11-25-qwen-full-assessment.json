@@ -1,0 +1,418 @@
+{
+  "validatedAt": "2026-11-25",
+  "scope": "Functional integration on built-in synthetic PDFs; assessment quality is not calibrated.",
+  "provider": "qwen",
+  "model": "RedHatAI/Qwen3.5-9B-FP8-dynamic@790f0576d2d77dd5322aa0603a470bd9e3a3d1f6",
+  "vm": {
+    "type": "g6.xlarge",
+    "region": "eu-north-1",
+    "gpu": "L4 24 GB",
+    "endpoint": "private SSH tunnel"
+  },
+  "directPreview": {
+    "provider": "live-qwen",
+    "seconds": 74.15,
+    "modelCalls": 11,
+    "sections": [
+      {
+        "key": "academic",
+        "score": 33.33,
+        "uncertainty": ""
+      },
+      {
+        "key": "cv",
+        "score": 60.0,
+        "uncertainty": ""
+      },
+      {
+        "key": "statement",
+        "score": 70.0,
+        "uncertainty": ""
+      },
+      {
+        "key": "references",
+        "score": 76.67,
+        "uncertainty": ""
+      }
+    ],
+    "overall": 53.5,
+    "recommendation": "Reject",
+    "flags": [],
+    "summary": "The applicant demonstrates a clear motivation to pursue statistical modelling, effectively linking this goal to prior experience with survey bias, though the personal statement lacks detailed reflection on specific activities. While the referee provides strong contextual support regarding the supervision of a project and observation of careful testing, the account does not fully elucidate the applicant's independent actions or the broader impact of their work. Academically, the candidate holds a relevant BSc Computer Science qualification; however, the absence of specific module details or advanced preparation descriptions, combined with an overall average that lacks context regarding sustained performance, leaves the depth of subject fit and readiness for advanced study as unresolved concerns.\n\nOverall score 53.50/100. The score is below the saved rejection threshold of 60.",
+    "invariants": "English bands, all returned source quotes and numerical calculations verified"
+  },
+  "tutorWorkflow": {
+    "browserTest": "passed",
+    "verification": {
+      "jobStatus": "completed",
+      "sourceDocuments": 6,
+      "sourceQuotesVerified": 7,
+      "weightedOverallVerified": 57.5,
+      "workflowHashVerified": true,
+      "englishBandsVerified": true
+    },
+    "savedRun": {
+      "id": "dd6dd606-c0b3-4c09-a0e0-cff80cb41aef",
+      "flags": [],
+      "status": "awaiting review",
+      "overall": 57.5,
+      "finishAt": "2026-11-25T14:30:17.357000+00:00",
+      "rubricId": "rubric-1",
+      "sections": [
+        {
+          "key": "academic",
+          "score": 40,
+          "citations": [
+            {
+              "id": "academic-E1",
+              "page": 1,
+              "claim": "BSc Computer Science awarded.",
+              "documentId": "5b02a16a-00cf-4738-94b2-2e38b392a827"
+            },
+            {
+              "id": "academic-E2",
+              "page": 1,
+              "claim": "Overall average: 74 percent.",
+              "documentId": "5b02a16a-00cf-4738-94b2-2e38b392a827"
+            },
+            {
+              "id": "academic-E3",
+              "page": 1,
+              "claim": "Qualification: BSc Computer Science.",
+              "documentId": "790c218f-7838-4fdc-9fee-794acfab0113"
+            },
+            {
+              "id": "academic-E4",
+              "page": 1,
+              "claim": "Overall average: 74 percent.",
+              "documentId": "790c218f-7838-4fdc-9fee-794acfab0113"
+            }
+          ],
+          "judgements": [
+            {
+              "level": 1,
+              "reason": "The transcript explicitly names a BSc Computer Science qualification, satisfying the requirement for a named relevant subject.",
+              "evidence": [
+                "academic-E1",
+                "academic-E3"
+              ],
+              "criterion": "preparation"
+            },
+            {
+              "level": 1,
+              "reason": "A related topic, Computer Science, is named, but no specific application of capabilities to a task or investigation is described.",
+              "evidence": [
+                "academic-E1"
+              ],
+              "criterion": "subject_fit"
+            },
+            {
+              "level": 2,
+              "reason": "A specific result, an overall average of 74 percent, is reported with its scale.",
+              "evidence": [
+                "academic-E2",
+                "academic-E4"
+              ],
+              "criterion": "achievement"
+            }
+          ],
+          "explanation": "The transcript explicitly names a BSc Computer Science qualification, satisfying the requirement for a named relevant subject.\n\nA related topic, Computer Science, is named, but no specific application of capabilities to a task or investigation is described.\n\nA specific result, an overall average of 74 percent, is reported with its scale.",
+          "uncertainty": "",
+          "extractedGrade": 74,
+          "academicRequirement": "met"
+        },
+        {
+          "key": "cv",
+          "score": 80,
+          "citations": [
+            {
+              "id": "cv-E1",
+              "page": 1,
+              "claim": "Designed and tested a survey analysis dashboard for a student project.",
+              "documentId": "0134af6c-5d0e-4d6f-9212-980d92346ba6"
+            }
+          ],
+          "judgements": [
+            {
+              "level": 3,
+              "reason": "The activity applies the capability of applying methods to a stated student project objective.",
+              "evidence": [
+                "cv-E1"
+              ],
+              "criterion": "relevance"
+            },
+            {
+              "level": 2,
+              "reason": "The applicant's specific task of designing and testing the dashboard is clearly named.",
+              "evidence": [
+                "cv-E1"
+              ],
+              "criterion": "contribution"
+            },
+            {
+              "level": 2,
+              "reason": "The specific output is a dashboard, and the testing process implies an evaluation of its functionality.",
+              "evidence": [
+                "cv-E1"
+              ],
+              "criterion": "outcome_or_evaluation"
+            }
+          ],
+          "explanation": "The activity applies the capability of applying methods to a stated student project objective.\n\nThe applicant's specific task of designing and testing the dashboard is clearly named.\n\nThe specific output is a dashboard, and the testing process implies an evaluation of its functionality.",
+          "uncertainty": "",
+          "extractedGrade": null,
+          "academicRequirement": "needs_review"
+        },
+        {
+          "key": "statement",
+          "score": 70,
+          "citations": [
+            {
+              "id": "statement-E1",
+              "page": 1,
+              "claim": "I want to study statistical modelling after investigating survey bias.",
+              "documentId": "0653e85a-3621-4945-9f63-575b363dde5c"
+            }
+          ],
+          "judgements": [
+            {
+              "level": 3,
+              "reason": "The applicant connects a specific learning goal (statistical modelling) to prior experience (investigating survey bias).",
+              "evidence": [
+                "statement-E1"
+              ],
+              "criterion": "motivation"
+            },
+            {
+              "level": 1,
+              "reason": "The applicant names relevant experience (investigating survey bias) but does not describe specific activities or learning outcomes.",
+              "evidence": [
+                "statement-E1"
+              ],
+              "criterion": "preparation"
+            },
+            {
+              "level": 2,
+              "reason": "The applicant states a specific intended application of learning (statistical modelling) to address a known issue (survey bias).",
+              "evidence": [
+                "statement-E1"
+              ],
+              "criterion": "direction"
+            }
+          ],
+          "explanation": "The applicant connects a specific learning goal (statistical modelling) to prior experience (investigating survey bias).\n\nThe applicant names relevant experience (investigating survey bias) but does not describe specific activities or learning outcomes.\n\nThe applicant states a specific intended application of learning (statistical modelling) to address a known issue (survey bias).",
+          "uncertainty": "",
+          "extractedGrade": null,
+          "academicRequirement": "needs_review"
+        },
+        {
+          "key": "references",
+          "score": 66.67,
+          "citations": [
+            {
+              "id": "references-E1",
+              "page": 1,
+              "claim": "I supervised the project and observed careful testing of the survey analysis.",
+              "documentId": "0fc26168-6880-42d0-8f94-1c34aed0dd0d"
+            }
+          ],
+          "judgements": [
+            {
+              "level": 2,
+              "reason": "The referee names the supervisory relationship and describes the observed work of testing survey analysis.",
+              "evidence": [
+                "references-E1"
+              ],
+              "criterion": "basis"
+            },
+            {
+              "level": 2,
+              "reason": "The reference provides a specific example of performance: careful testing of the survey analysis.",
+              "evidence": [
+                "references-E1"
+              ],
+              "criterion": "specificity"
+            },
+            {
+              "level": 2,
+              "reason": "The referee offers clear support by confirming the observation of careful testing within the supervised project.",
+              "evidence": [
+                "references-E1"
+              ],
+              "criterion": "support"
+            }
+          ],
+          "explanation": "The referee names the supervisory relationship and describes the observed work of testing survey analysis.\n\nThe reference provides a specific example of performance: careful testing of the survey analysis.\n\nThe referee offers clear support by confirming the observation of careful testing within the supervised project.",
+          "uncertainty": "",
+          "extractedGrade": null,
+          "academicRequirement": "needs_review"
+        }
+      ],
+      "simulated": false,
+      "startedAt": "2026-11-25T14:29:03.286366+00:00",
+      "provenance": {
+        "flow": "assessment-flow-v1",
+        "model": "RedHatAI/Qwen3.5-9B-FP8-dynamic@790f0576d2d77dd5322aa0603a470bd9e3a3d1f6",
+        "criteria": {
+          "id": "rubric-1",
+          "name": "Computational Statistics and Machine Learning MSc",
+          "margin": 3,
+          "version": "1.0",
+          "weights": {
+            "cv": 25,
+            "academic": 50,
+            "statement": 25
+          },
+          "offerFrom": 80,
+          "rejectBelow": 60,
+          "mandatoryRule": "Relevant undergraduate qualification"
+        },
+        "documents": [
+          {
+            "id": "5b02a16a-00cf-4738-94b2-2e38b392a827",
+            "type": "transcript",
+            "pages": 1,
+            "sha256": "c6849fa04d39f747310887ce77470c6db555a007151b974b4aac2e9d53873827"
+          },
+          {
+            "id": "0134af6c-5d0e-4d6f-9212-980d92346ba6",
+            "type": "cv",
+            "pages": 1,
+            "sha256": "2e1d7e291247df1cd4e23f6213204c2d34bc1dee541b68caa9354e71770d0998"
+          },
+          {
+            "id": "0653e85a-3621-4945-9f63-575b363dde5c",
+            "type": "statement",
+            "pages": 1,
+            "sha256": "a1eb46d2baf33b5e7760f398c608ac4ce3e87eee1298c6666615f05eb3bbd0d3"
+          },
+          {
+            "id": "790c218f-7838-4fdc-9fee-794acfab0113",
+            "type": "application_form",
+            "pages": 1,
+            "sha256": "4076539db102890d1e3d06dff733cf8c8f1bffb792457c053f2ccb945753f623"
+          },
+          {
+            "id": "11fa6462-dca1-40fd-97af-eaddb275dbdf",
+            "type": "english_test",
+            "pages": 1,
+            "sha256": "cb645e73014a047c3271efae61d700c6c876fa66ad1348999610d275a810e946"
+          },
+          {
+            "id": "0fc26168-6880-42d0-8f94-1c34aed0dd0d",
+            "type": "reference",
+            "pages": 1,
+            "sha256": "8221477581b6864bdde874e1fa5dcebf5286df742a70ba76b62c414e324b5886"
+          }
+        ],
+        "workflowHash": "b9af990a762d1844175f192d6e9e966a2a5d273c95e54ab6777d89744f03845d"
+      },
+      "parentRunId": null,
+      "applicationId": "62f8c715-2ff3-48a7-a0c6-211fb186b528",
+      "justification": {
+        "rules": [
+          "The score lies within the saved review margin."
+        ],
+        "summary": "The applicant demonstrates a strong foundational alignment with the course, evidenced by a relevant BSc Computer Science qualification and a clear, motivated intent to apply statistical modelling to address survey bias. Their academic record shows a solid average, while their CV and references provide concrete examples of practical skills, specifically the design and testing of a survey analysis dashboard. However, the application contains unresolved concerns regarding the depth of the applicant's engagement; the transcript lacks specific descriptions of how capabilities were applied to tasks, the personal statement omits detailed accounts of specific activities or learning outcomes, and the reference, while supportive, relies on a single observation of testing rather than a broader narrative of the applicant's development. These gaps suggest a need for further clarification on the applicant's practical application of skills and the specific nature of their learning journey.\n\nOverall score 57.50/100. The score lies within the saved review margin.",
+        "citations": [
+          {
+            "id": "academic-E1",
+            "page": 1,
+            "claim": "BSc Computer Science awarded.",
+            "documentId": "5b02a16a-00cf-4738-94b2-2e38b392a827"
+          },
+          {
+            "id": "academic-E2",
+            "page": 1,
+            "claim": "Overall average: 74 percent.",
+            "documentId": "5b02a16a-00cf-4738-94b2-2e38b392a827"
+          },
+          {
+            "id": "academic-E3",
+            "page": 1,
+            "claim": "Qualification: BSc Computer Science.",
+            "documentId": "790c218f-7838-4fdc-9fee-794acfab0113"
+          },
+          {
+            "id": "academic-E4",
+            "page": 1,
+            "claim": "Overall average: 74 percent.",
+            "documentId": "790c218f-7838-4fdc-9fee-794acfab0113"
+          },
+          {
+            "id": "cv-E1",
+            "page": 1,
+            "claim": "Designed and tested a survey analysis dashboard for a student project.",
+            "documentId": "0134af6c-5d0e-4d6f-9212-980d92346ba6"
+          },
+          {
+            "id": "statement-E1",
+            "page": 1,
+            "claim": "I want to study statistical modelling after investigating survey bias.",
+            "documentId": "0653e85a-3621-4945-9f63-575b363dde5c"
+          },
+          {
+            "id": "references-E1",
+            "page": 1,
+            "claim": "I supervised the project and observed careful testing of the survey analysis.",
+            "documentId": "0fc26168-6880-42d0-8f94-1c34aed0dd0d"
+          }
+        ]
+      },
+      "rubricVersion": "assessment-rubrics-v1",
+      "extractedGrade": 74,
+      "recommendation": "Further review",
+      "evaluationSource": "qwen-langgraph",
+      "englishEligibility": {
+        "page": 1,
+        "reason": null,
+        "outcome": "meets_requirement",
+        "overall": 7,
+        "reading": 7,
+        "writing": 6.5,
+        "speaking": 7,
+        "testDate": "2026-01-15",
+        "testType": "IELTS Academic",
+        "listening": 7.5,
+        "documentId": "11fa6462-dca1-40fd-97af-eaddb275dbdf"
+      }
+    },
+    "browserTestDuration": "about 1.6 minutes"
+  },
+  "fixes": [
+    "Wrapped synthetic PDF lines to keep rendered and embedded text aligned.",
+    "Labelled every rubric level explicitly from zero through three.",
+    "Specified the 240-character per-criterion explanation limit in the judgement prompt."
+  ],
+  "limitations": [
+    "Only synthetic one-page documents were tested live.",
+    "Model judgements and narrative quality need held-out calibration and supervisor review.",
+    "The tutor test uses its existing course weights: academic 50, CV 25, statement 25, references 0. The reference score is still assessed and saved.",
+    "Different course context and model judgements can produce different section scores; deterministic Python scoring guarantees arithmetic, not judgement quality.",
+    "Runtime excludes capacity retries and model startup."
+  ],
+  "regressionChecks": {
+    "backendIncludingPostgreSQL": {
+      "passed": 391,
+      "seconds": 69.34
+    },
+    "focusedAssessmentTests": {
+      "passed": 17
+    },
+    "backendRuff": "passed",
+    "frontendHarnessTypeScriptESLintPrettier": "passed",
+    "previousFullFrontendUnitSuite": {
+      "passed": 948
+    },
+    "previousSimulatedBrowserWorkflows": {
+      "passed": 26
+    }
+  },
+  "cleanup": {
+    "ec2State": "stopped",
+    "confirmedAt": "2026-11-25T14:37:24Z",
+    "privateTunnel": "closed",
+    "disposableTestDatabase": "removed",
+    "projectApplicantData": "unchanged"
+  }
+}

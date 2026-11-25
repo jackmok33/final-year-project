@@ -375,7 +375,11 @@ check under **Review flag** for an allowlisted synthetic IELTS report. The
 card shows the demo threshold, bands, result and original page. The completed
 check also populates **AI recommendation → Evidence summary** with the reported
 bands, date when available and demo outcome, including before a full assessment.
-Full applicant assessment and production password/SSO login remain future work.
+The [full assessment pilot](../backend/README.md#full-assessment-workflow) also
+connects Request evaluation and Re-run AI evaluation to all five specialists
+when enabled for approved synthetic PDFs. It saves the summary, four section
+scores and English eligibility in PostgreSQL. Production password/SSO login
+remains future work.
 
 Current-decision summaries and PDF limits are shared domain helpers; pages retain
 their own filtering, drafts and mutation logic. Upload drafts reset when account,

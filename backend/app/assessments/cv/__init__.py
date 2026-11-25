@@ -1,1 +1,1 @@
-"""CV evidence specialist for the synthetic assessment pilot."""
+"""Active CV assessment prompt and rubric."""
