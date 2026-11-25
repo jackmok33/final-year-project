@@ -90,7 +90,8 @@ function run(value: RecordValue): boolean {
     ['queued', 'running', 'awaiting review', 'completed', 'failed'].includes(
       String(value.status),
     ) &&
-    value.simulated === true &&
+    (value.simulated === true ||
+      (value.simulated === false && value.evaluationSource === 'qwen-langgraph')) &&
     score(value.overall) &&
     score(value.extractedGrade) &&
     [...tutorOutcomes, 'Offer', 'Further review'].includes(value.recommendation as never) &&

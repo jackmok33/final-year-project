@@ -17,6 +17,16 @@ export function responseFixture() {
   })
 }
 describe('workspace response validation', () => {
+  it('accepts explicitly tagged Qwen runs and rejects unrecognised inference sources', () => {
+    const value = responseFixture()
+    Object.assign(value.applications[0].runs[0], {
+      simulated: false,
+      evaluationSource: 'qwen-langgraph',
+    })
+    expect(workspaceResponse(value).applications[0].runs[0].simulated).toBe(false)
+    Object.assign(value.applications[0].runs[0], { evaluationSource: 'unknown' })
+    expect(() => workspaceResponse(value)).toThrow('invalid workspace')
+  })
   it('requires English-test results to match their status and original report', () => {
     const value = responseFixture()
     const app = value.applications[0]

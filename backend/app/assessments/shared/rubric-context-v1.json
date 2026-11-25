@@ -1,0 +1,11 @@
+{
+  "version": "assessment-rubrics-v1",
+  "status": "demo",
+  "capabilities": [
+    "Investigating a question",
+    "Applying methods",
+    "Analysing evidence",
+    "Communicating findings",
+    "Independent learning"
+  ]
+}

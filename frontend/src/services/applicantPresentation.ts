@@ -48,6 +48,7 @@ export interface EvidenceGroup {
 /** Presentation fixtures for the synthetic review; not extraction or an HTTP response. */
 export function applicantEvidence(application: Application, run: AssessmentRun): EvidenceGroup[] {
   if (
+    !run.simulated ||
     !application.fixture ||
     !profiles[application.id] ||
     run.applicationId !== application.id ||

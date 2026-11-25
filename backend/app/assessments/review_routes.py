@@ -1,6 +1,6 @@
 """Authenticated endpoints for persisted applicant review."""
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 
 from app.api import ApiError
 from app.assessments.schemas import CorrectionRequest, DecisionRequest
@@ -25,7 +25,19 @@ def run_english_test(
 
 
 @router.post("/applications/{application_id}/evaluations")
-def evaluate(application_id: str, subject: AuthenticatedSubject, sessions: DatabaseSessions):
+def evaluate(
+    application_id: str,
+    request: Request,
+    response: Response,
+    subject: AuthenticatedSubject,
+    sessions: DatabaseSessions,
+):
+    pilot = request.app.state.assessment_pilot
+    if pilot.document_hashes:
+        from app.assessments.flow.jobs import enqueue
+
+        response.status_code = 202
+        return enqueue(sessions, subject, application_id, pilot)
     from app.assessments.review import run_evaluation
 
     return run_evaluation(sessions, subject, application_id)

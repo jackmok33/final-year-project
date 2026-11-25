@@ -23,7 +23,8 @@ def prepare(backup):
             assert connection.scalar(text("SELECT current_database()")) == target.database
             connection.execute(
                 text(
-                    "TRUNCATE english_test_checks, documents, applications, upload_batches, "
+                    "TRUNCATE assessment_jobs, english_test_checks, documents, applications, "
+                    "upload_batches, "
                     "rubrics, programme_memberships, programmes, users, audit_events"
                 )
             )

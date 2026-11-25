@@ -1,0 +1,29 @@
+{
+  "motivation": {
+    "weight": 40,
+    "levels": {
+      "0": "No motivation described",
+      "1": "General interest stated",
+      "2": "A specific learning goal explained",
+      "3": "A specific learning goal connected to prior experience or an identified question"
+    }
+  },
+  "preparation": {
+    "weight": 30,
+    "levels": {
+      "0": "No preparation described",
+      "1": "Relevant experience named",
+      "2": "Specific relevant activity and learning described",
+      "3": "Specific activity and reflection on its limitations or next steps"
+    }
+  },
+  "direction": {
+    "weight": 30,
+    "levels": {
+      "0": "No intended direction",
+      "1": "Broad future aim",
+      "2": "Specific intended application of learning",
+      "3": "Specific intended application and explanation of how further study supports it"
+    }
+  }
+}

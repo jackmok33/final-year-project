@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.assessments.english_test.config import PilotConfig
 from app.assessments.english_test.jobs import latest_checks
+from app.assessments.flow.jobs import project_expired
 from app.auth.permissions import active_account
 from app.models import Application, Document, Programme, StoredRubric, UploadBatch, User
 from app.transactions import transaction
@@ -109,6 +110,7 @@ def read_workspace(
         documents = [_document_record(d) for d in doc_rows]
         english_checks = latest_checks(session, documents, english_test_pilot)
         application_records = [_application_record(row, documents) for row in applications]
+        project_expired(session, application_records)
         for record in application_records:
             if record["id"] in english_checks:
                 record["englishTestCheck"] = english_checks[record["id"]]

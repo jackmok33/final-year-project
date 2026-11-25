@@ -19,7 +19,7 @@ from app.assessments.english_test.schemas import (
     ReportedResult,
     apply_demo_rule,
 )
-from app.assessments.pdf_preparation import decode_page, prepare_in_child
+from app.assessments.shared.pdf_preparation import decode_page, prepare_in_child
 from app.inference.client import InferenceClient, InferenceError
 
 PROMPT = Path(__file__).with_name(f"{PROMPT_VERSION}.md")

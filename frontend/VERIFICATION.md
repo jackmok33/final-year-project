@@ -1,9 +1,33 @@
-# Frontend verification — 17 November 2026
+# Frontend verification — 25 November 2026
 
 The connected frontend uses FastAPI/PostgreSQL for all business records and original
 PDFs. Sign-in uses issued per-account access tokens; the approved development
-authentication is not production password/SSO. Qwen, extraction and LangGraph remain
-unconnected. Earlier verification snapshots follow below.
+authentication uses private account tokens. The opt-in full synthetic assessment
+pilot connects tutor evaluation actions to the LangGraph worker and saved scores.
+Earlier verification snapshots follow below.
+
+## Full synthetic assessment workflow — 25 November
+
+All 948 tests across 110 companions pass with 98.16% line coverage. The full-flow
+connected browser test uploads all six document categories, queues the assessment,
+reads four section scores and an overall summary, refreshes the saved result and
+opens the original English report. All four existing connected browser tests pass.
+All 21 production-build browser workflows also pass.
+These regression tests use a simulated model, a disposable PostgreSQL database
+and disabled IndexedDB.
+
+The full-flow browser test also passed against the private AWS Qwen endpoint.
+It uploaded six synthetic PDFs, processed the queued assessment, displayed all
+four section scores and the overall summary, preserved the result after refresh,
+and opened the original English report. The saved test-course result was academic
+40, CV 80, statement 70 and references 66.67. Its existing 50/25/25/0 weights give
+57.50 overall and Further review within the saved threshold margin, displayed as
+Conditional. English eligibility was Meets requirement with all five expected
+bands. An independent database check confirmed PDF hashes, seven exact section
+quotes, the workflow fingerprint and score calculations. The screenshots were
+visually inspected. The [saved live response](../backend/validation/2026-11-25-qwen-full-assessment.json)
+records both live runs and their limits. This verifies functional integration;
+specialist judgement quality and scoring consistency still need calibration.
 
 ## PostgreSQL connection and migration — 17 November
 

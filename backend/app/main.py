@@ -9,7 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import ApiError
-from app.assessments.english_test.config import load_pilot_config
+from app.assessments.english_test.config import PilotConfig, load_pilot_config
+from app.assessments.flow.config import load_assessment_config
 from app.assessments.review_routes import router as review_router
 from app.assessments.routes import router
 from app.auth.tokens import load_document_access
@@ -24,7 +25,13 @@ def create_app(*, inference_transport: httpx.AsyncBaseTransport | None = None) -
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         config = load_inference_config()
-        app.state.english_test_pilot = load_pilot_config()
+        english_pilot = load_pilot_config()
+        assessment_pilot = load_assessment_config()
+        app.state.assessment_pilot = assessment_pilot
+        app.state.english_test_pilot = PilotConfig(
+            english_pilot.document_hashes | assessment_pilot.document_hashes,
+            english_pilot.model_version,
+        )
         app.state.document_access = load_document_access()
         app.state.document_database_lock = threading.Lock()
         app.state.document_database = None

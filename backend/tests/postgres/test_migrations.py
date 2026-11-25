@@ -16,6 +16,7 @@ DOMAIN_TABLES = {
     "rubrics",
     "audit_events",
     "english_test_checks",
+    "assessment_jobs",
 }
 
 
@@ -26,7 +27,7 @@ def test_migration_downgrade_upgrade_and_model_consistency(db_engine, migration_
     assert set(inspect(db_engine).get_table_names()) == DOMAIN_TABLES | {"alembic_version"}
     command.check(migration_config)
     with db_engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261121_0004"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261125_0005"
 
 
 def test_column_types_nullability_and_defaults(db_engine):
@@ -46,6 +47,7 @@ def test_column_types_nullability_and_defaults(db_engine):
                     ("english_test_checks", "lease_until"),
                     ("english_test_checks", "result"),
                     ("english_test_checks", "error"),
+                    ("assessment_jobs", "lease_until"),
                 }
             )
             if name == "id" or name.endswith("_id") or name == "created_by":
@@ -79,6 +81,8 @@ def test_foreign_key_lookup_indexes_and_delete_rules(db_engine):
         ("english_test_checks", "application_id"): "CASCADE",
         ("english_test_checks", "document_id"): "CASCADE",
         ("english_test_checks", "requested_by"): "RESTRICT",
+        ("assessment_jobs", "application_id"): "CASCADE",
+        ("assessment_jobs", "requested_by"): "RESTRICT",
     }
     for table in DOMAIN_TABLES:
         indexes = inspector.get_indexes(table)

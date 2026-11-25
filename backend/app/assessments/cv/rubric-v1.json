@@ -1,0 +1,29 @@
+{
+  "relevance": {
+    "weight": 40,
+    "levels": {
+      "0": "No connection to the selected capabilities",
+      "1": "A capability named",
+      "2": "A capability applied to a task",
+      "3": "A capability applied to a stated question or objective"
+    }
+  },
+  "contribution": {
+    "weight": 40,
+    "levels": {
+      "0": "No identifiable applicant action",
+      "1": "Role or responsibility named",
+      "2": "Specific applicant task and method",
+      "3": "Applicant responsibility and a decision or adaptation explained"
+    }
+  },
+  "outcome_or_evaluation": {
+    "weight": 20,
+    "levels": {
+      "0": "No output described",
+      "1": "Deliverable or result named",
+      "2": "Specific output and its use or finding",
+      "3": "Specific output and a linked evaluation or observation"
+    }
+  }
+}
